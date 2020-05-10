@@ -90,30 +90,30 @@ handle_files() {
 			[[ $file_basename =~ ${id//[-\/]/[^a-z0-9]?}[[:space:]_-](c|(2160|1080|720|480)p|(high|mid|low|whole|f?hd|sd|cd|psp)?[[:space:]_-]?[0-9]{1,2})([[:space:]_-]|$) ]] && product_id="${product_id}-${BASH_REMATCH[1]}"
 		fi
 
-		local name_tmp max_length=250
+		local name_tmp
 		name_new="$(sed -E 's/[[:space:]<>:"/\|?* 　]/ /g;s/[[:space:]\._\-]{2,}/ /g;s/^[[:space:]\.\-]+|[[:space:]\.,\-]+$//g' <<<"${product_id} ${title}")"
-		while (("$(wc -c <<<"${name_new}${file_ext}")" > max_length)); do
+		while (("$(wc -c <<<"${name_new}${file_ext}")" >= max_length)); do
 			name_tmp="${name_new% *}"
 			while [[ $name_tmp == "${product_id}" ]]; do
 				name_new="${name_new:0:$((${#name_new} - 1))}"
-				(("$(wc -c <<<"${name_new}${file_ext}")" <= max_length)) && break 2
+				(("$(wc -c <<<"${name_new}${file_ext}")" < max_length)) && break 2
 			done
 			name_new="${name_tmp}"
 		done
 		name_new="${name_new}${file_ext}"
 
-		if [[ $name_new != "$file_name" ]]; then
+		if [[ ${name_new} != "${file_name}" ]]; then
 			file_path="${target_file%/*}"
 			file_new="${file_path}/${name_new}"
-			name_old="$file_name"
+			name_old="${file_name}"
 			if ((real_run)); then
-				if mv "$target_file" "$file_new"; then
-					printf "%(%F %T)T: Rename '%s' to '%s'. Source: %s.\n" "-1" "$file_path/$name_old" "$name_new" "${title_source}" >>"${log_file}"
+				if mv "${target_file}" "${file_new}"; then
+					printf "%(%F %T)T: Rename '%s' to '%s'. Source: %s.\n" "-1" "${file_path}/${name_old}" "${name_new}" "${title_source}" >>"${log_file}"
 				else
 					return
 				fi
 			fi
-			target_file="$file_new"
+			target_file="${file_new}"
 			title_changed=1
 		fi
 	}
@@ -121,8 +121,8 @@ handle_files() {
 	touch_file() {
 		if ((date_org != date || title_changed)); then
 			if ((real_run)); then
-				if touch -d "@${date}" "$target_file"; then
-					printf "%(%F %T)T: Change Date: '%s' from '%(%F %T)T' to '%(%F %T)T'. Source: %s.\n" "-1" "$target_file" "${date_org}" "${date}" "${date_source}" >>"${log_file}"
+				if touch -d "@${date}" "${target_file}"; then
+					printf "%(%F %T)T: Change Date: '%s' from '%(%F %T)T' to '%(%F %T)T'. Source: %s.\n" "-1" "${target_file}" "${date_org}" "${date}" "${date_source}" >>"${log_file}"
 				else
 					return 1
 				fi
@@ -145,7 +145,7 @@ handle_files() {
 
 	modify_time_via_exif() {
 		if ((exiftool_installed)); then
-			date="$(exiftool -api largefilesupport=1 -Creat*Date -ModifyDate -Track*Date -Media*Date -Date*Original -d "%s" -S -s "$target_file" 2>/dev/null | awk '$0 != "" && $0 !~ /^0000/ {print;exit}')"
+			date="$(exiftool -api largefilesupport=1 -Creat*Date -ModifyDate -Track*Date -Media*Date -Date*Original -d "%s" -S -s "${target_file}" 2>/dev/null | awk '$0 != "" && $0 !~ /^0000/ {print;exit}')"
 			if [[ -n $date ]]; then
 				date_source=Exif
 				touch_file && return 0
@@ -565,7 +565,7 @@ handle_files() {
 		[[ -n $date ]] && printf -v date "%(%F %T)T" "$date"
 		flock -Fx "${script_file}" printf "%s\n%10s %s\n%10s ${title_format:-%s}\n%10s ${date_format:-%s}\n%10s %s\n" \
 			"------------------ $1 --------------------" \
-			"File:" "${name_new:-$file_name}" \
+			"File:" "${name_new:-${file_name}}" \
 			"Title:" "${title:----}" \
 			"Date:" "${date:----}" \
 			"Source:" "${date_source:----} / ${title_source:----}"
@@ -573,8 +573,8 @@ handle_files() {
 
 	date_org="${1}"
 	target_file="${2}"
-	file_name="${target_file##*/}"                                                                     # Abc.MP4
-	[[ ${file_name##*.} != "$file_name" ]] && file_ext=".${file_name##*.}" && file_ext="${file_ext,,}" # .mp4
+	file_name="${target_file##*/}"                                                                       # Abc.MP4
+	[[ ${file_name##*.} != "${file_name}" ]] && file_ext=".${file_name##*.}" && file_ext="${file_ext,,}" # .mp4
 
 	case "$file_ext" in
 	.3gp | .asf | .avi | .flv | .m2ts | .m2v | .m4p | .m4v | .mkv | .mov | .mp2 | .mp4 | .mpeg | .mpg | .mpv | .mts | .mxf | .rm | .rmvb | .ts | .vob | .webm | .wmv | .iso)
@@ -595,40 +595,60 @@ handle_files() {
 }
 
 handle_dirs() {
-	printf '%s' "Scanning directories..."
-	FILE_LIST="$(find "$1" -type f -not -empty -not -path "*/[@#.]*" -printf '%Ts %p\n' | sort -nr)"
-	printf '%s\n' "Done."
+	awk -v real_run="${real_run}" -v log_file="${log_file}" -v divider_slim="${divider_slim}" -v divider_bold="${divider_bold}" -v root_dir="${1}" '
 
-	printf '%s\n%7s   %-7s   %-8s   %s\n%s\n' "$divider_slim" "Number" "Result" "Date" "Directory" "$divider_slim"
+	BEGIN {
+		FS = "/"
+		RS = "\000"
+		count = 0
+		success_count = 0
+		root_length = length(root_dir)
+		print "Scanning directories..."
+		printf "%s\n%7s   %-7s   %-10s   %s\n%s\n", divider_slim, "Number", "Result", "Date", "Directory", divider_slim
+	}
 
-	while IFS= read -r -d '' line; do
-		[[ -z $line ]] && continue
+	/^[0-9]+\/[df]$/ {
+		file_date = $1
+		file_type = $2
+		if ((getline) <= 0) {
+			next
+		}
+		if (file_type == "f") {
+			while (($0 = substr($0, 1, length($0) - length(FS $NF))) && length($0) >= root_length) {
+				if (file_date > dir[$0]) {
+					dir[$0] = file_date
+				}
+			}
+		} else if (dir[$0] && dir[$0] != file_date) {
+			if (real_run) {
+				if (system("touch -d \"@" dir[$0] "\" \"" $0 "\"") == 0) {
+					printf("%s: Change Date: \"%s\" from \"%s\" to \"%s\".\n", strftime("%F %T"), $0, strftime("%F %T",file_date), strftime("%F %T",dir[$0])) >> log_file
+				}
+			}
+			printf "\033[93m%7s   %-7s   %-10s   %s\033[0m\n", ++count, "Success", strftime("%F", dir[$0]), $NF
+			success_count++
+		} else {
+			printf "%7s   %-7s   %-10s   %s\n", ++count, "Skipped", strftime("%F", file_date), $NF
+		}
+	}
 
-		date_org="${line%% *}"
-		target_file="${line#* }"
+	END {
+		print divider_slim
+		print "Finished."
+		print success_count " dirs modified."
+		print (count - success_count) " dirs untouched."
+		print divider_bold
+	}
 
-		date="$(grep -m1 -F " $target_file" <<<"$FILE_LIST")"
-		date="${date%% *}"
-
-		if ((date && date != date_org)); then
-			((real_run)) && touch -d "@${date}" "$target_file" && printf "%(%F %T)T: Change Date: '%s' from '%(%F %T)T' to '%(%F %T)T'.\n" "-1" "$target_file" "$date_org" "$date" >>"${log_file}"
-			printf '%7s   \e[93m%-7s\e[0m   %-8(%D)T   %s\n' "$((++count))" "Success" "${date}" "${target_file##*/}"
-			((SUCCESS_COUNT += 1))
-		else
-			printf '%7s   %-7s   %-8(%D)T   %s\n' "$((++count))" "Skipped" "${date_org}" "${target_file##*/}"
-		fi
-
-	done < <(find "$1" -depth -type d -not -empty -not -path "*/[@#.]*" -printf '%Ts %p\0')
-
-	printf '%s\n' "$divider_slim" "Finished." "${SUCCESS_COUNT:-0} dirs modified." "$((count - SUCCESS_COUNT)) dirs untouched." "$divider_bold"
+	' <(find "$1" -depth -type 'd,f' -not -empty -not -path "*/[@#.]*" -printf '%Ts/%y\0%p\0')
 }
 
 handle_actress() {
 
 	rename_actress_dir() {
 		name="$(sed -En 's/[[:space:] ]|\([^\)]*\)|【.*】|（.*）//g;1p' <<<"$result")"
-		birth="($(sed -n '2p' <<<"$result"))"
-		new_name="${name}${birth}"
+		birth="$(sed -n '2p' <<<"$result")"
+		new_name="${name}(${birth})"
 		new_dir="${target_dir%/*}/${new_name}"
 		if [[ $target_dir != "$new_dir" ]]; then
 			color_start='\e[93m'
@@ -891,7 +911,7 @@ else
 			;;
 		*)
 			if [[ -e $1 ]]; then
-				if [[ -z $TARGET ]]; then
+				if [[ -z ${TARGET} ]]; then
 					TARGET="${1%/}"
 				else
 					invalid_parameter "$1. Only one directory or file can be set."
@@ -903,7 +923,7 @@ else
 		esac
 		shift
 	done
-	if [[ -z $TARGET ]]; then
+	if [[ -z ${TARGET} ]]; then
 		printf '\e[31m%s\e[0m\n%s\n' "Lack of target!" "For more information, type: 'avinfo.sh --help'"
 		exit
 	fi
@@ -933,11 +953,13 @@ case "$real_run" in
 0) printf '%s\n' "Test run mode selected, changes will NOT be written into disk." ;;
 1) printf '%s\n' "Real run mode selected, changes WILL be written into disk." ;;
 esac
+declare -rx real_run
+
 if command -v exiftool &>/dev/null; then
-	exiftool_installed=1
+	declare -rx exiftool_installed=1
 else
 	printf '%s\n' "Lack dependency: Exiftool is not installed, will run without exif inspection."
-	exiftool_installed=0
+	declare -rx exiftool_installed=0
 fi
 if ! command -v iconv &>/dev/null; then
 	printf '%s\n' "Lack dependency: iconv is not installed, some site may not work properly!"
@@ -956,26 +978,31 @@ if [[ -n $test_proxy ]]; then
 	done
 fi
 
+# Filesystem Maximum Filename Length
+if ! max_length="$(stat -f -c '%l' "${TARGET}")" || [[ -z ${max_length} || -n ${max_length//[0-9]/} ]]; then
+	max_length=255
+fi
+declare -rx max_length
+
 printf '%s\n' "$divider_bold"
 
-if [[ -d $TARGET ]]; then
+if [[ -d ${TARGET} ]]; then
 	printf '%s\n' "Task start using ${thread:=5} threads."
-	export real_run exiftool_installed
 	case "$mode" in
 	"dir")
-		handle_dirs "$TARGET"
+		handle_dirs "${TARGET}"
 		;;
 	"actress")
 		export -f handle_actress
-		find "$TARGET" -maxdepth 1 -mindepth 1 -type d -not -path "*/[@#.]*" -print0 | xargs -r -0 -n 1 -P "${thread}" bash -c 'handle_actress "$@"' _
+		find "${TARGET}" -maxdepth 1 -mindepth 1 -type d -not -path "*/[@#.]*" -print0 | xargs -r -0 -n 1 -P "${thread}" bash -c 'handle_actress "$@"' _
 		;;
 	*)
 		export -f handle_files
-		find "$TARGET" -type f -not -empty -not -path "*/[@#.]*" -printf '%Ts\0%p\0' | xargs -r -0 -n 2 -P "${thread}" bash -c 'handle_files "$@"' _
+		find "${TARGET}" -type f -not -empty -not -path "*/[@#.]*" -printf '%Ts\0%p\0' | xargs -r -0 -n 2 -P "${thread}" bash -c 'handle_files "$@"' _
 		printf '%s\n' "$divider_bold"
-		handle_dirs "$TARGET"
+		handle_dirs "${TARGET}"
 		;;
 	esac
 else
-	handle_files "$(date -r "$TARGET" +%s)" "$TARGET"
+	handle_files "$(date -r "${TARGET}" +%s)" "${TARGET}"
 fi
