@@ -26,59 +26,67 @@ handle_files() {
 	get_standard_product_id() {
 		awk '
 		{
-			org=$0
-			$0=tolower($0); gsub(/[[:space:]\]\[)(}{._-]+/, " ", $0)
-			for (i=1;i<=NF;i++) {
-				if (!id) {
+			org = $0
+			$0 = tolower($0)
+			gsub(/[[:space:]\]\[)(}{._-]+/, " ", $0)
+			for (i = 1; i <= NF; i++) {
+				if (! id) {
 					if ($0 ~ /mesubuta/) {
-						if ($i ~ /^[0-9][0-9][0-9][0-9][0-9][0-9]$/ && $(i+1) ~ /^[0-9][0-9][0-9]?[0-9]?[0-9]?$/ && $(i+2) ~ /^[0-9][0-9]?[0-9]?$/ ) {
-							id= ( $i "_" $(i+1) "_" $(i+2) )
-							$(i+1)=""
-							$(i+2)=""
-							flag=1; continue
+						if ($i ~ /^[0-9]{6}$/ && $(i + 1) ~ /^[0-9]{2,5}$/ && $(i + 2) ~ /^[0-9]{1,3}$/) {
+							id = ($i "_" $(i + 1) "_" $(i + 2))
+							i += 2
+							flag = 1
+							continue
 						}
-					}
-					else if ($i ~ /^[0-9][0-9][0-9][0-9][0-9][0-9]$/ && $(i+1) ~ /^[0-9][0-9][0-9]?[0-9]?[0-9]?[0-9]?$/) {
-						id=( $i "_" $(i+1) )
-						$(i+1)=""
-						flag=1; continue
+					} else if ($i ~ /^[0-9]{6}$/ && $(i + 1) ~ /^[0-9]{2,6}$/) {
+						id = ($i "_" $(i + 1))
+						i++
+						flag = 1
+						continue
 					}
 				}
-				if (!studio) {
+				if (! studio) {
 					if ($i ~ /^1pon(do)?$/) {
-						studio="-1pon"
-						flag=1; continue
-					}
-					else if ($i ~ /^10mu(sume)?$/) {
-						studio="-10mu"
-						flag=1; continue
-					}
-					else if ($i ~ /^carib(bean|com)*$/) {
-						studio="-carib"
-						flag=1; continue
-					}
-					else if ($i ~ /^carib(bean|com)*pr$/) {
-						studio="-caribpr"
-						flag=1; continue
-					}
-					else if ($i ~ /^mura(mura)?$/) {
-						studio="-mura"
-						flag=1; continue
-					}
-					else if ($i ~ /^paco(pacomama)?$/) {
-						studio="-paco"
-						flag=1; continue
-					}
-					else if ($i ~ /^mesubuta$/) {
-						studio="-mesubuta"
-						flag=1; continue
+						studio = "-1pon"
+						flag = 1
+						continue
+					} else if ($i ~ /^10mu(sume)?$/) {
+						studio = "-10mu"
+						flag = 1
+						continue
+					} else if ($i ~ /^carib(bean|com)*$/) {
+						studio = "-carib"
+						flag = 1
+						continue
+					} else if ($i ~ /^carib(bean|com)*pr$/) {
+						studio = "-caribpr"
+						flag = 1
+						continue
+					} else if ($i ~ /^mura(mura)?$/) {
+						studio = "-mura"
+						flag = 1
+						continue
+					} else if ($i ~ /^paco(pacomama)?$/) {
+						studio = "-paco"
+						flag = 1
+						continue
+					} else if ($i ~ /^mesubuta$/) {
+						studio = "-mesubuta"
+						flag = 1
+						continue
 					}
 				}
-				if (flag && $i ~ /^((2160|1080|720|480)p|(high|mid|low|whole|f?hd|sd|psp)[0-9]*|[0-9])$/) other = ( other "-" $i )
-				else if ($i != "") flag=0
+				if (flag && $i ~ /^((2160|1080|720|480)p|(high|mid|low|whole|f?hd|sd|psp)[0-9]*|[0-9])$/) {
+					other = (other "-" $i)
+				} else {
+					flag = 0
+				}
 			}
-			if (id && studio) print id studio other
-			else print org
+			if (id && studio) {
+				print id studio other
+			} else {
+				print org
+			}
 		}'
 	}
 
@@ -92,11 +100,11 @@ handle_files() {
 
 		local name_tmp
 		name_new="$(sed -E 's/[[:space:]<>:"/\|?* 　]/ /g;s/[[:space:]\._\-]{2,}/ /g;s/^[[:space:]\.\-]+|[[:space:]\.,\-]+$//g' <<<"${product_id} ${title}")"
-		while (("$(wc -c <<<"${name_new}${file_ext}")" >= max_length)); do
-			name_tmp="${name_new% *}"
+		while (($(printf '%s' "${name_new}${file_ext}" | wc -c) >= max_length)); do
+			name_tmp="${name_new%[[:space:]]*}"
 			while [[ $name_tmp == "${product_id}" ]]; do
 				name_new="${name_new:0:$((${#name_new} - 1))}"
-				(("$(wc -c <<<"${name_new}${file_ext}")" < max_length)) && break 2
+				(($(printf '%s' "${name_new}${file_ext}" | wc -c) < max_length)) && break 2
 			done
 			name_new="${name_tmp}"
 		done
@@ -107,9 +115,7 @@ handle_files() {
 			file_new="${file_path}/${name_new}"
 			name_old="${file_name}"
 			if ((real_run)); then
-				if mv "${target_file}" "${file_new}"; then
-					printf "%(%F %T)T: Rename '%s' to '%s'. Source: %s.\n" "-1" "${file_path}/${name_old}" "${name_new}" "${title_source}" >>"${log_file}"
-				else
+				if ! mv "${target_file}" "${file_new}"; then
 					return
 				fi
 			fi
@@ -121,9 +127,7 @@ handle_files() {
 	touch_file() {
 		if ((date_org != date || title_changed)); then
 			if ((real_run)); then
-				if touch -d "@${date}" "${target_file}"; then
-					printf "%(%F %T)T: Change Date: '%s' from '%(%F %T)T' to '%(%F %T)T'. Source: %s.\n" "-1" "${target_file}" "${date_org}" "${date}" "${date_source}" >>"${log_file}"
-				else
+				if ! touch -d "@${date}" "${target_file}"; then
 					return 1
 				fi
 			fi
@@ -135,7 +139,7 @@ handle_files() {
 	}
 
 	modify_date_via_string() {
-		date="$(date -d "$date" +%s)"
+		date="$(date -d "$date" '+%s')"
 		if [[ -n $date ]]; then
 			date_source="File name"
 			touch_file && return 0
@@ -154,32 +158,68 @@ handle_files() {
 		return 1
 	}
 
+	output() {
+		[[ -n $date ]] && printf -v date "%(%F %T)T" "$date"
+		{
+			flock -x "${fd}"
+
+			[[ $title_changed == 1 ]] && {
+				title_format='\e[93m%s\e[0m'
+				printf "%(%F %T)T: Rename '%s' to '%s'. Source: %s.\n" "-1" "${file_path}/${name_old}" "${name_new}" "${title_source}" >"${fd}"
+			}
+			[[ $date_changed == 1 ]] && {
+				date_format='\e[93m%s\e[0m'
+				printf "%(%F %T)T: Change Date: '%s' from '%(%F %T)T' to '%s'. Source: %s.\n" "-1" "${target_file}" "${date_org}" "${date}" "${date_source}" >"${fd}"
+			}
+
+			printf "%s\n%10s %s\n%10s ${title_format:-%s}\n%10s ${date_format:-%s}\n%10s %s\n" \
+				"------------------ $1 --------------------" \
+				"File:" "${name_new:-${file_name}}" \
+				"Title:" "${title:----}" \
+				"Date:" "${date:----}" \
+				"Source:" "${date_source:----} / ${title_source:----}"
+		} {fd}>>"${log_file}"
+	}
+
 	modify_file_via_database() {
 		date_strategy="$1"   # 190230/query
 		rename_strategy="$2" # local/query
 		product_type="$3"    # all/uncensored
 
-		match_regex="${id//-/[_-]?}"
+		match_regex="${id//[_-]/[_-]?}"
 		for i in "uncensored/" ""; do
 			result="$(
 				wget --tries=3 -qO- "https://www.javbus.com/${i}search/${id}" |
 					awk -v regex="$match_regex" '
-					BEGIN { regex=tolower(regex) }
-					tolower($0) ~ ( "<a class=\"movie-box\" href=\"https://www\\.javbus\\.com/" regex "([^a-z0-9][^\"]*)?\">" ) {flag=1}
-					flag == 1 && /<div class="photo-info">/ {flag=2}
-					flag == 2 && match($0, /<span>.*<br/) {
-						flag=3
-						title = substr($0, RSTART, RLENGTH)
-						gsub(/^<span>[[:space:]]*|[[:space:]]*<br$/, "", title)
+					BEGIN {
+						regex = tolower(regex)
 					}
+
+					tolower($0) ~ ("<a class=\"movie-box\" href=\"https://www\\.javbus\\.com/" regex "([^a-z0-9][^\"]*)?\">") {
+						flag = 1
+					}
+
+					flag == 1 && /<div class="photo-info">/ {
+						flag = 2
+					}
+
+					flag == 2 && match($0, /<span>[[:space:]]*([^<]*[^[:space:]<])[[:space:]]*<br/, m) {
+						flag = 3
+						title = m[1]
+					}
+
 					flag == 3 && match(tolower($0), "<date>" regex "</date>") {
-						flag=4
+						flag = 4
 						uid = substr($0, RSTART, RLENGTH)
 						gsub(/^<date>|<\/date>$/, "", uid)
 					}
-					flag == 4 && match($0, /20[0-3][0-9][\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/) {
-						date = substr($0, RSTART, RLENGTH); gsub(/[\.\/_]/, "-", date)
-						if (uid && title && date) { printf "%s\n%s\n%s\n", uid, title, date ; exit }
+
+					flag == 4 && match($0, /(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) {
+						date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
+						if (uid && title && date) {
+							printf "%s\n%s\n%s\n", uid, title, date
+							exit
+						}
 					}'
 			)"
 			[[ $product_type == "uncensored" || -n $result ]] && break
@@ -203,8 +243,8 @@ handle_files() {
 						gsub(/^<div class="video-title">[[:space:]]*|[[:space:]]*<\/div>$/, "", title)
 					}
 					flag == 2 && /<div class="meta">/ {flag=3}
-					flag == 3 && match($0, /20[0-3][0-9][\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/) {
-						date = substr($0, RSTART, RLENGTH); gsub(/[\.\/_]/, "-", date)
+					flag == 3 && match($0, /(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) {
+						date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
 						if (uid && title && date) { printf "%s\n%s\n%s\n", uid, title, date ; exit }
 					}'
 			)"
@@ -223,9 +263,8 @@ handle_files() {
 								uid = substr($0, RSTART, RLENGTH)
 								gsub(/^<b>番号<\/b>[[:space:]:]*|[[:space:]]*$/, "", uid)
 							}
-							if ( ! date && match($0, /<b>发行日期<\/b>[[:space:]:]*20[0-3][0-9][\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/) ) {
-								date = substr($0, RSTART, RLENGTH)
-								sub(/^<b>发行日期<\/b>[[:space:]:]*/, "", date) ; gsub(/[\.\/_]/, "-", date)
+							if ( ! date && match($0, /<b>发行日期<\/b>[[:space:]:]*(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) ) {
+								date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
 							}
 							if (uid && title && date) { printf "%s\n%s\n%s\n", toupper(uid), title, date ; exit }
 						}
@@ -241,6 +280,7 @@ handle_files() {
 		if [[ -n $result ]]; then
 			uid="$(head -n1 <<<"$result")"
 			title="$(sed -n '2p' <<<"$result")"
+			date="$(sed -n '3p' <<<"$result")"
 			case "$rename_strategy" in
 			"local")
 				rename_file "get_standard_product_id"
@@ -252,12 +292,11 @@ handle_files() {
 		fi
 
 		if [[ $date_strategy != "query" ]]; then
-			date="$date_strategy"
+			date="$(date -d "$date_strategy" '+%s')"
 			date_source="Product ID"
-		elif [[ -n $result ]]; then
-			date="$(sed -n '3p' <<<"$result")"
 		fi
-		if [[ -n $date ]] && date="$(date -d "$date" +%s)" && touch_file; then
+
+		if [[ -n $date ]] && touch_file; then
 			return 0
 		else
 			return 1
@@ -272,9 +311,8 @@ handle_files() {
 			}
 			! date && /配信日/ {
 				do {
-					if (match($0, /20[0-3][0-9][\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/) ) {
-						date = substr($0, RSTART, RLENGTH)
-						gsub(/[\.\/_]/, "-", date)
+					if (match($0, /(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) ) {
+						date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
 						break
 					}
 				} while (getline > 0)
@@ -282,7 +320,7 @@ handle_files() {
 			title && date { print title; print date ; exit }
 		')"
 		date="$(sed -n '2p' <<<"$result")"
-		if [[ -n $date ]] && date="$(date -d "$date" +%s)"; then
+		if [[ -n $date ]]; then
 			title="$(head -n1 <<<"$result")"
 			if [[ -n $title ]]; then
 				title_source='heydouga.com'
@@ -323,7 +361,7 @@ handle_files() {
 						}
 					')"
 				if [[ -n $title ]]; then
-					date="$(date -d "${date}" +%s)"
+					date="$(date -d "${date}" '+%s')"
 					date_source="Product ID"
 					title_source='caribbeancom.com'
 					rename_file "get_standard_product_id"
@@ -374,8 +412,8 @@ handle_files() {
 				}
 				! date && /配信日/ {
 					do {
-						if (match($0, /20[0-3][0-9][\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/) ) {
-							date = substr($0, RSTART, RLENGTH); gsub(/[\.\/_]/, "-", date)
+						if (match($0, /(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) ) {
+							date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
 							break
 						}
 					} while (getline > 0)
@@ -383,7 +421,7 @@ handle_files() {
 				title && date { print title; print date ; exit }
 			')"
 			date="$(sed -n '2p' <<<"$result")"
-			if [[ -n $date ]] && date="$(date -d "$date" +%s)"; then
+			if [[ -n $date ]]; then
 				title="$(head -n1 <<<"$result")"
 				if [[ -n $title ]]; then
 					title_source="x1x.com"
@@ -405,8 +443,8 @@ handle_files() {
 					}
 					! date && /dateCreated|startDate|uploadDate/ {
 						do {
-							if (match($0, /20[0-3][0-9][\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/) ) {
-								date = substr($0, RSTART, RLENGTH); gsub(/[\.\/_]/, "-", date)
+							if (match($0, /(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) ) {
+								date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
 								break
 							}
 						} while (getline > 0)
@@ -415,7 +453,7 @@ handle_files() {
 				'
 			)"
 			date="$(sed -n '2p' <<<"$result")"
-			if [[ -n $date ]] && date="$(date -d "$date" +%s)"; then
+			if [[ -n $date ]]; then
 				title="$(head -n1 <<<"$result")"
 				if [[ -n $title ]]; then
 					title_source="${id%-*}.com"
@@ -434,21 +472,20 @@ handle_files() {
 						title = substr($0, RSTART, RLENGTH)
 						gsub(/^<h3>[[:space:]]*|[[:space:]]*<\/h3>$/, "", title)
 					}
-					! date && /<div class="items_article_Releasedate">/ && match($0, /<p>[^<:]*:[[:space:]]*20[0-3][0-9][\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/) {
-						date = substr($0, RSTART, RLENGTH)
-						sub(/^<p>[^<:]*:[[:space:]]*/, "", date); gsub(/[\.\/_]/, "-", date)
+					! date && /<div class="items_article_Releasedate">/ && match($0, /<p>[^<:]*:[[:space:]]*(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) {
+						date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
 					}
 					title && date { print title; print date ; exit }'
 			)"
 			if [[ -z $result ]]; then
 				result="$(
 					wget --tries=3 -qO- "http://video.fc2.com/a/search/video/?keyword=${id}" | awk '
-						match($0, /<a href="https:\/\/video.fc2.com\/a\/content\/[[:digit:]]+[^"]*" class="[^"]*" title="[^"]+" data-popd>[^<]+<\/a>/) {
-						line = substr($0, RSTART, RLENGTH)
-						title = gensub(/^[^>]*data-popd>[[:space:]]*|[[:space:]]*<\/a>/, "", "g", line)
-						date = gensub(/^<a href="https:\/\/video.fc2.com\/a\/content\/([[:digit:]]+).*/, "\\1", "1", line)
-						print title; print date ; exit
-					}'
+						match($0, /<a href="https:\/\/video.fc2.com\/a\/content\/([0-9]{4})([0-9]{2})([0-9]{2})+[^"]*" class="[^"]*" title="[^"]+" data-popd>[[:space:]]*([^<]+[^[:space:]<])[[:space:]]*<\/a>/, m) {
+							title = m[4]
+							date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
+						}
+						title && date { print title; print date ; exit }
+					'
 				)"
 				if [[ -z $result ]]; then
 					result="$(
@@ -464,8 +501,8 @@ handle_files() {
 							}
 							! date && /<ul class="slides">/ {
 								do {
-									if (match($0,/<img class="responsive"[[:space:]]+src="\/uploadfile\/20[12][0-9]\/(1[0-2]|0[1-9])(3[01]|[12][0-9]|0[1-9])\//)) {
-										date = gensub(/<img class="responsive"[[:space:]]+src="\/uploadfile\/(20[12][0-9])\/((1[0-2]|0[1-9])(3[01]|[12][0-9]|0[1-9]))\//, "\\1\\2", "1", substr($0, RSTART, RLENGTH))
+									if (match($0,/<img class="responsive"[[:space:]]+src="\/uploadfile\/(20[12][0-9])\/(1[0-2]|0[1-9])(3[01]|[12][0-9]|0[1-9])\//,m)) {
+										date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
 										break
 									}
 								} while (getline > 0)
@@ -476,7 +513,7 @@ handle_files() {
 				fi
 			fi
 
-			if [[ -n $result && -n ${date:=$(sed -n '2p' <<<"$result")} ]] && date="$(date -d "$date" +%s)"; then
+			if [[ -n $result && -n ${date:=$(sed -n '2p' <<<"$result")} ]]; then
 				title="$(head -n1 <<<"$result")"
 				if [[ -n $title ]]; then
 					title_source="fc2.com"
@@ -490,7 +527,7 @@ handle_files() {
 		elif [[ $file_basename =~ ${regex_start}sm([[:space:]_-]miracle)?([[:space:]_-]no)?[[:space:]_\.\-]e?([0-9]{4})${regex_end} ]]; then
 			id="e${BASH_REMATCH[4]}"
 			date="$(wget --tries=3 -qO- "http://sm-miracle.com/movie3.php?num=${id}" | grep -Po -m1 '(?<=\/)20[12][0-9](1[0-2]|0[1-9])(3[01]|[12][0-9]|0[1-9])(?=\/top)')"
-			if [[ -n $date ]] && date="$(date -d "$date" +%s)"; then
+			if [[ -n $date ]] && date="$(date -d "$date" '+%s')"; then
 				title="$(wget --tries=3 -qO- "http://sm-miracle.com/movie/${id}.dat" | sed -En "0,/^[[:space:][:punct:]]*title:[[:space:]\'\"]*([^\"\'\,]+[^[:space:]\"\'\,]).*/s//\1/p")"
 				if [[ -n $title ]]; then
 					title_source="sm-miracle.com"
@@ -559,18 +596,6 @@ handle_files() {
 		fi
 	}
 
-	output() {
-		[[ $title_changed == 1 ]] && title_format='\e[93m%s\e[0m'
-		[[ $date_changed == 1 ]] && date_format='\e[93m%s\e[0m'
-		[[ -n $date ]] && printf -v date "%(%F %T)T" "$date"
-		flock -Fx "${script_file}" printf "%s\n%10s %s\n%10s ${title_format:-%s}\n%10s ${date_format:-%s}\n%10s %s\n" \
-			"------------------ $1 --------------------" \
-			"File:" "${name_new:-${file_name}}" \
-			"Title:" "${title:----}" \
-			"Date:" "${date:----}" \
-			"Source:" "${date_source:----} / ${title_source:----}"
-	}
-
 	date_org="${1}"
 	target_file="${2}"
 	file_name="${target_file##*/}"                                                                       # Abc.MP4
@@ -596,7 +621,6 @@ handle_files() {
 
 handle_dirs() {
 	awk -v real_run="${real_run}" -v log_file="${log_file}" -v divider_slim="${divider_slim}" -v divider_bold="${divider_bold}" -v root_dir="${1}" '
-
 	BEGIN {
 		FS = "/"
 		RS = "\000"
@@ -639,7 +663,6 @@ handle_dirs() {
 		print (count - success_count) " dirs untouched."
 		print divider_bold
 	}
-
 	' <(find "$1" -depth -type 'd,f' -not -empty -not -path "*/[@#.]*" -printf '%Ts/%y\0%p\0')
 }
 
@@ -654,11 +677,11 @@ handle_actress() {
 			color_start='\e[93m'
 			color_end='\e[0m'
 			if ((real_run)); then
-				printf "%(%F %T)T: Rename: '%s' to '%s'. Source: %s.\n" "-1" "$target_dir" "$new_name" "$source" >>"${log_file}"
+				printf "%(%F %T)T: Rename: '%s' to '%s'. Source: %s.\n" "-1" "$target_dir" "${new_name}" "${source}" >>"${log_file}"
 				mv "$target_dir" "$new_dir"
 			fi
 		fi
-		printf "${color_start}%s ===> %s <=== %s${color_end}\n" "$actress_name" "${name}${birth}" "$source"
+		printf "${color_start}%s ===> %s <=== %s${color_end}\n" "$actress_name" "${new_name}" "${source}"
 	}
 
 	target_dir="${1}"
@@ -670,30 +693,29 @@ handle_actress() {
 	result="$(
 		wget --tries=3 -qO- "https://ja.wikipedia.org/wiki/${actress_name}" |
 			awk '
-        !name && /<h1 id="firstHeading" class="firstHeading"[^>]*>[^<]+<\/h1>/{
-            name = $0
-            gsub(/^.*<h1 id="firstHeading" class="firstHeading"[^>]*>[[:space:]]*|[[:space:]]*<\/h1>.*$/, "", name)
-        }
-        /生年月日/{
-        do
-            {
-                if ( ! birth && match($0, /title="[0-9][0-9][0-9][0-9]年">[0-9][0-9][0-9][0-9]年<\/a><a href="[^"]+" title="[0-9][0-9]?月[0-9][0-9]?日">[0-9][0-9]?月[0-9][0-9]?日<\/a>/) )
-                {
-                    date = substr($0, RSTART, RLENGTH)
-                    y = gensub(/.*([0-9][0-9][0-9][0-9])年.*/, "\\1", 1, date)
-                    m = sprintf("%02d", gensub(/.*[^0-9]([0-9][0-9]?)月.*/, "\\1", 1, date) )
-                    d = sprintf("%02d", gensub(/.*[^0-9]([0-9][0-9]?)日.*/, "\\1", 1, date) )
-					birth = ( y "-" m "-" d )
-                }
-                if ( $0 ~ /title="AV女優">AV女優<\/a>/ ) flag = 1
-                if ( flag && birth )
-                {
-                    print name ; print birth
-                    exit
-                }
-            }
-        while ( getline > 0 )
-        }'
+			! name && /<h1 id="firstHeading" class="firstHeading"[^>]*>[^<]+<\/h1>/ {
+				name = $0
+				gsub(/^.*<h1 id="firstHeading" class="firstHeading"[^>]*>[[:space:]]*|[[:space:]]*<\/h1>.*$/, "", name)
+			}
+
+			/生年月日/ {
+				do {
+					if (! birth && match($0, /title="([0-9]{4}年)">[0-9]{4}年<\/a><a href="[^"]+" title="([0-9]{1,2})月([0-9]{1,2})日">[0-9]{1,2}月[0-9]{1,2}日<\/a>/, m)) {
+						y = m[1]
+						m = sprintf("%02d", m[2])
+						d = sprintf("%02d", m[3])
+						birth = (y "-" m "-" d)
+					}
+					if ($0 ~ /title="AV女優">AV女優<\/a>/) {
+						flag = 1
+					}
+					if (flag && birth) {
+						print name
+						print birth
+						exit
+					}
+				} while ((getline) > 0)
+			}'
 	)"
 	if [[ -n $result ]]; then
 		source='ja.wikipedia.org'
@@ -713,11 +735,11 @@ handle_actress() {
                 next
             }
             if ( !flag && name && $0 ~ actress_name ) flag = 1
-            if ( flag && match($0, /生年月日.*[0-9][0-9][0-9][0-9]年[[:space:]0-9]+月[[:space:]0-9]+日/ ) )
+            if ( flag && match($0, /生年月日.*[0-9]{4}年[[:space:]0-9]+月[[:space:]0-9]+日/ ) )
             {
                 birth = substr($0, RSTART, RLENGTH)
                 gsub(/^[^0-9]+|[[:space:]]+$/, "", birth)
-                y = gensub(/([0-9][0-9][0-9][0-9])年.*/, "\\1", 1, birth)
+                y = gensub(/([0-9]{4})年.*/, "\\1", 1, birth)
                 m = sprintf("%02d", gensub(/.*[^0-9]([0-9]+)月.*/, "\\1", 1, birth))
                 d = sprintf("%02d", gensub(/.*[^0-9]([0-9]+)日.*/, "\\1", 1, birth))
                 birth = ( y "-" m "-" d )
@@ -741,11 +763,11 @@ handle_actress() {
             gsub(/^.*<h1>[[:space:]]*|[[:space:]]*<\/h1>.*$/, "", $0)
             name = $0
         }
-        name && match($0, /生年月日.*[0-9][0-9][0-9][0-9]年[0-9][0-9]?月[0-9][0-9]?日/) {
+        name && match($0, /生年月日.*[0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日/) {
             date = substr($0, RSTART, RLENGTH)
-            y = gensub(/.*([0-9][0-9][0-9][0-9])年.*/, "\\1", 1, date)
-            m = sprintf("%02d", gensub(/.*[^0-9]([0-9][0-9]?)月.*/, "\\1", 1, date) )
-            d = sprintf("%02d", gensub(/.*[^0-9]([0-9][0-9]?)日/, "\\1", 1, date) )
+            y = gensub(/.*([0-9]{4})年.*/, "\\1", 1, date)
+            m = sprintf("%02d", gensub(/.*[^0-9]([0-9]{1,2})月.*/, "\\1", 1, date) )
+            d = sprintf("%02d", gensub(/.*[^0-9]([0-9]{1,2})日/, "\\1", 1, date) )
             if ( y && m && d )
             {
                 birth = ( y "-" m "-" d )
@@ -789,11 +811,11 @@ handle_actress() {
                 gsub(/[[:space:] ]/,"",name)
                 for (i=2; i<=NF; i++)
                 {
-                    if ( $i ~ "生年月日" && $(i+1) ~ /[0-9][0-9][0-9][0-9]年[0-9][0-9]?月[0-9][0-9]?日/ ) birth = $(i+1)
+                    if ( $i ~ "生年月日" && $(i+1) ~ /[0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日/ ) birth = $(i+1)
                     else if ( $i ~ "別名" ) alias = $(i+1)
                     if (birth && alias) break
                 }
-                y = gensub(/([0-9][0-9][0-9][0-9])年.*/, "\\1", 1, birth)
+                y = gensub(/([0-9]{4})年.*/, "\\1", 1, birth)
                 m = sprintf("%02d", gensub(/.*[^0-9]([0-9]+)月.*/, "\\1", 1, birth))
                 d = sprintf("%02d", gensub(/.*[^0-9]([0-9]+)日/, "\\1", 1, birth))
                 if ( y && m && d ) birth = ( y "-" m "-" d )
@@ -863,11 +885,11 @@ invalid_parameter() {
 	printf '%s\n' "Invalid parameter: $1" "For more information, type: 'avinfo.sh --help'"
 	exit
 }
-if [[ $# == "0" ]]; then
+if (($# == 0)); then
 	help_info
 	exit
 else
-	while (("$#")); do
+	while (($#)); do
 		case "$1" in
 		"--help" | "-h")
 			help_info
@@ -968,12 +990,12 @@ fi
 
 if [[ -n $test_proxy ]]; then
 	for i in $test_proxy; do
-		if timeout 3 bash -c "</dev/tcp/${i/://}" &>/dev/null; then
+		if wget -e http_proxy="http://${i}" -e https_proxy="http://${i}" -qO '/dev/null' --timeout=10 --spider 'https://www.google.com'; then
 			export http_proxy="http://${i}" https_proxy="http://${i}"
 			printf '%s\n' "Using proxy: $i."
 			break
 		else
-			printf '%s\n' "Unable to connect to proxy: $i."
+			printf '%s\n' "Unable to connect via proxy: $i."
 		fi
 	done
 fi
