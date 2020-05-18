@@ -645,7 +645,7 @@ handle_dirs() {
 			}
 		} else if (dir[$0] && dir[$0] != file_date) {
 			if (real_run) {
-				if (system("touch -d \"@" dir[$0] "\" \"" $0 "\"") == 0) {
+				if (system("touch -d \047@" dir[$0] "\047 " escape($0)) == 0) {
 					printf("%s: Change Date: \"%s\" from \"%s\" to \"%s\".\n", strftime("%F %T"), $0, strftime("%F %T",file_date), strftime("%F %T",dir[$0])) >> log_file
 				}
 			}
@@ -663,6 +663,13 @@ handle_dirs() {
 		print (count - success_count) " dirs untouched."
 		print divider_bold
 	}
+
+	function escape(s)
+	{
+		gsub(/'\''/,"&\\\\&&",s)
+		return "'\''" s "'\''"
+	}
+
 	' <(find "$1" -depth -type 'd,f' -not -empty -not -path "*/[@#.]*" -printf '%Ts/%y\0%p\0')
 }
 
@@ -990,7 +997,7 @@ fi
 
 if [[ -n $test_proxy ]]; then
 	for i in $test_proxy; do
-		if wget -e http_proxy="http://${i}" -e https_proxy="http://${i}" -qO '/dev/null' --timeout=10 --spider 'https://www.google.com'; then
+		if wget -e https_proxy="http://${i}" -qO '/dev/null' --timeout=10 --spider 'https://www.google.com'; then
 			export http_proxy="http://${i}" https_proxy="http://${i}"
 			printf '%s\n' "Using proxy: $i."
 			break
