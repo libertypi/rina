@@ -26,7 +26,7 @@ handle_files() {
     file[basename]="$(
       sed -E '
         s/.*/\L&\E/;
-        s/(^\[[a-z0-9\.\-]+\.[a-z]{2,}\]|168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|tokyo[ _-]?hot|1000[ _-]?girl)[ _-]?//g
+        s/(^\[[a-z0-9\.\-]+\.[a-z]{2,}\]|168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|tokyo[ _-]?hot|1000[ _-]?girl|fhd)[ _-]?//g
       ' <<<"${file[filename]%.*}"
     )"
 
@@ -499,6 +499,7 @@ handle_files() {
       final[fullpath]="${file[parentdir]}/${final[filename]}"
       if ((real_run)); then
         if ! mv "${file[fullpath]}" "${final[fullpath]}"; then
+          unset 'final[fullpath]'
           return
         fi
       fi
@@ -666,10 +667,9 @@ handle_files() {
 handle_dirs() {
   awk -v real_run="${real_run}" -v log_file="${log_file}" -v divider_slim="${divider_slim}" -v divider_bold="${divider_bold}" -v root_dir="${1}" '
   BEGIN {
-    FS = "/"
+    FS = OFS = "/"
     RS = "\000"
-    count = 0
-    success_count = 0
+    count = success_count = 0
     root_length = length(root_dir)
     print "Scanning directories..."
     printf "%s\n%7s   %-7s   %-10s   %s\n%s\n", divider_slim, "Number", "Result", "Date", "Directory", divider_slim
@@ -682,7 +682,7 @@ handle_dirs() {
       next
     }
     if (file_type == "f") {
-      while (($0 = substr($0, 1, length($0) - length(FS $NF))) && length($0) >= root_length) {
+      for (NF = NF - 1; length($0) >= root_length; NF--) {
         if (file_date > date[$0]) {
           date[$0] = file_date
         }
@@ -1023,13 +1023,13 @@ case "$real_run" in
 esac
 declare -rx real_run
 
-if command -v exiftool &>/dev/null; then
+if hash exiftool 1>/dev/null 2>&1; then
   declare -rx exiftool_installed=1
 else
   printf '%s\n' "Lack dependency: Exiftool is not installed, will run without exif inspection."
   declare -rx exiftool_installed=0
 fi
-if ! command -v iconv &>/dev/null; then
+if ! hash iconv 1>/dev/null 2>&1; then
   printf '%s\n' "Lack dependency: iconv is not installed, some site may not work properly!"
   exit
 fi
@@ -1050,7 +1050,8 @@ if [[ -n $test_proxy ]]; then
 fi
 
 # Filesystem Maximum Filename Length
-if ! max_length="$(stat -f -c '%l' "${TARGET}")" || [[ -z ${max_length} || -n ${max_length//[0-9]/} ]]; then
+max_length="$(stat -f -c '%l' "${TARGET}")"
+if [[ -z ${max_length} || -n ${max_length//[0-9]/} ]]; then
   max_length=255
 fi
 declare -rx max_length
