@@ -501,12 +501,12 @@ handle_files() {
     )"
 
     local name_tmp
-    while (("$(wc -c <<<"${final[filename]}${file[ext]}")" >= max_length)); do
+    while (($(wc -c <<<"${final[filename]}${file[ext]}") >= max_length)); do
       name_tmp="${final[filename]%[[:space:]]*}"
 
       while [[ ${name_tmp} == "${final[product_id]}" ]]; do
         final[filename]="${final[filename]:0:$((${#final[filename]} - 1))}"
-        (("$(wc -c <<<"${final[filename]}${file[ext]}")" < max_length)) && break 2
+        (($(wc -c <<<"${final[filename]}${file[ext]}") < max_length)) && break 2
       done
 
       final[filename]="${name_tmp}"
@@ -599,7 +599,7 @@ handle_files() {
   }
 
   output() {
-    local final_date_display divider_format divider title_format date_format
+    local final_date_display divider_format divider title_format date_format fd
 
     case $1 in
       success)
@@ -613,7 +613,7 @@ handle_files() {
 
     ((final[date])) && printf -v final_date_display '%(%F %T)T' "${final[date]}"
 
-    (
+    {
       flock -x "${fd}"
 
       ((final[title_changed])) && {
@@ -644,14 +644,14 @@ handle_files() {
         "Title:" "${info[title]:----}" \
         "Date:" "${final_date_display:----}" \
         "Source:" "${info[date_source]:----} / ${info[title_source]:----}"
-    )
+    } {fd}>>"${log_file}"
+
+    exec {fd}>&-
   }
 
   # Begins Here
   regex_start='(^|[^a-z0-9])'
   regex_end='([^a-z0-9]|$)'
-
-  exec {fd}>>"${log_file}"
 
   while (($# > 0)); do
     declare -A file=(
@@ -698,8 +698,6 @@ handle_files() {
 
     shift 2
   done
-
-  exec {fd}>&-
 }
 
 handle_dirs() {
@@ -775,6 +773,7 @@ handle_actress() {
               "Source" "${source}" \
               "${divider_slim}" >&${fd}
           } {fd}>>"${log_file}"
+          exec {fd}>&-
         fi
       fi
     fi
