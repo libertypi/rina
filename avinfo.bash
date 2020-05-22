@@ -699,7 +699,7 @@ handle_dirs() {
     printf "%s\n%7s   %-7s   %-10s   %s\n%s\n", divider_slim, "Number", "Result", "Date", "Directory", divider_slim
   }
 
-  /^[0-9.]+\/[df]$/ {
+  /^[0-9]+\/[df]$/ {
     file_date = $1
     file_type = $2
     if ((getline) <= 0) {
@@ -738,7 +738,7 @@ handle_dirs() {
     print divider_bold
   }
 
-  ' <(find "$1" -depth -type 'd,f' -not -empty -not -path "*/[@#.]*" -printf '%T@/%y\0%p\0')
+  ' <(find "$1" -depth -type 'd,f' -not -empty -not -path "*/[@#.]*" -printf '%Ts/%y\0%p\0')
 }
 
 handle_actress() {
@@ -841,21 +841,21 @@ handle_actress() {
   minnano_av() {
     awk -v actress_name="${actress_name}" '
       /<h1>[^<]+<span>.*<\/span><\/h1>/ {
-          gsub(/<span>[^<]*<\/span>/,"",$0)
-          gsub(/^.*<h1>[[:space:]]*|[[:space:]]*<\/h1>.*$/, "", $0)
-          name = $0
+        gsub(/<span>[^<]*<\/span>/,"",$0)
+        gsub(/^.*<h1>[[:space:]]*|[[:space:]]*<\/h1>.*$/, "", $0)
+        name = $0
       }
       name && match($0, /生年月日.*[0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日/) {
-          date = substr($0, RSTART, RLENGTH)
-          y = gensub(/.*([0-9]{4})年.*/, "\\1", 1, date)
-          m = sprintf("%02d", gensub(/.*[^0-9]([0-9]{1,2})月.*/, "\\1", 1, date) )
-          d = sprintf("%02d", gensub(/.*[^0-9]([0-9]{1,2})日/, "\\1", 1, date) )
-          if ( y && m && d )
-          {
-              birth = ( y "-" m "-" d )
-              print name ; print birth
-              exit
-          }
+        date = substr($0, RSTART, RLENGTH)
+        y = gensub(/.*([0-9]{4})年.*/, "\\1", 1, date)
+        m = sprintf("%02d", gensub(/.*[^0-9]([0-9]{1,2})月.*/, "\\1", 1, date) )
+        d = sprintf("%02d", gensub(/.*[^0-9]([0-9]{1,2})日/, "\\1", 1, date) )
+        if ( y && m && d )
+        {
+          birth = ( y "-" m "-" d )
+          print name ; print birth
+          exit
+        }
       }'
   }
   search="$(wget -qO- "http://www.minnano-av.com/search_result.php?search_scope=actress&search_word=${actress_name}")"
@@ -918,7 +918,7 @@ handle_actress() {
 }
 
 help_info() {
-  cat <<EOF
+  cat <<'EOF'
 Usage: avinfo.sh [OPTIONS] [DIRECTORY]
    or: avinfo.sh [OPTIONS] [FILE]
 Detect publish ID, title and date for Japanese adult videos.
@@ -1127,7 +1127,7 @@ if [[ -d ${TARGET} ]]; then
       ;;
   esac
 else
-  handle_files "$(date -r "${TARGET}" +%s)" "${TARGET}"
+  handle_files "$(date -r "${TARGET}" '+%s')" "${TARGET}"
 fi
 
 exit 0
