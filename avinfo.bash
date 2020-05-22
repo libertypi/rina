@@ -16,9 +16,8 @@ awk 'BEGIN { if (PROCINFO["version"] >= 4.2) exit 0; else exit 1 }' || {
   exit 1
 }
 
-script_file="$(realpath "${BASH_SOURCE[0]}")" || script_file="${BASH_SOURCE[0]}"
 printf -v divider_bold '%0*s' "47" ""
-declare -xr script_file log_file="${script_file%/*}/log.log" divider_bold="${divider_bold// /=}" divider_slim="${divider_bold// /-}"
+declare -xr log_file="$(cd "${BASH_SOURCE[0]%/*}" && pwd -P)/log.log" divider_bold="${divider_bold// /=}" divider_slim="${divider_bold// /-}"
 
 handle_files() {
 
@@ -748,18 +747,19 @@ handle_actress() {
       color_end='\033[0m'
       if ((real_run)); then
         if mv "${target_dir}" "${new_dir}"; then
-          (
+          {
             flock -x "${fd}"
             printf '[%(%F %T)T] Rename Dir:\n%15s: %s\n%15s: %s\n%15s: %s\n%s\n' "-1" \
               "Original path" "${target_dir}" \
               "New name" "${new_name}" \
               "Source" "${source}" \
               "${divider_slim}" >&${fd}
-          ) {fd}>>"${log_file}"
+          } {fd}>>"${log_file}"
         fi
       fi
     fi
     printf "${color_start}%s ===> %s <=== %s${color_end}\n" "${actress_name}" "${new_name}" "${source}"
+    exit 0
   }
 
   target_dir="${1}"
@@ -798,7 +798,6 @@ handle_actress() {
   if [[ -n $result ]]; then
     source='ja.wikipedia.org'
     rename_actress_dir
-    return
   fi
 
   # seesaawiki.jp
@@ -830,7 +829,6 @@ handle_actress() {
   if [[ -n $result ]]; then
     source='seesaawiki.jp'
     rename_actress_dir
-    return
   fi
 
   # minnano-av.com
@@ -876,40 +874,38 @@ handle_actress() {
   if [[ -n $result ]]; then
     source='minnano-av.com'
     rename_actress_dir
-    return
   fi
 
   # mankowomiseruavzyoyu.blog.fc2.com
   result="$(
     wget --tries=3 -qO- "http://mankowomiseruavzyoyu.blog.fc2.com/?q=${actress_name}" |
       awk -v actress_name="${actress_name}" '
-            /dc:description="[^"]+"/ {
-                gsub(/^[[:space:]]*dc:description="|"[[:space:]]*$|&[^;]*;/, " ", $0)
-                name = $1
-                gsub(/[[:space:] ]/,"",name)
-                for (i=2; i<=NF; i++)
-                {
-                    if ( $i ~ "生年月日" && $(i+1) ~ /[0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日/ ) birth = $(i+1)
-                    else if ( $i ~ "別名" ) alias = $(i+1)
-                    if (birth && alias) break
-                }
-                y = gensub(/([0-9]{4})年.*/, "\\1", 1, birth)
-                m = sprintf("%02d", gensub(/.*[^0-9]([0-9]+)月.*/, "\\1", 1, birth))
-                d = sprintf("%02d", gensub(/.*[^0-9]([0-9]+)日/, "\\1", 1, birth))
-                if ( y && m && d ) birth = ( y "-" m "-" d )
-                if ( name && birth && ( name ~ actress_name || alias ~ actress_name ) )
-                {
-                    print name ; print birth
-                    exit
-                }
-                else { name=""; birth=""; alias="" }
-            }
-        '
+      /dc:description="[^"]+"/ {
+          gsub(/^[[:space:]]*dc:description="|"[[:space:]]*$|&[^;]*;/, " ", $0)
+          name = $1
+          gsub(/[[:space:] ]/,"",name)
+          for (i=2; i<=NF; i++)
+          {
+              if ( $i ~ "生年月日" && $(i+1) ~ /[0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日/ ) birth = $(i+1)
+              else if ( $i ~ "別名" ) alias = $(i+1)
+              if (birth && alias) break
+          }
+          y = gensub(/([0-9]{4})年.*/, "\\1", 1, birth)
+          m = sprintf("%02d", gensub(/.*[^0-9]([0-9]+)月.*/, "\\1", 1, birth))
+          d = sprintf("%02d", gensub(/.*[^0-9]([0-9]+)日/, "\\1", 1, birth))
+          if ( y && m && d ) birth = ( y "-" m "-" d )
+          if ( name && birth && ( name ~ actress_name || alias ~ actress_name ) )
+          {
+              print name ; print birth
+              exit
+          }
+          else { name=""; birth=""; alias="" }
+      }
+    '
   )"
   if [[ -n $result ]]; then
     source='mankowomiseruavzyoyu.blog.fc2.com'
     rename_actress_dir
-    return
   else
     printf "\033[31m%s ===> Failed.\033[0m\n" "${actress_name}"
   fi
