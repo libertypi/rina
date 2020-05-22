@@ -8,12 +8,14 @@ export LC_ALL=C.UTF-8 LANG=C.UTF-8 || export LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
 handle_files() {
 
   handle_videos() {
-    file[basename]="${file[filename]%.*}"
+
     file[basename]="$(
       sed -E '
-        s/\[[a-z0-9\.\-]+\.[a-z]{2,}\]//g;
-        s/[^a-z0-9]?(168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|fhd|tokyo[ _-]?hot|1000[ _-]?girl)[^a-z0-9]?//g;
-      ' <<<"${file[filename],,}"
+        s/.*/\L&\E/;
+        s/^(.+)\.[^.]*$/\1/;
+        s/\[[a-z0-9\.\-]+\.[a-z]{2,}\]/_/g;
+        s/(^|[^a-z0-9])(168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|fhd|tokyo[ _-]?hot|1000[ _-]?girl)([^a-z0-9]|$)/_/g;
+      ' <<<"${file[filename]}"
     )"
 
     # carib
@@ -95,7 +97,7 @@ handle_files() {
           }
           ! date && /配信日/ {
             do {
-              if (match($0, /(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) ) {
+              if (match($0, /(20[0-3][0-9])[\/._-](1[0-2]|0[1-9])[\/._-](3[01]|[12][0-9]|0[1-9])/, m) ) {
                 date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
                 break
               }
@@ -128,7 +130,7 @@ handle_files() {
           }
           ! date && /dateCreated|startDate|uploadDate/ {
             do {
-              if (match($0, /(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) ) {
+              if (match($0, /(20[0-3][0-9])[\/._-](1[0-2]|0[1-9])[\/._-](3[01]|[12][0-9]|0[1-9])/, m) ) {
                 date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
                 break
               }
@@ -149,19 +151,22 @@ handle_files() {
     # FC2
     elif [[ ${file[basename]} =~ ${regex_start}fc2[[:space:]_-]*(ppv)?[[:space:]_-]+([0-9]{2,10})${regex_end} ]]; then
       info[id]="${BASH_REMATCH[3]}"
-      tmp[result]="$(
+      for i in 'info[title]' 'final[date]'; do
+        IFS= read -r "${i}"
+      done < <(
         wget -qO- "https://adult.contents.fc2.com/article/${info[id]}/" | awk '
           ! title && /<div class="items_article_headerInfo">/ && match($0, /<h3>[^<]+<\/h3>/) {
             title = substr($0, RSTART, RLENGTH)
             gsub(/^<h3>[[:space:]]*|[[:space:]]*<\/h3>$/, "", title)
           }
-          ! date && /<div class="items_article_Releasedate">/ && match($0, /<p>[^<:]*:[[:space:]]*(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) {
+          ! date && /<div class="items_article_Releasedate">/ && match($0, /<p>[^<:]*:[[:space:]]*(20[0-3][0-9])[\/._-](1[0-2]|0[1-9])[\/._-](3[01]|[12][0-9]|0[1-9])/, m) {
             date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
           }
           title && date { print title; print date ; exit }'
-      )"
-      if [[ -z ${tmp[result]} ]]; then
-        tmp[result]="$(
+      ) ||
+        for i in 'info[title]' 'final[date]'; do
+          IFS= read -r "${i}"
+        done < <(
           wget -qO- "http://video.fc2.com/a/search/video/?keyword=${info[id]}" | awk '
             match($0, /<a href="https:\/\/video.fc2.com\/a\/content\/([0-9]{4})([0-9]{2})([0-9]{2})+[^"]*" class="[^"]*" title="[^"]+" data-popd>[[:space:]]*([^<]+[^[:space:]<])[[:space:]]*<\/a>/, m) {
               title = m[4]
@@ -169,45 +174,38 @@ handle_files() {
             }
             title && date { print title; print date ; exit }
           '
-        )"
-        if [[ -z ${tmp[result]} ]]; then
-          tmp[result]="$(
-            wget -qO- "https://fc2club.com/html/FC2-${info[id]}.html" | awk '
-              ! title && /<div class="show-top-grids">/ {
-                do {
-                  if (match($0,/<h3>[^<]+<\/h3>/)) {
-                    title = substr($0, RSTART, RLENGTH)
-                    gsub(/^<h3>[[:space:]]*(FC2-[[:digit:]]+[[:space:]]*)?|[[:space:]]*<\/h3>$/, "", title)
-                    break
-                  }
-                } while (getline > 0)
-              }
-              ! date && /<ul class="slides">/ {
-                do {
-                  if (match($0,/<img class="responsive"[[:space:]]+src="\/uploadfile\/(20[12][0-9])\/(1[0-2]|0[1-9])(3[01]|[12][0-9]|0[1-9])\//,m)) {
-                    date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
-                    break
-                  }
-                } while (getline > 0)
-              }
-              title && date {print title; print date ; exit}
-            '
-          )"
-        fi
-      fi
-
-      if [[ -n ${tmp[result]} ]]; then
+        ) ||
         for i in 'info[title]' 'final[date]'; do
           IFS= read -r "${i}"
-        done <<<"${tmp[result]}"
-        if ((final[date])); then
-          if [[ -n ${info[title]} ]]; then
-            info[title_source]="fc2.com"
-            rename_file "FC2-${info[id]}"
-          fi
-          info[date_source]="fc2.com"
-          touch_file && return 0
+        done < <(
+          wget -qO- "https://fc2club.com/html/FC2-${info[id]}.html" | awk '
+            ! title && /<div class="show-top-grids">/ {
+              do {
+                if (match($0,/<h3>[^<]+<\/h3>/)) {
+                  title = substr($0, RSTART, RLENGTH)
+                  gsub(/^<h3>[[:space:]]*(FC2-[[:digit:]]+[[:space:]]*)?|[[:space:]]*<\/h3>$/, "", title)
+                  break
+                }
+              } while (getline > 0)
+            }
+            ! date && /<ul class="slides">/ {
+              do {
+                if (match($0,/<img class="responsive"[[:space:]]+src="\/uploadfile\/(20[12][0-9])\/(1[0-2]|0[1-9])(3[01]|[12][0-9]|0[1-9])\//,m)) {
+                  date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
+                  break
+                }
+              } while (getline > 0)
+            }
+            title && date {print title; print date ; exit}
+          '
+        )
+      if ((final[date])); then
+        if [[ -n ${info[title]} ]]; then
+          info[title_source]="fc2.com"
+          rename_file "FC2-${info[id]}"
         fi
+        info[date_source]="fc2.com"
+        touch_file && return 0
       fi
 
     # sm-miracle
@@ -306,7 +304,7 @@ handle_files() {
         }
         ! date && /配信日/ {
           do {
-            if (match($0, /(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) ) {
+            if (match($0, /(20[0-3][0-9])[\/._-](1[0-2]|0[1-9])[\/._-](3[01]|[12][0-9]|0[1-9])/, m) ) {
               date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
               break
             }
@@ -329,104 +327,110 @@ handle_files() {
     # $1: local/query
     # $2: local/query
     # $3: all/uncensored
-    local date_strategy="$1" rename_strategy="$2" product_type="$3" match_regex="${info[id]//[_-]/[_-]?}"
+    local date_strategy="$1" rename_strategy="$2"
 
-    for i in "uncensored/" ""; do
-      for n in 'info[product_id]' 'info[title]' 'final[date]'; do
-        IFS= read -r "${n}"
-      done < <(
-        wget -qO- "https://www.javbus.com/${i}search/${info[id]}" |
-          awk -v regex="${match_regex}" '
-            BEGIN {
-              regex = tolower(regex)
-            }
+    for n in 'info[product_id]' 'info[title]' 'final[date]' 'info[title_source]'; do
+      IFS= read -r "${n}"
+    done < <(
+      awk -v id="${info[id]}" -v product_type="${3}" '
 
-            tolower($0) ~ ("<a class=\"movie-box\" href=\"https://www\\.javbus\\.com/" regex "([^a-z0-9][^\"]*)?\">") {
-              flag = 1
-            }
+      BEGIN {
+        regex = tolower(id)
+        gsub(/[_-]/, "[_-]?", regex)
+        javbus("uncensored/")
+        if (product_type == "all") javbus()
+        javdb()
+        jav321()
+      }
 
-            flag == 1 && /<div class="photo-info">/ {
-              flag = 2
-            }
+      function output(uid, title, date, source) {
+        if (uid != "" && title != "" && date) {
+          print uid
+          print title
+          print date
+          print source
+          exit
+        }
+      }
 
-            flag == 2 && match($0, /<span>[[:space:]]*([^<]*[^[:space:]<])[[:space:]]*<br/, m) {
-              flag = 3
-              title = m[1]
-            }
-
-            flag == 3 && match(tolower($0), "<date>" regex "</date>") {
-              flag = 4
-              uid = substr($0, RSTART, RLENGTH)
-              gsub(/^<date>|<\/date>$/, "", uid)
-            }
-
-            flag == 4 && match($0, /(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) {
-              date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
-              if (uid && title && date) {
-                printf "%s\n%s\n%s\n", uid, title, date
-                exit
-              }
-            }
-          '
-      ) || [[ ${product_type} == "uncensored" ]] && break
-    done
-    if [[ ${info[product_id]} ]]; then
-      info[date_source]='javbus.com'
-      info[title_source]='javbus.com'
-    else
-      for n in 'info[product_id]' 'info[title]' 'final[date]'; do
-        IFS= read -r "${n}"
-      done < <(
-        wget -qO- "https://javdb.com/search?q=${info[id]}&f=all" |
-          awk -v regex="${match_regex}" '
-            BEGIN { regex=tolower(regex) }
-            match(tolower($0), "<div class=\"uid\">[[:space:]]*" regex "[[:space:]]*</div>") {
-              flag=1
-              uid=substr($0, RSTART, RLENGTH)
-              gsub(/^<div class="uid">[[:space:]]*|[[:space:]]*<\/div>$/, "", uid)
-            }
-            flag == 1 && match($0, /<div class="video-title">[^<]+<\/div>/) {
-              flag=2
+      function jav321(flag, uid, title, date)
+      {
+        cmd = ("wget -qO- --post-data \047sn=" id "\047 \047https://www.jav321.com/search\047")
+        while ((cmd | getline) > 0) {
+          if ($0 ~ /<div class="panel-heading">/) {
+            flag = 1
+          }
+          if (flag == 1) {
+            if (title == "" && match($0, /<h3>[^<]+</)) {
               title = substr($0, RSTART, RLENGTH)
-              gsub(/^<div class="video-title">[[:space:]]*|[[:space:]]*<\/div>$/, "", title)
+              gsub(/^<h3>[[:space:]]*|[[:space:]]*<$/, "", title)
             }
-            flag == 2 && /<div class="meta">/ {flag=3}
-            flag == 3 && match($0, /(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) {
+            if (uid == "" && match($0, /<b>番号<\/b>[^<]+/)) {
+              uid = substr($0, RSTART, RLENGTH)
+              gsub(/^<b>番号<\/b>[[:space:]:]*|[[:space:]]*$/, "", uid)
+            }
+            if (date == "" && match($0, /<b>发行日期<\/b>[[:space:]:]*(20[0-3][0-9])[\/._-](1[0-2]|0[1-9])[\/._-](3[01]|[12][0-9]|0[1-9])/, m)) {
               date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
-              if (uid && title && date) { printf "%s\n%s\n%s\n", uid, title, date ; exit }
             }
-          '
-      )
-      if [[ ${info[product_id]} ]]; then
-        info[date_source]='javdb.com'
-        info[title_source]='javdb.com'
-      else
-        for n in 'info[product_id]' 'info[title]' 'final[date]'; do
-          IFS= read -r "${n}"
-        done < <(
-          wget -qO- --post-data "sn=${info[id]}" 'https://www.jav321.com/search' | awk '
-              /<div class="panel-heading">/,// {
-                if ( ! title && match($0, /<h3>[^<]+</) ) {
-                  title = substr($0, RSTART, RLENGTH)
-                  gsub(/^<h3>[[:space:]]*|[[:space:]]*<$/, "", title)
-                }
-                if ( ! uid && match($0, /<b>番号<\/b>[^<]+/) ) {
-                  uid = substr($0, RSTART, RLENGTH)
-                  gsub(/^<b>番号<\/b>[[:space:]:]*|[[:space:]]*$/, "", uid)
-                }
-                if ( ! date && match($0, /<b>发行日期<\/b>[[:space:]:]*(20[0-3][0-9])[\.\/_-](1[0-2]|0[1-9])[\.\/_-](3[01]|[12][0-9]|0[1-9])/, m) ) {
-                  date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
-                }
-                if (uid && title && date) { printf "%s\n%s\n%s\n", toupper(uid), title, date ; exit }
-              }
-            '
-        )
-        if [[ ${info[product_id]} ]]; then
-          info[date_source]='jav321.com'
-          info[title_source]='jav321.com'
-        fi
-      fi
-    fi
+            output(uid, title, date, "jav321.com")
+          }
+        }
+        close(cmd)
+      }
+
+      function javbus(prefix, flag, uid, title, date)
+      {
+        cmd = ("wget -qO- \047https://www.javbus.com/" prefix "search/" id "\047")
+        while ((cmd | getline) > 0) {
+          if (tolower($0) ~ ("<a class=\"movie-box\" href=\"https://www\\.javbus\\.com/" regex "([^a-z0-9][^\"]*)?\">")) {
+            flag = 1
+          }
+          if (flag == 1 && /<div class="photo-info">/) {
+            flag = 2
+          }
+          if (flag == 2 && match($0, /<span>[[:space:]]*([^<]*[^[:space:]<])[[:space:]]*<br/, m)) {
+            flag = 3
+            title = m[1]
+          }
+          if (flag == 3 && match(tolower($0), "<date>" regex "</date>")) {
+            flag = 4
+            uid = substr($0, RSTART, RLENGTH)
+            gsub(/^<date>|<\/date>$/, "", uid)
+          }
+          if (flag == 4 && match($0, /(20[0-3][0-9])[\/._-](1[0-2]|0[1-9])[\/._-](3[01]|[12][0-9]|0[1-9])/, m)) {
+            date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
+            output(uid, title, date, "javbus.com")
+          }
+        }
+        close(cmd)
+      }
+
+      function javdb(flag, uid, title, date)
+      {
+        cmd = ("wget -qO- \047https://javdb.com/search?q=" id "&f=all\047")
+        while ((cmd | getline) > 0) {
+          if (match(tolower($0), "<div class=\"uid\">[[:space:]]*" regex "[[:space:]]*</div>")) {
+            flag = 1
+            uid = substr($0, RSTART, RLENGTH)
+            gsub(/^<div class="uid">[[:space:]]*|[[:space:]]*<\/div>$/, "", uid)
+          }
+          if (flag == 1 && match($0, /<div class="video-title">[^<]+<\/div>/)) {
+            flag = 2
+            title = substr($0, RSTART, RLENGTH)
+            gsub(/^<div class="video-title">[[:space:]]*|[[:space:]]*<\/div>$/, "", title)
+          }
+          if (flag == 2 && /<div class="meta">/) {
+            flag = 3
+          }
+          if (flag == 3 && match($0, /(20[0-3][0-9])[\/._-](1[0-2]|0[1-9])[\/._-](3[01]|[12][0-9]|0[1-9])/, m)) {
+            date = mktime(m[1] " " m[2] " " m[3] " 00 00 00")
+            output(uid, title, date, "javdb.com")
+          }
+        }
+        close(cmd)
+      }
+      '
+    )
 
     if [[ ${info[title]} ]]; then
       case "${rename_strategy}" in
@@ -439,10 +443,15 @@ handle_files() {
       esac
     fi
 
-    if [[ ${date_strategy} == 'local' ]]; then
-      final[date]="$(date -d "${info[date]}" '+%s')"
-      info[date_source]="Product ID"
-    fi
+    case "${date_strategy}" in
+      'local')
+        final[date]="$(date -d "${info[date]}" '+%s')"
+        info[date_source]="Product ID"
+        ;;
+      'query')
+        info[date_source]="${info[title_source]}"
+        ;;
+    esac
 
     if ((final[date])) && touch_file; then
       return 0
@@ -486,18 +495,18 @@ handle_files() {
     final[filename]="$(
       sed -E '
         s/[[:space:]<>:"/\|?* 　]/ /g;
-        s/[[:space:]\._\-]{2,}/ /g;
-        s/^[[:space:]\.\-]+|[[:space:]\.,\-]+$//g;
+        s/[[:space:]._-]{2,}/ /g;
+        s/^[[:space:]._-]+|[[:space:]【\[（(.,_-]+$//g;
       ' <<<"${final[product_id]} ${info[title]}"
     )"
 
     local name_tmp
-    while (("$(printf '%s' "${final[filename]}${file[ext]}" | wc -c)" >= max_length)); do
+    while (("$(wc -c <<<"${final[filename]}${file[ext]}")" >= max_length)); do
       name_tmp="${final[filename]%[[:space:]]*}"
 
       while [[ ${name_tmp} == "${final[product_id]}" ]]; do
         final[filename]="${final[filename]:0:$((${#final[filename]} - 1))}"
-        (("$(printf '%s' "${final[filename]}${file[ext]}" | wc -c)" < max_length)) && break 2
+        (("$(wc -c <<<"${final[filename]}${file[ext]}")" < max_length)) && break 2
       done
 
       final[filename]="${name_tmp}"
@@ -535,45 +544,46 @@ handle_files() {
       org = $0
       $0 = tolower($0)
       gsub(/[[:space:]\]\[)(}{._-]+/, " ", $0)
+      if ($0 ~ /mesubuta/) mesubuta = 1
       for (i = 1; i <= NF; i++) {
-        if (! id) {
-          if ($0 ~ /mesubuta/) {
-            if ($i ~ /^[0-9]{6}$/ && $(i + 1) ~ /^[0-9]{2,5}$/ && $(i + 2) ~ /^[0-9]{1,3}$/) {
-              id = ($i "_" $(i + 1) "_" $(i + 2))
-              i += 2
-              flag = 1; continue
-            }
-          } else if ($i ~ /^[0-9]{6}$/ && $(i + 1) ~ /^[0-9]{2,6}$/) {
+        nextfield = 0
+        while (id == "") {
+          if (mesubuta && $i ~ /^[0-9]{6}$/ && $(i + 1) ~ /^[0-9]{2,5}$/ && $(i + 2) ~ /^[0-9]{1,3}$/) {
+            id = ($i "_" $(i + 1) "_" $(i + 2))
+            i += 2
+          } else if (! mesubuta && $i ~ /^[0-9]{6}$/ && $(i + 1) ~ /^[0-9]{2,6}$/) {
             id = ($i "_" $(i + 1))
             i++
-            flag = 1; continue
+          } else {
+            break
           }
+          flag = 1
+          nextfield = 1
         }
-        if (! studio) {
+        if (nextfield) continue
+        while (studio == "") {
           if ($i ~ /^1pon(do)?$/) {
             studio = "-1pon"
-            flag = 1; continue
           } else if ($i ~ /^10mu(sume)?$/) {
             studio = "-10mu"
-            flag = 1; continue
           } else if ($i ~ /^carib(bean|com)*$/) {
             studio = "-carib"
-            flag = 1; continue
           } else if ($i ~ /^carib(bean|com)*pr$/) {
             studio = "-caribpr"
-            flag = 1; continue
           } else if ($i ~ /^mura(mura)?$/) {
             studio = "-mura"
-            flag = 1; continue
           } else if ($i ~ /^paco(pacomama)?$/) {
             studio = "-paco"
-            flag = 1; continue
           } else if ($i ~ /^mesubuta$/) {
             studio = "-mesubuta"
-            flag = 1; continue
+          } else {
+            break
           }
+          flag = 1
+          nextfield = 1
         }
-        if (flag && $i ~ /^((2160|1080|720|480)p|(high|mid|low|whole|hd|sd|psp)[0-9]*|[0-9])$/) {
+        if (nextfield) continue
+        if (flag && $i ~ /^((2160|1080|720|480)p|(high|mid|low|whole|hd|sd|psp)[0-9]?|[0-9])$/) {
           other = (other "-" $i)
         } else {
           flag = 0
@@ -584,7 +594,8 @@ handle_files() {
       } else {
         print org
       }
-    }'
+    }
+    '
   }
 
   output() {
