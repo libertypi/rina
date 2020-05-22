@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-export LC_ALL=C.UTF-8 LANG=C.UTF-8 || export LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+export LC_ALL=C.UTF-8 LANG=C.UTF-8 || export LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 || {
+  printf '%s\n' "WTF?!"
+  exit 1
+}
 
 handle_files() {
 
@@ -1037,8 +1040,8 @@ else
         ;;
       *)
         if [[ -e $1 ]]; then
-          if [[ -z ${TARGET} ]]; then
-            TARGET="${1%/}"
+          if [[ -z ${target} ]]; then
+            target="${1%/}"
           else
             invalid_parameter "$1. Only one directory or file can be set."
           fi
@@ -1049,7 +1052,7 @@ else
     esac
     shift
   done
-  if [[ -z ${TARGET} ]]; then
+  if [[ -z ${target} ]]; then
     printf '\033[31m%s\033[0m\n%s\n' "Lack of target!" "For more information, type: 'avinfo.sh --help'"
     exit
   fi
@@ -1103,31 +1106,31 @@ if [[ -n $test_proxy ]]; then
 fi
 
 # Filesystem Maximum Filename Length
-max_length="$(stat -f -c '%l' "${TARGET}")"
+max_length="$(stat -f -c '%l' "${target}")"
 [[ ${max_length} =~ ^[0-9]+$ ]] || max_length=255
 declare -rx max_length
 
 printf '%s\n' "$divider_bold"
 
-if [[ -d ${TARGET} ]]; then
+if [[ -d ${target} ]]; then
   printf '%s\n' "Task start using ${thread:=5} threads."
   case "$mode" in
     "dir")
-      handle_dirs "${TARGET}"
+      handle_dirs "${target}"
       ;;
     "actress")
       export -f handle_actress
-      find "${TARGET}" -maxdepth 1 -type d -not -path "*/[@#.]*" -print0 | xargs -r -0 -n 1 -P "${thread}" bash -c 'handle_actress "$@"' _
+      find "${target}" -maxdepth 1 -type d -not -path "*/[@#.]*" -print0 | xargs -r -0 -n 1 -P "${thread}" bash -c 'handle_actress "$@"' _
       ;;
     *)
       export -f handle_files
-      find "${TARGET}" -type f -not -empty -not -path "*/[@#.]*" -printf '%Ts\0%p\0' | xargs -r -0 -n 10 -P "${thread}" bash -c 'handle_files "$@"' _
+      find "${target}" -type f -not -empty -not -path "*/[@#.]*" -printf '%Ts\0%p\0' | xargs -r -0 -n 10 -P "${thread}" bash -c 'handle_files "$@"' _
       printf '%s\n' "$divider_bold"
-      handle_dirs "${TARGET}"
+      handle_dirs "${target}"
       ;;
   esac
 else
-  handle_files "$(date -r "${TARGET}" '+%s')" "${TARGET}"
+  handle_files "$(date -r "${target}" '+%s')" "${target}"
 fi
 
 exit 0
