@@ -16,7 +16,7 @@ awk 'BEGIN { if (PROCINFO["version"] >= 4.2) exit 0; else exit 1 }' || {
   exit 1
 }
 
-script_file="$(realpath "${BASH_SOURCE[0]}")"
+script_file="$(realpath "${BASH_SOURCE[0]}")" || script_file="${BASH_SOURCE[0]}"
 printf -v divider_bold '%0*s' "47" ""
 declare -xr script_file log_file="${script_file%/*}/log.log" divider_bold="${divider_bold// /=}" divider_slim="${divider_bold// /-}"
 
@@ -270,8 +270,13 @@ handle_files() {
       info[id]="${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
       modify_file_via_database "query" "query" "uncensored" && return 0
 
-    # 23.Jun.2014
-    elif [[ ${file[basename]} =~ ${regex_start}(3[01]|[12][0-9]|0?[1-9])[[:space:]\.\_\-]?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[[:space:]\.\_\-]?(20[0-2][0-9])${regex_end} ]]; then
+      # 23.Jun.2014
+    elif [[ ${file[basename]} =~ ${regex_start}(3[01]|[12][0-9]|0?[1-9])[[:space:],\.\_\-]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[[:space:],\.\_\-]*(20[0-2][0-9])${regex_end} ]]; then
+      info[date]="${BASH_REMATCH[2]}-${BASH_REMATCH[3]}-${BASH_REMATCH[4]}"
+      modify_date_via_string && return 0
+
+      # Dec.23.2014
+    elif [[ ${file[basename]} =~ ${regex_start}(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[[:space:],\.\_\-]*(3[01]|[12][0-9]|0?[1-9])[[:space:],\.\_\-]*(20[0-2][0-9])${regex_end} ]]; then
       info[date]="${BASH_REMATCH[2]}-${BASH_REMATCH[3]}-${BASH_REMATCH[4]}"
       modify_date_via_string && return 0
 
@@ -485,7 +490,7 @@ handle_files() {
     while (("$(printf '%s' "${final[filename]}${file[ext]}" | wc -c)" >= max_length)); do
       name_tmp="${final[filename]%[[:space:]]*}"
 
-      while [[ $name_tmp == "${final[product_id]}" ]]; do
+      while [[ ${name_tmp} == "${final[product_id]}" ]]; do
         final[filename]="${final[filename]:0:$((${#final[filename]} - 1))}"
         (("$(printf '%s' "${final[filename]}${file[ext]}" | wc -c)" < max_length)) && break 2
       done
@@ -500,7 +505,7 @@ handle_files() {
       if ((real_run)); then
         if ! mv "${file[fullpath]}" "${final[fullpath]}"; then
           unset 'final[fullpath]'
-          return
+          return 1
         fi
       fi
       final[title_changed]=1
@@ -508,9 +513,9 @@ handle_files() {
   }
 
   touch_file() {
-    if ((file[date] != final[date] || final[title_changed])); then
+    if ((file[date] != final[date])); then
       if ((real_run)); then
-        if ! touch -d "@${final[date]}" "${final[fullpath]:-file[fullpath]}"; then
+        if ! touch -d "@${final[date]}" "${final[fullpath]:-${file[fullpath]}}"; then
           return 1
         fi
       fi
@@ -531,45 +536,36 @@ handle_files() {
             if ($i ~ /^[0-9]{6}$/ && $(i + 1) ~ /^[0-9]{2,5}$/ && $(i + 2) ~ /^[0-9]{1,3}$/) {
               id = ($i "_" $(i + 1) "_" $(i + 2))
               i += 2
-              flag = 1
-              continue
+              flag = 1; continue
             }
           } else if ($i ~ /^[0-9]{6}$/ && $(i + 1) ~ /^[0-9]{2,6}$/) {
             id = ($i "_" $(i + 1))
             i++
-            flag = 1
-            continue
+            flag = 1; continue
           }
         }
         if (! studio) {
           if ($i ~ /^1pon(do)?$/) {
             studio = "-1pon"
-            flag = 1
-            continue
+            flag = 1; continue
           } else if ($i ~ /^10mu(sume)?$/) {
             studio = "-10mu"
-            flag = 1
-            continue
+            flag = 1; continue
           } else if ($i ~ /^carib(bean|com)*$/) {
             studio = "-carib"
-            flag = 1
-            continue
+            flag = 1; continue
           } else if ($i ~ /^carib(bean|com)*pr$/) {
             studio = "-caribpr"
-            flag = 1
-            continue
+            flag = 1; continue
           } else if ($i ~ /^mura(mura)?$/) {
             studio = "-mura"
-            flag = 1
-            continue
+            flag = 1; continue
           } else if ($i ~ /^paco(pacomama)?$/) {
             studio = "-paco"
-            flag = 1
-            continue
+            flag = 1; continue
           } else if ($i ~ /^mesubuta$/) {
             studio = "-mesubuta"
-            flag = 1
-            continue
+            flag = 1; continue
           }
         }
         if (flag && $i ~ /^((2160|1080|720|480)p|(high|mid|low|whole|hd|sd|psp)[0-9]*|[0-9])$/) {
@@ -587,29 +583,50 @@ handle_files() {
   }
 
   output() {
-    local final_date_display title_format date_format
+    local final_date_display divider_format divider title_format date_format
+
+    case $1 in
+      success)
+        divider='------------------ SUCCESS --------------------'
+        ;;
+      failed)
+        divider_format='\033[31m%s\033[0m'
+        divider='------------------ FAILED  --------------------'
+        ;;
+    esac
 
     ((final[date])) && printf -v final_date_display '%(%F %T)T' "${final[date]}"
 
-    flock -x "${fd}"
+    (
+      flock -x "${fd}"
 
-    ((final[title_changed])) && {
-      title_format='\e[93m%s\e[0m'
-      ((real_run)) && printf "%(%F %T)T: Rename '%s' to '%s'. Source: %s.\n" "-1" "${file[fullpath]}" "${final[filename]}" "${info[title_source]}" >&${fd}
-    }
-    ((final[date_changed])) && {
-      date_format='\e[93m%s\e[0m'
-      ((real_run)) && printf "%(%F %T)T: Change Date: '%s' from '%(%F %T)T' to '%s'. Source: %s.\n" "-1" "${final[fullpath]:-file[fullpath]}" "${file[date]}" "${final_date_display}" "${info[date_source]}" >&${fd}
-    }
+      ((final[title_changed])) && {
+        title_format='\033[93m%s\033[0m'
+        ((real_run)) && printf "[%(%F %T)T] Rename:\n%15s: %s\n%15s: %s\n%15s: %s\n%15s: %s\n%s\n" "-1" \
+          "Original path" "${file[fullpath]}" \
+          "New name" "${final[filename]}" \
+          "Title" "${info[title]}" \
+          "Source" "${info[title_source]}" \
+          "${divider_slim}" >&${fd}
+      }
 
-    printf "%s\n%10s %s\n%10s ${title_format:-%s}\n%10s ${date_format:-%s}\n%10s %s\n" \
-      "------------------ $1 --------------------" \
-      "File:" "${final[filename]:-${file[filename]}}" \
-      "Title:" "${info[title]:----}" \
-      "Date:" "${final_date_display:----}" \
-      "Source:" "${info[date_source]:----} / ${info[title_source]:----}"
+      ((final[date_changed])) && {
+        date_format='\033[93m%s\033[0m'
+        ((real_run)) && printf "[%(%F %T)T] Change Date:\n%15s: %s\n%15s: %(%F %T)T\n%15s: %s\n%15s: %s\n%s\n" "-1" \
+          "Path" "${final[fullpath]:-${file[fullpath]}}" \
+          "Original date" "${file[date]}" \
+          "New date" "${final_date_display}" \
+          "Source" "${info[date_source]}" \
+          "${divider_slim}" >&${fd}
+      }
 
-    flock -u "${fd}"
+      printf "${divider_format:-%s}\n%10s %s\n%10s ${title_format:-%s}\n%10s ${date_format:-%s}\n%10s %s\n" \
+        "${divider}" \
+        "File:" "${final[filename]:-${file[filename]}}" \
+        "Title:" "${info[title]:----}" \
+        "Date:" "${final_date_display:----}" \
+        "Source:" "${info[date_source]:----} / ${info[title_source]:----}"
+    )
   }
 
   # Begins Here
@@ -646,22 +663,24 @@ handle_files() {
     case "${file[ext]}" in
       .3gp | .asf | .avi | .flv | .m2ts | .m2v | .m4p | .m4v | .mkv | .mov | .mp2 | .mp4 | .mpeg | .mpg | .mpv | .mts | .mxf | .rm | .rmvb | .ts | .vob | .webm | .wmv | .iso)
         if handle_videos; then
-          output "Success"
+          output "success"
         else
-          output "Failed "
+          output "failed"
         fi
         ;;
       *)
         if modify_time_via_exif; then
-          output "Success"
+          output "success"
         else
-          output "Failed "
+          output "failed"
         fi
         ;;
     esac
 
     shift 2
   done
+
+  exec {fd}>&-
 }
 
 handle_dirs() {
@@ -675,7 +694,7 @@ handle_dirs() {
     printf "%s\n%7s   %-7s   %-10s   %s\n%s\n", divider_slim, "Number", "Result", "Date", "Directory", divider_slim
   }
 
-  /^[0-9]+\/[df]$/ {
+  /^[0-9.]+\/[df]$/ {
     file_date = $1
     file_type = $2
     if ((getline) <= 0) {
@@ -691,7 +710,12 @@ handle_dirs() {
       if (real_run) {
         ENVIRON["touch_dir"] = $0
         if (system("touch -d \047@" date[$0] "\047 \"${touch_dir}\"") == 0) {
-          printf("%s: Change Date: \047%s\047 from \047%s\047 to \047%s\047.\n", strftime("%F %T"), $0, strftime("%F %T",file_date), strftime("%F %T",date[$0])) >> log_file
+          printf ("[%s] %s\n%15s: %s\n%15s: %s\n%15s: %s\n%s\n",
+            strftime("%F %T"), "Change Dir Date",
+            "Path", $0,
+            "Original date", strftime("%F %T",file_date),
+            "New date", strftime("%F %T",date[$0]),
+            divider_slim) >> log_file
         }
       }
       printf "\033[93m%7s   %-7s   %-10s   %s\033[0m\n", ++count, "Success", strftime("%F", date[$0]), $NF
@@ -709,7 +733,7 @@ handle_dirs() {
     print divider_bold
   }
 
-  ' <(find "$1" -depth -type 'd,f' -not -empty -not -path "*/[@#.]*" -printf '%Ts/%y\0%p\0')
+  ' <(find "$1" -depth -type 'd,f' -not -empty -not -path "*/[@#.]*" -printf '%T@/%y\0%p\0')
 }
 
 handle_actress() {
@@ -719,15 +743,23 @@ handle_actress() {
     birth="$(sed -n '2p' <<<"$result")"
     new_name="${name}(${birth})"
     new_dir="${target_dir%/*}/${new_name}"
-    if [[ $target_dir != "$new_dir" ]]; then
-      color_start='\e[93m'
-      color_end='\e[0m'
+    if [[ ${target_dir} != "${new_dir}" ]]; then
+      color_start='\033[93m'
+      color_end='\033[0m'
       if ((real_run)); then
-        printf "%(%F %T)T: Rename: '%s' to '%s'. Source: %s.\n" "-1" "$target_dir" "${new_name}" "${source}" >>"${log_file}"
-        mv "$target_dir" "$new_dir"
+        if mv "${target_dir}" "${new_dir}"; then
+          (
+            flock -x "${fd}"
+            printf '[%(%F %T)T] Rename Dir:\n%15s: %s\n%15s: %s\n%15s: %s\n%s\n' "-1" \
+              "Original path" "${target_dir}" \
+              "New name" "${new_name}" \
+              "Source" "${source}" \
+              "${divider_slim}" >&${fd}
+          ) {fd}>>"${log_file}"
+        fi
       fi
     fi
-    printf "${color_start}%s ===> %s <=== %s${color_end}\n" "$actress_name" "${new_name}" "${source}"
+    printf "${color_start}%s ===> %s <=== %s${color_end}\n" "${actress_name}" "${new_name}" "${source}"
   }
 
   target_dir="${1}"
@@ -804,35 +836,35 @@ handle_actress() {
   # minnano-av.com
   minnano_av() {
     awk -v actress_name="${actress_name}" '
-        /<h1>[^<]+<span>.*<\/span><\/h1>/ {
-            gsub(/<span>[^<]*<\/span>/,"",$0)
-            gsub(/^.*<h1>[[:space:]]*|[[:space:]]*<\/h1>.*$/, "", $0)
-            name = $0
-        }
-        name && match($0, /生年月日.*[0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日/) {
-            date = substr($0, RSTART, RLENGTH)
-            y = gensub(/.*([0-9]{4})年.*/, "\\1", 1, date)
-            m = sprintf("%02d", gensub(/.*[^0-9]([0-9]{1,2})月.*/, "\\1", 1, date) )
-            d = sprintf("%02d", gensub(/.*[^0-9]([0-9]{1,2})日/, "\\1", 1, date) )
-            if ( y && m && d )
-            {
-                birth = ( y "-" m "-" d )
-                print name ; print birth
-                exit
-            }
-        }'
+      /<h1>[^<]+<span>.*<\/span><\/h1>/ {
+          gsub(/<span>[^<]*<\/span>/,"",$0)
+          gsub(/^.*<h1>[[:space:]]*|[[:space:]]*<\/h1>.*$/, "", $0)
+          name = $0
+      }
+      name && match($0, /生年月日.*[0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日/) {
+          date = substr($0, RSTART, RLENGTH)
+          y = gensub(/.*([0-9]{4})年.*/, "\\1", 1, date)
+          m = sprintf("%02d", gensub(/.*[^0-9]([0-9]{1,2})月.*/, "\\1", 1, date) )
+          d = sprintf("%02d", gensub(/.*[^0-9]([0-9]{1,2})日/, "\\1", 1, date) )
+          if ( y && m && d )
+          {
+              birth = ( y "-" m "-" d )
+              print name ; print birth
+              exit
+          }
+      }'
   }
   search="$(wget --tries=3 -qO- "http://www.minnano-av.com/search_result.php?search_scope=actress&search_word=${actress_name}")"
   if [[ $search == *'AV女優の検索結果'* ]]; then
     url="$(
       awk -v actress_name="${actress_name}" -v url='http://www.minnano-av.com' '
-            /<table[^>]*class="tbllist actress">/,/<\/table>/{
-                if ( $0 ~ "<h2[^>]*><a href=[^>]*>"actress_name"[^<]*<\\/a><\\/h2>" )
-                {
-                    gsub(/^.*<h2[^>]*><a href="|(\?|").*$/, "", $0)
-                    print ( url"/"$0 )
-                }
-            }' <<<"$search"
+        /<table[^>]*class="tbllist actress">/,/<\/table>/{
+            if ( $0 ~ "<h2[^>]*><a href=[^>]*>"actress_name"[^<]*<\\/a><\\/h2>" )
+            {
+                gsub(/^.*<h2[^>]*><a href="|(\?|").*$/, "", $0)
+                print ( url"/"$0 )
+            }
+        }' <<<"$search"
     )"
     for i in $url; do
       result="$(wget --tries=3 -qO- "${i}" | minnano_av)"
@@ -879,7 +911,7 @@ handle_actress() {
     rename_actress_dir
     return
   else
-    printf "\e[31m%s ===> Failed.\e[0m\n" "$actress_name"
+    printf "\033[31m%s ===> Failed.\033[0m\n" "${actress_name}"
   fi
 }
 
@@ -992,7 +1024,7 @@ else
     shift
   done
   if [[ -z ${TARGET} ]]; then
-    printf '\e[31m%s\e[0m\n%s\n' "Lack of target!" "For more information, type: 'avinfo.sh --help'"
+    printf '\033[31m%s\033[0m\n%s\n' "Lack of target!" "For more information, type: 'avinfo.sh --help'"
     exit
   fi
 fi
