@@ -43,7 +43,7 @@ BEGIN {
 }
 
 
-function bytes_length(string, cmd, i)
+function bytes_length(string,   cmd, i)
 {
   cmd = "wc -c"
   printf("%s", string) |& cmd
@@ -125,7 +125,7 @@ function append_video_suffix(new_id,old_id,   regex, m)
   }
 }
 
-function handle_videos(m)
+function handle_videos(   m, cmd)
 {
 
   file["basename"] = gensub(/\.[^.]*$/, "", "1", tolower(file["filename"]))
@@ -407,7 +407,7 @@ function handle_videos(m)
   }
 }
 
-function heydouga(flag)
+function heydouga(   flag, m, cmd)
 {
   cmd = ("wget -qO- '" tmp["url"] "'")
   while ((cmd | getline) > 0) {
@@ -432,7 +432,7 @@ function heydouga(flag)
   return 0
 }
 
-function jav321(flag, uid, title, date, m)
+function jav321(   flag, uid, title, date, m)
 {
   cmd = ("wget -qO- --post-data 'sn=" tolower(info["id"]) "' 'https://www.jav321.com/search'")
   while ((cmd | getline) > 0) {
@@ -458,7 +458,7 @@ function jav321(flag, uid, title, date, m)
   return 0
 }
 
-function javbus(prefix, flag, uid, title, date, m)
+function javbus(prefix,    flag, uid, title, date, m)
 {
   cmd = ("wget -qO- 'https://www.javbus.com/" prefix "search/" tolower(info["id"]) "'")
   while ((cmd | getline) > 0) {
@@ -488,7 +488,7 @@ function javbus(prefix, flag, uid, title, date, m)
   return 0
 }
 
-function javdb(flag, uid, title, date, m)
+function javdb(   flag, uid, title, date, m)
 {
   cmd = ("wget -qO- 'https://javdb.com/search?q=" tolower(info["id"]) "&f=all'")
   while ((cmd | getline) > 0) {
@@ -553,7 +553,7 @@ function modify_file_via_database(date_strategy, rename_strategy, product_type, 
   return 0
 }
 
-function modify_time_via_exif()
+function modify_time_via_exif(cmd)
 {
   if (exiftool_installed) {
     cmd = ("exiftool -api largefilesupport=1 -Creat*Date -ModifyDate -Track*Date -Media*Date -Date*Original -d '%s' -S -s \"${target_file}\" 2>/dev/null")
@@ -570,7 +570,7 @@ function modify_time_via_exif()
   return 0
 }
 
-function output(i,divider_format,divider,final_date_display)
+function output(i,   divider_format,divider,final_date_display)
 {
   if (i) {
     divider_format = "%s"
@@ -613,7 +613,7 @@ function output(i,divider_format,divider,final_date_display)
     "Source:", (final["date_source"] == "" ? "---" : final["date_source"]) " / " (final["title_source"] == "" ? "---" : final["title_source"])
 
   if (fifo != "") {
-    print(++i) > fifo
+    print(i + 1) > fifo
     close(fifo)
   }
 }
