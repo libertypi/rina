@@ -601,7 +601,7 @@ function output(i,   divider_format,divider,final_date_display)
       printf("%s %s\n%15s: %s\n%15s: %s\n%15s: %s\n%15s: %s\n%s\n",
         strftime("[%F %T]"), "Change Date:",
         "Path", (final["fullpath"] == "" ? file["fullpath"] : final["fullpath"]),
-        "Original date", strftime("[%(%F %T)T]", file["date"]),
+        "Original date", strftime("%F %T", file["date"]),
         "New date", final_date_display,
         "Source", final["date_source"],
         divider_slim) >> logfile
