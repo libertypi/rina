@@ -28,6 +28,8 @@ BEGIN {
       file["ext"] = ("." tolower(file["ext"]))
     }
 
+    ENVIRON["target_file"] = file["fullpath"]
+
     if (file["ext"] ~ /^\.(3gp|asf|avi|flv|m2ts|m2v|m4p|m4v|mkv|mov|mp2|mp4|mpeg|mpg|mpv|mts|mxf|rm|rmvb|ts|vob|webm|wmv|iso)$/) {
       if (handle_videos()) {
         output(1)
@@ -660,10 +662,10 @@ function rename_file(product_id, title, source,   filename,name_tmp,fullpath)
   if (filename != file["filename"]) {
     fullpath = (file["parentdir"] "/" filename)
     if (real_run) {
-      ENVIRON["target_file"] = file["fullpath"]
       ENVIRON["target_file_new"] = fullpath
-
-      if (system("mv \"${target_file}\" \"${target_file_new}\"") != 0) {
+      if (system("mv \"${target_file}\" \"${target_file_new}\"") == 0) {
+        ENVIRON["target_file"] = fullpath
+      } else {
         return 0
       }
     }
@@ -683,7 +685,6 @@ function touch_file(date, source)
 
   if (date != file["date"]) {
     if (real_run) {
-      ENVIRON["target_file"] = (final["fullpath"] == "" ? file["fullpath"] : final["fullpath"])
 
       if (system("touch -d '@" date "' \"${target_file}\"") != 0) {
         return 0
