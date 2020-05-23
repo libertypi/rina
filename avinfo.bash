@@ -390,7 +390,8 @@ if [[ -d ${target} ]]; then
       ;;
     "actress")
       export -f handle_actress
-      find "${target}" -maxdepth 1 -type d -not -path "*/[@#.]*" -print0 | xargs -r -0 -n 1 -P "${thread}" bash -c 'handle_actress "$@"' _
+      find "${target}" -maxdepth 1 -type d -not -path "*/[@#.]*" -print0 |
+        xargs -r -0 -n 1 -P "${thread}" bash -c 'handle_actress "$@"' _
       ;;
     *)
       fifo="${TMPDIR:-/tmp}/avinfo.lock"

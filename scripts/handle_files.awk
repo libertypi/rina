@@ -295,6 +295,7 @@ function handle_videos(   m, cmd)
         do {
           if (match($0, /<h3>[[:space:]]*([^<]*[^[:space:]<])[[:space:]]*<\/h3>/, m)) {
             tmp["title"] = m[1]
+            sub(/^FC2-[[:digit:]]+[[:space:]]*/, "", tmp["title"])
             break
           }
         } while ((cmd | getline) > 0)
