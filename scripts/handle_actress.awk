@@ -5,7 +5,7 @@ BEGIN {
   if ((real_run = ENVIRON["real_run"]) == "" ||
     (divider_slim = ENVIRON["divider_slim"]) == "" ||
     (logfile = ENVIRON["logfile"]) == "") {
-    print("Please do not run this Awk script directly.") > "/dev/stderr"
+    print("Please do not run this Awk script directly, use avinfo.bash.") > "/dev/stderr"
     exit 1
   }
 

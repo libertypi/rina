@@ -8,7 +8,7 @@ BEGIN {
     (divider_slim = ENVIRON["divider_slim"]) == "" ||
     (divider_bold = ENVIRON["divider_bold"]) == "" ||
     (logfile = ENVIRON["logfile"]) == "") {
-    print("Please do not run this Awk script directly.") > "/dev/stderr"
+    print("Please do not run this Awk script directly, use avinfo.bash.") > "/dev/stderr"
     exit 1
   }
 

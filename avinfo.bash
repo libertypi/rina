@@ -10,6 +10,7 @@ help_info() {
 Usage: avinfo.bash [OPTIONS] [DIRECTORY]
    or: avinfo.bash [OPTIONS] [FILE]
 Detect publish ID, title and date for Japanese adult videos.
+Detect name and birthday for Japanese adult video stars.
 
 OPTIONS:
     -h, --help        Show this information.
@@ -19,14 +20,14 @@ OPTIONS:
                       actress: Modify dir name based on actress
                                name.
     -p, --proxy       Set proxy servers. Only accessible server
-                      will be used. Multiple servers are allowed,
-                      but only one of which will be used.
+                      will be used. Multiple servers are tested,
+                      and the fastest will be selected.
                       Format:
                         -p 127.0.0.1:7890
                         --proxy 192.168.1.3:7890 192.168.1.5:7890
     -r, --real        Real run mode. Changes WILL be writen into disk.
     -t, --test        Test (safe) mode. Changes will only show on the
-                      screen but not written into disk.
+                      terminal but not written into disk.
     -n, --thread      How many threads will be run at once. The
                       default number is 3 if not specified.
                       Format:
@@ -35,7 +36,7 @@ OPTIONS:
 EXAMPLE:
     avinfo.bash --proxy 127.0.0.1:1080 --test -n 10 "~/Arisa Suzuki"
 
-            Will do a recursive search for all the videos in the folder.
+            Will do a recursive search for all the videos in this folder.
             Using proxy server, 10 threads, changes will not be actually applied.
 
     avinfo.bash --real "~/Arisa Suzuki/111815_024-carib-1080p.mp4"
@@ -62,7 +63,8 @@ handle_files() {
   }
   printf '%s\n' '1' >&${fifo_fd}
 
-  xargs -a <(find "${1}" -type f -not -empty -not -path "*/[@#.]*" -printf '%Ts\0%p\0') -r -0 -n 12 -P "${thread}" awk -f "${script_dir}/handle_files.awk"
+  find "${1}" -type f -not -empty -not -path "*/[@#.]*" -printf '%Ts\0%p\0' |
+    xargs -r -0 -n 12 -P "${thread}" awk -f "${script_dir}/handle_files.awk"
 
   exec {fifo_fd}>&-
   printf '%s\n' "${divider_bold}"
@@ -75,7 +77,8 @@ handle_dirs() {
 }
 
 handle_actress() {
-  xargs -a <(find "${1}" -maxdepth 1 -type d -not -path "*/[@#.]*" -print0) -r -0 -n 1 -P "${thread}" awk -f "${script_dir}/handle_actress.awk"
+  find "${1}" -maxdepth 1 -type d -not -path "*/[@#.]*" -print0 |
+    xargs -r -0 -n 1 -P "${thread}" awk -f "${script_dir}/handle_actress.awk"
 }
 
 # Begin
@@ -238,7 +241,16 @@ if [[ -d ${target} ]]; then
       ;;
   esac
 else
-  awk -f "${script_dir}/handle_files.awk" "$(date -r "${target}" '+%s')" "${target}"
+  case "${mode}" in
+    "dir" | "actress")
+      printf '%s\n' "Error: Cannot select mode '${mode}' when target is a regular file." >&2
+      exit 1
+      ;;
+    *)
+      awk -f "${script_dir}/handle_files.awk" "$(date -r "${target}" '+%s')" "${target}"
+      ;;
+  esac
+
 fi
 
 exit 0

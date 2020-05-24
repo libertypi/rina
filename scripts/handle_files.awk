@@ -7,7 +7,7 @@ BEGIN {
     (exiftool_installed = ENVIRON["exiftool_installed"]) == "" ||
     (max_length = ENVIRON["max_length"]) == "" ||
     (logfile = ENVIRON["logfile"]) == "") {
-    print("Please do not run this Awk script directly.") > "/dev/stderr"
+    print("Please do not run this Awk script directly, use avinfo.bash.") > "/dev/stderr"
     exit 1
   }
   fifo = ENVIRON["fifo"]
@@ -649,8 +649,8 @@ function get_standard_product_id(input,    mesubuta, m, n, i, flag, nextfield, i
 function append_video_suffix(new_id,old_id,   regex, m)
 {
   regex = gensub(/[\/_-]/, "[^a-z0-9]?", "g", old_id)
-  if (match(file["basename"], (regex "[[:space:]._-](c|(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|cd|psp)?[[:space:]_-]?[0-9]{1,2})([[:space:]_-]|$)"), m)) {
-    if (m[1] == "c") m[1] = "C"
+  if (match(file["basename"], (regex "[[:space:]._-]([a-d]|(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|cd|psp)?[[:space:]_-]?[0-9]{1,2})([[:space:]_-]|$)"), m)) {
+    if (m[1] ~ /^[a-d]$/) m[1] = toupper(m[1])
     return (new_id "-" m[1])
   } else {
     return new_id
