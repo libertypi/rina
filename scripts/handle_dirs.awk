@@ -3,12 +3,16 @@
 BEGIN {
   FS = OFS = "/"
   RS = "\000"
-  real_run = (ENVIRON["real_run"] ? 1 : 0)
-  divider_slim = ENVIRON["divider_slim"]
-  divider_bold = ENVIRON["divider_bold"]
-  logfile = ENVIRON["logfile"]
-  root_length = length(target_root)
 
+  if ((real_run = ENVIRON["real_run"]) == "" ||
+    (divider_slim = ENVIRON["divider_slim"]) == "" ||
+    (divider_bold = ENVIRON["divider_bold"]) == "" ||
+    (logfile = ENVIRON["logfile"]) == "") {
+    print("Please do not run this Awk script directly.") > "/dev/stderr"
+    exit 1
+  }
+
+  root_length = length(target_root)
   count = success_count = 0
   print "Scanning directories..."
   printf "%s\n%7s   %-7s   %-10s   %s\n%s\n", divider_slim, "Number", "Result", "Date", "Directory", divider_slim
@@ -28,13 +32,13 @@ BEGIN {
     }
   } else if (date[$0] && date[$0] != file_date) {
     if (real_run) {
-      ENVIRON["touch_dir"] = $0
-      if (system("touch -d '@" date[$0] "' \"${touch_dir}\"") == 0) {
-        printf("[%s] %s\n%15s: %s\n%15s: %s\n%15s: %s\n%s\n",
-          strftime("%F %T"), "Change Dir Date",
+      ENVIRON["target_dir"] = $0
+      if (system("touch -d '@" date[$0] "' \"${target_dir}\"") == 0) {
+        printf("%s: %s\n%10s: %s\n%10s: %s\n%10s: %s\n%s\n",
+          strftime("[%F %T]"), "Update Directory Timestamp",
           "Path", $0,
-          "Original date", strftime("%F %T",file_date),
-          "New date", strftime("%F %T",date[$0]),
+          "From", strftime("%F %T",file_date),
+          "To", strftime("%F %T",date[$0]),
           divider_slim) >> logfile
       }
     }
