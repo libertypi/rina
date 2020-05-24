@@ -79,7 +79,8 @@ function wikipedia(actress_name,   m, cmd, flag1, flag2, name, birth) {
   close(cmd)
 }
 
-function minnano_av(actress_name, url,   domain, cmd, m, name, birth) {
+function minnano_av(actress_name, url,   escape_name, domain, cmd, m, name, birth) {
+  escape_name = escape(actress_name)
   domain = "www.minnano-av.com/"
   if (url == "") {
     cmd = "wget -qO- '" domain "search_result.php?search_scope=actress&search_word=" actress_name "'"
@@ -94,7 +95,7 @@ function minnano_av(actress_name, url,   domain, cmd, m, name, birth) {
           do {
             if ($0 ~ /<table[^>]*class="tbllist actress">/) {
               do {
-                if (match($0, "<h2[^>]*><a href=\042([^>\042']+)\042>" escape(actress_name) "[^<]*</a></h2>", m) ) {
+                if (match($0, "<h2[^>]*><a href=\042([^>\042']+)\042>" escape_name "[^<]*</a></h2>", m) ) {
                   close(cmd)
                   minnano_av(actress_name, (m[1] ~ /^https?:\/\// ? m[1] : domain m[1]))
                   return
@@ -153,21 +154,19 @@ function seesaawiki(actress_name,   cmd, matched, m, name, birth, i) {
   close(cmd)
 }
 
-function mankowomiseruavzyoyu(actress_name,   cmd, m, i, n, name, birth) {
+function mankowomiseruavzyoyu(actress_name,   escape_name, flag, cmd, m, i, name, birth) {
   cmd = "wget -qO- 'mankowomiseruavzyoyu.blog.fc2.com/?q=" actress_name "'"
+  escape_name = escape(actress_name)
   while ((cmd | getline) > 0) {
-    if ($0 ~ escape(actress_name) && match($0, /^[[:space:]]*dc:description="([^[:space:]&]+)/, m)) {
+    if ($0 ~ escape_name && match($0, /^[[:space:]]*dc:description="([^[:space:]&]+)/, m)) {
       name = m[1]
       birth = ""
       gsub(/["']|&[^;]*;/, " ", $0)
       for (i = 2; i <= NF; i++) {
-        if ($i ~ "生年月日") {
-          for (n = i; n <= NF; n++) {
-            if (match($n, /([0-9]{4})年[[:space:]]*([0-9]{1,2})月[[:space:]]*([0-9]{1,2})日/, m)) {
-              birth = (m[1] "-" sprintf("%02d", m[2]) "-" sprintf("%02d", m[3]))
-              break
-            }
-          }
+        if ($i ~ "生年月日") flag = 1
+        if (flag && match($i, /([0-9]{4})年[[:space:]]*([0-9]{1,2})月[[:space:]]*([0-9]{1,2})日/, m)) {
+          birth = (m[1] "-" sprintf("%02d", m[2]) "-" sprintf("%02d", m[3]))
+          break
         }
       }
       if (name != "" && birth != "") {
