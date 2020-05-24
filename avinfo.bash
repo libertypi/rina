@@ -33,37 +33,36 @@ OPTIONS:
                         -n 10
 
 EXAMPLE:
-    avinfo.sh --proxy 127.0.0.1:1080 --test -n 10 "~/Arisa Suzuki"
+    avinfo.bash --proxy 127.0.0.1:1080 --test -n 10 "~/Arisa Suzuki"
 
             Will do a recursive search for all the videos in the folder.
             Using proxy server, 10 threads, changes will not be actually applied.
 
-    avinfo.sh --real "~/Arisa Suzuki/111815_024-carib-1080p.mp4"
+    avinfo.bash --real "~/Arisa Suzuki/111815_024-carib-1080p.mp4"
 
             Search information for only one file, change will be
             written into disk immediately.
 
 For better handling videos cannot be found in internat databases, it is recommend
 to install exiftool. Once installed, the script will automatically try exiftool
-if all other approaches fails. (sudo apt install exiftool)'
+if all other approaches fails. (sudo apt install exiftool)
 EOF
 }
 
 invalid_parameter() {
-  printf '%s\n' "Invalid parameter: $1" "For more information, type: 'avinfo.sh --help'"
+  printf '%s\n' "Invalid parameter: $1" "For more information, type: 'avinfo.bash --help'"
   exit 1
 }
 
 handle_files() {
   export fifo="${TMPDIR:-/tmp}/avinfo.lock"
   mkfifo "${fifo}" && exec {fifo_fd}<>"${fifo}" && flock -n "${fifo_fd}" && trap 'rm -f -- "${fifo}"' EXIT || {
-    printf '%s\n' "Unable to make FIFO, what happened?!" 1>&2
+    printf '%s\n' "Unable to lock FIFO, what happened?!" 1>&2
     exit 1
   }
   printf '%s\n' '1' >&${fifo_fd}
 
-  find "${1}" -type f -not -empty -not -path "*/[@#.]*" -printf '%Ts\0%p\0' |
-    xargs -r -0 -n 12 -P "${thread}" awk -f "${script_dir}/handle_files.awk"
+  xargs -a <(find "${1}" -type f -not -empty -not -path "*/[@#.]*" -printf '%Ts\0%p\0') -r -0 -n 12 -P "${thread}" awk -f "${script_dir}/handle_files.awk"
 
   exec {fifo_fd}>&-
   printf '%s\n' "${divider_bold}"
@@ -76,8 +75,7 @@ handle_dirs() {
 }
 
 handle_actress() {
-  find "${1}" -maxdepth 1 -type d -not -path "*/[@#.]*" -print0 |
-    xargs -r -0 -n 1 -P "${thread}" awk -f "${script_dir}/handle_actress.awk"
+  xargs -a <(find "${1}" -maxdepth 1 -type d -not -path "*/[@#.]*" -print0) -r -0 -n 1 -P "${thread}" awk -f "${script_dir}/handle_actress.awk"
 }
 
 # Begin
@@ -166,7 +164,7 @@ else
     shift
   done
   if [[ -z ${target} ]]; then
-    printf '\033[31m%s\033[0m\n%s\n' "Lack of target!" "For more information, type: 'avinfo.sh --help'"
+    printf '\033[31m%s\033[0m\n%s\n' "Lack of target!" "For more information, type: 'avinfo.bash --help'"
     exit
   fi
 fi
@@ -223,11 +221,11 @@ max_length="$(stat -f -c '%l' "${target}")"
 [[ ${max_length} =~ ^[0-9]+$ ]] || max_length=255
 declare -rx max_length
 
-printf '%s\n' "$divider_bold"
+printf '%s\n' "${divider_bold}"
 
 if [[ -d ${target} ]]; then
   printf '%s\n' "Task start using ${thread:=3} threads."
-  case "$mode" in
+  case "${mode}" in
     "dir")
       handle_dirs "${target}"
       ;;

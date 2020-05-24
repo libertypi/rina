@@ -11,7 +11,7 @@ BEGIN {
 
   target_dir = ARGV[1]
   dir_name = gensub(/.*\//, "", "1", target_dir)
-  actress_name = gensub(/\([0-9]{4}.*/, "", "1", dir_name)
+  actress_name = gensub(/\([0-9]{4}.*|['"]/, "", "g", dir_name)
   if (dir_name == target_dir || actress_name ~ /^[A-Za-z0-9[:space:][:punct:]]*$/) exit
 
   wikipedia(actress_name)
@@ -19,11 +19,11 @@ BEGIN {
   seesaawiki(actress_name)
   mankowomiseruavzyoyu(actress_name)
 
-  printf "\033[31m%s  ===>  %s\033[0m\n", "Failed", dir_name
+  printf "\033[31m%s: %s\033[0m\n", "Failed", dir_name
 }
 
 function rename_and_quit(name, birth, source) {
-  gsub(/[[:space:] ]|\([^\)]*\)|【.*】|（.*）/, "", name)
+  gsub(/[[:space:] ]|\([^\)]*\)|【[^】]*】|（[^）]*）/, "", name)
   new_name = name "(" birth ")"
   new_dir = gensub(/\/[^/]+$/, "", "1", target_dir) "/" new_name
 
@@ -63,11 +63,11 @@ function utf2jp(string, option,   cmd, s) {
 function wikipedia(actress_name,   m, cmd, flag1, flag2, name, birth) {
   cmd = ("wget -qO- 'https://ja.wikipedia.org/wiki/" actress_name "'")
   while ((cmd | getline) > 0) {
-    if (name == "" && match($0, /<h1 id=\042firstHeading\042 class=\042firstHeading\042[^>]*>[[:space:]]*([^<]*[^[:space:]<])[[:space:]]*<\/h1>/, m)) {
+    if (name == "" && match($0, /<h1 id="firstHeading" class="firstHeading"[^>]*>[[:space:]]*([^<]*[^[:space:]<])[[:space:]]*<\/h1>/, m)) {
       name = m[1]
     }
     if ($0 ~ /生年月日/) flag1 = 1
-    if (flag1 && birth == "" && match($0, /title=\042([0-9]{4})年\042>[0-9]{4}年<\/a><a href=\042[^\042]+\042 title=\042([0-9]{1,2})月([0-9]{1,2})日\042>[0-9]{1,2}月[0-9]{1,2}日<\/a>/, m)) {
+    if (flag1 && birth == "" && match($0, /title="[0-9]{4}年">([0-9]{4})年<\/a>.*title="[0-9]{1,2}月[0-9]{1,2}日">([0-9]{1,2})月([0-9]{1,2})日<\/a>/, m)) {
       birth = (m[1] "-" sprintf("%02d", m[2]) "-" sprintf("%02d", m[3]))
     }
     if ($0 ~ /title="AV女優">AV女優<\/a>/) flag2 = 1
@@ -94,7 +94,7 @@ function minnano_av(actress_name, url,   domain, cmd, m, name, birth) {
           do {
             if ($0 ~ /<table[^>]*class="tbllist actress">/) {
               do {
-                if ( match($0, "<h2[^>]*><a href=\042([^>\042]+)\042>" escape(actress_name) "[^<]*</a></h2>", m) ) {
+                if (match($0, "<h2[^>]*><a href=\042([^>\042']+)\042>" escape(actress_name) "[^<]*</a></h2>", m) ) {
                   close(cmd)
                   minnano_av(actress_name, (m[1] ~ /^https?:\/\// ? m[1] : domain m[1]))
                   return
@@ -121,11 +121,11 @@ function minnano_av(actress_name, url,   domain, cmd, m, name, birth) {
 }
 
 function seesaawiki(actress_name,   cmd, matched, m, name, birth, i) {
-  cmd = "wget -qO- \"https://seesaawiki.jp/av_neme/search?keywords=" utf2jp(actress_name) "\" | iconv -c -f EUC-JP -t UTF-8"
+  cmd = "wget -qO- 'https://seesaawiki.jp/av_neme/search?keywords=" utf2jp(actress_name) "' | iconv -c -f EUC-JP -t UTF-8"
   while ((cmd | getline) > 0) {
     if ($0 ~ /<div class="body">/) {
       do {
-        if ( match($0, /<h3 class=\042keyword\042><a href=\042[^\042]+\042>[[:space:]]*([^<]*[^[:space:]<])[[:space:]]*<\/a><\/h3>/, m) ) {
+        if ( match($0, /<h3 class="keyword"><a href="[^"]+">[[:space:]]*([^<]*[^[:space:]<])[[:space:]]*<\/a><\/h3>/, m) ) {
           name = m[1]
           if (name == actress_name) matched = 1
         }
@@ -156,7 +156,7 @@ function seesaawiki(actress_name,   cmd, matched, m, name, birth, i) {
 function mankowomiseruavzyoyu(actress_name,   cmd, m, i, n, name, birth) {
   cmd = "wget -qO- 'mankowomiseruavzyoyu.blog.fc2.com/?q=" actress_name "'"
   while ((cmd | getline) > 0) {
-    if ($0 ~ escape(actress_name) && match($0, /^[[:space:]]*dc:description=\042([^[:space:]&]+)/, m)) {
+    if ($0 ~ escape(actress_name) && match($0, /^[[:space:]]*dc:description="([^[:space:]&]+)/, m)) {
       name = m[1]
       birth = ""
       gsub(/["']|&[^;]*;/, " ", $0)

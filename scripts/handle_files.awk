@@ -675,9 +675,10 @@ function touch_file(date, source)
   return 1
 }
 
-function output(success,   n,final_date_display)
+function output(success,   n, final_date_display, old_date_display)
 {
   final_date_display = (final["date"] ? strftime("%F %T", final["date"]) : "---")
+  if (final["date_changed"]) old_date_display = strftime("%F %T", file["date"])
 
   if (fifo != "") getline n < fifo
   else n = 1
@@ -689,12 +690,12 @@ function output(success,   n,final_date_display)
     printf("\033[31m%s\033[0m\n",
       "------------------ FAILED  --------------------")
   }
-  printf("%10s %s\n", "No:", n)
+  printf("%10s: %s\n", "No", n)
 
   if (final["title_changed"]) {
-    printf("%10s \033[33m%s\033[0m\n%10s %s\n",
-      "File:", final["filename"],
-      "From:", file["filename"])
+    printf("%10s: \033[33m%s\033[0m\n%10s: %s\n",
+      "File", final["filename"],
+      "From", file["filename"])
     if (real_run) {
       printf("%s: %s\n%10s: %s\n%10s: %s\n%10s: %s\n%10s: %s\n%s\n",
         strftime("[%F %T]"), "Rename File",
@@ -705,29 +706,30 @@ function output(success,   n,final_date_display)
         divider_slim) >> logfile
     }
   } else {
-    printf("%10s %s\n",
-      "File:", file["filename"])
+    printf("%10s: %s\n",
+      "File", file["filename"])
   }
-  printf("%10s %s\n",
-    "Title:", (final["title"] == "" ? "---" : final["title"]))
+  printf("%10s: %s\n",
+    "Title", (final["title"] == "" ? "---" : final["title"]))
   if (final["date_changed"]) {
-    printf("%10s \033[33m%s\033[0m\n",
-      "Date:", final_date_display)
+    printf("%10s: \033[33m%s\033[0m\n%10s: %s\n",
+      "Date", final_date_display,
+      "From", old_date_display)
     if (real_run) {
       printf("%s: %s\n%10s: %s\n%10s: %s\n%10s: %s\n%10s: %s\n%s\n",
         strftime("[%F %T]"), "Update Timestamp",
         "Path", (final["fullpath"] == "" ? file["fullpath"] : final["fullpath"]),
-        "From", strftime("%F %T", file["date"]),
+        "From", old_date_display,
         "To", final_date_display,
         "Source", final["date_source"],
         divider_slim) >> logfile
     }
   } else {
-    printf("%10s %s\n",
-      "Date:", final_date_display)
+    printf("%10s: %s\n",
+      "Date", final_date_display)
   }
-  printf("%10s %s / %s\n",
-    "Source:", (final["date_source"] == "" ? "---" : final["date_source"]), (final["title_source"] == "" ? "---" : final["title_source"]))
+  printf("%10s: %s / %s\n",
+    "Source", (final["date_source"] == "" ? "---" : final["date_source"]), (final["title_source"] == "" ? "---" : final["title_source"]))
 
   if (fifo != "") {
     print(n + 1) > fifo
