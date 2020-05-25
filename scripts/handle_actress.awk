@@ -161,13 +161,9 @@ function mankowomiseruavzyoyu(actress_name,   escape_name, flag, cmd, m, i, name
     if ($0 ~ escape_name && match($0, /^[[:space:]]*dc:description="([^[:space:]&]+)/, m)) {
       name = m[1]
       birth = ""
-      gsub(/["']|&[^;]*;/, " ", $0)
-      for (i = 2; i <= NF; i++) {
-        if ($i ~ "生年月日") flag = 1
-        if (flag && match($i, /([0-9]{4})年[[:space:]]*([0-9]{1,2})月[[:space:]]*([0-9]{1,2})日/, m)) {
-          birth = (m[1] "-" sprintf("%02d", m[2]) "-" sprintf("%02d", m[3]))
-          break
-        }
+      gsub(/[[:space:]"']|&[^;]*;/, "", $0)
+      if ( (i = index($0, "生年月日")) && match(substr($0, i), /([0-9]{4})年([0-9]{1,2})月([0-9]{1,2})日/, m) ) {
+        birth = (m[1] "-" sprintf("%02d", m[2]) "-" sprintf("%02d", m[3]))
       }
       if (name != "" && birth != "") {
         close(cmd)
