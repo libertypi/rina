@@ -158,8 +158,8 @@ function handle_videos(   m)
     if (modify_file_via_database(info["id"], "query", "query", "all")) return 1
 
   # 111111_111
-  } else if (match(file["basename"], /(^|[^a-z0-9])([0-9]{6})[_-]([0-9]{2,4})([^a-z0-9]|$)/, m)) {
-    info["id"] = (m[2] "-" m[3])
+  } else if (match(file["basename"], /(^|[^a-z0-9])((3[01]|[12][0-9]|0[1-9]){3})[_-]([0-9]{2,4})([^a-z0-9]|$)/, m)) {
+    info["id"] = (m[2] "-" m[4])
     if (modify_file_via_database(info["id"], "query", "query", "uncensored")) return 1
 
   # 23.Jun.2014
