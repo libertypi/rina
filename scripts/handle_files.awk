@@ -153,8 +153,8 @@ function handle_videos(   m)
     if (modify_file_via_database(info["id"], "query", "query", "all")) return 1
 
   # MX-64
-  } else if (match(file["basename"], /(^|[\(\)\[\]_])([a-z]+(3d|3d2|2d|2m)*[a-z]+|xxx[_-]?av)[[:space:]_-]?([0-9]{2,6})([^a-z0-9]|$)/, m)) {
-    info["id"] = (m[2] "-" m[4])
+  } else if (match(file["basename"], /^[\][)([:space:]_-]*([a-z]+(3d|3d2|2d|2m)*[a-z]+|xxx[_-]?av)[[:space:]_-]?([0-9]{2,6})([^a-z0-9]|$)/, m)) {
+    info["id"] = (m[1] "-" m[3])
     if (modify_file_via_database(info["id"], "query", "query", "all")) return 1
 
   # 111111_111
