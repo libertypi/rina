@@ -53,6 +53,7 @@ function handle_videos(   m)
 {
 
   file["basename"] = gensub(/\.[^.]*$/, "", "1", tolower(file["filename"]))
+  gsub(/^\[hd\]/, "", file["basename"])
   gsub(/\[[a-z0-9\.\-]+\.[a-z]{2,}\]/, "_", file["basename"])
   gsub(/(^|[^a-z0-9])(168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|fhd|tokyo[ _-]?hot|1000[ _-]?girl)([^a-z0-9]|$)/, "_", file["basename"])
 
