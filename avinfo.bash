@@ -103,7 +103,7 @@ awk 'BEGIN { if (PROCINFO["version"] >= 4.2) exit 0; else exit 1 }' || {
 printf -v divider_bold '%0*s' "47" ""
 root_dir="$(cd "${BASH_SOURCE[0]%/*}" && pwd -P)"
 script_dir="${root_dir}/scripts"
-declare -xr logfile="${root_dir}/log.log" divider_bold="${divider_bold// /=}" divider_slim="${divider_bold// /-}"
+declare -xr logfile="${root_dir}/logfile.log" divider_bold="${divider_bold// /=}" divider_slim="${divider_bold// /-}"
 printf '%s\n       %s\n                %s\n%s\n' "$divider_slim" "Adult Video Information Detector" "By David Pi" "$divider_slim"
 
 if (($# == 0)); then
