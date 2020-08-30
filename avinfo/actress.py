@@ -5,8 +5,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from requests.utils import quote as urlquote
 
-from . import common
-from .common import get_response_tree, list_dir, printObjLogs, printProgressBar, printRed, printYellow
+from avinfo import common
+from avinfo.common import get_response_tree, list_dir, printObjLogs, printProgressBar, printRed, printYellow
 
 
 class Wiki:
@@ -174,7 +174,6 @@ class MinnanoAV(Wiki):
 class Seesaawiki(Wiki):
 
     baseurl = "https://seesaawiki.jp/av_neme"
-    re_digit = re.compile(r"[0-9]")
     re_nameChange = re.compile(r"(\W*(女優名|名前)\W*)+変更")
     re_actressInfo = re.compile(r"(\b身長|\b出演作品|サイズ)\b")
 
@@ -231,7 +230,7 @@ class Seesaawiki(Wiki):
                 '//*[@id="page-body-inner"]/div[@class="result-box"]/div[@class="body" and *[@class="keyword"] and p[@class="text"]]'
             ):
                 a = box.find('.//*[@class="keyword"]/a')
-                if self.re_digit.search(a.text) or not contains_cjk(a.text):
+                if re.search(r"[0-9]", a.text) or not contains_cjk(a.text):
                     continue
                 found = 0b100 if a.text == searchName else 0
                 for line in box.find('p[@class="text"]').text_content().splitlines():

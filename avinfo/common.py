@@ -111,13 +111,13 @@ def get_response_tree(*args, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwar
     if response.ok:
         if decoder == "bs4":
             content = UnicodeDammit(response.content, bs4_hint).unicode_markup
+            if not content:
+                raise UnicodeDecodeError(f"Failed to detect encoding, url: {','.join(*args)}, decoder: {decoder}.")
         elif decoder == "lxml":
             content = response.content
         else:
             response.encoding = decoder
             content = response.text
-        if not content:
-            raise UnicodeDecodeError(f"Failed to detect encoding, url: {','.join(*args)}, decoder: {decoder}.")
         tree = html.fromstring(content)
     else:
         tree = None

@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 
+import os
+import sys
 import unittest
 
-from . import actress
-from .files import AV, Scraper
+if __name__ == "__main__":
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from avinfo.files import AV
+    from avinfo import video_scraper, actress
+else:
+    raise RuntimeError("Test file should be running directly.")
 
 
 class DuckFile(AV):
@@ -13,15 +19,13 @@ class DuckFile(AV):
 
 
 class ScraperTest(unittest.TestCase):
-    scraper = Scraper()
-
     def test_get_standard_product_id(self):
         values = (
             ("[carib]022716_253 (high) 3 haha 5 放課後のリフレクソロジー 5", "022716_253-carib-high-3",),
             ("[HD](carib)022716-253 1080p haha 5 ", "022716_253-carib-1080p",),
         )
         for basename, answer in values:
-            result = self.scraper._get_standard_product_id(DuckFile(basename=basename))
+            result = video_scraper._get_standard_product_id(DuckFile(basename=basename))
             self.assertEqual(result, answer)
 
     def test_get_video_suffix(self):
@@ -36,7 +40,7 @@ class ScraperTest(unittest.TestCase):
             ("heyzo-1888-c 青山はな", "heyzo-1888", "C"),
         )
         for basename, keyword, answer in values:
-            result = self.scraper._get_video_suffix(DuckFile(basename=basename, keyword=keyword))
+            result = video_scraper._get_video_suffix(DuckFile(basename=basename, keyword=keyword))
             self.assertEqual(result, answer)
 
     def test_javbus(self):
@@ -58,7 +62,7 @@ class ScraperTest(unittest.TestCase):
             ),
         )
         for keyword, uncensoredOnly, answer in values:
-            result = self.scraper._javbus(DuckFile(keyword=keyword), uncensoredOnly)
+            result = video_scraper._javbus(DuckFile(keyword=keyword), uncensoredOnly)
             # print((keyword, uncensoredOnly, result), ",")
             self.assertEqual(result, answer)
 
@@ -74,7 +78,7 @@ class ScraperTest(unittest.TestCase):
             ),
         )
         for keyword, answer in values:
-            result = self.scraper._javdb(DuckFile(keyword=keyword))
+            result = video_scraper._javdb(DuckFile(keyword=keyword))
             # print((keyword, result), ",")
             self.assertEqual(result, answer)
 
@@ -343,7 +347,7 @@ class ScraperTest(unittest.TestCase):
             ),
         )
         for basename, answer in values:
-            result = self.scraper.scrape(DuckFile(basename=basename))
+            result = video_scraper.scrape(DuckFile(basename=basename))
             # print((basename, result), ", ", sep="")
             self.assertEqual(result, answer)
 
@@ -399,9 +403,8 @@ class ActressTest(unittest.TestCase):
             self.assertEqual(result, answer)
 
 
-if __name__ == "__main__":
-    unittest.main()
-    # print()
-    # test = unittest.TestSuite()
-    # test.addTest(ActressTest())
-    # unittest.TextTestRunner().run(test)
+unittest.main()
+# print()
+# test = unittest.TestSuite()
+# test.addTest(ActressTest())
+# unittest.TextTestRunner().run(test)
