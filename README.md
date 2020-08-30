@@ -1,2 +1,3 @@
 # av-info-script
- A Bash-Awk script to fetch information of Japanese AVs for local files.
+Detect publish ID, title and date for Japanese adult videos.
+Detect name and birthday for Japanese adult video stars.
