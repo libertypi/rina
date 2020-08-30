@@ -417,21 +417,20 @@ class ActressFolder(Actress):
         return True
 
 
+cjk_table = (
+    (4352, 4607),
+    (11904, 42191),
+    (43072, 43135),
+    (44032, 55215),
+    (63744, 64255),
+    (65072, 65103),
+    (65381, 65500),
+    (131072, 196607),
+)
+
+
 def contains_cjk(string: str) -> bool:
-    return any(
-        i <= c <= j
-        for c in (ord(s) for s in string)
-        for i, j in (
-            (4352, 4607),
-            (11904, 42191),
-            (43072, 43135),
-            (44032, 55215),
-            (63744, 64255),
-            (65072, 65103),
-            (65381, 65500),
-            (131072, 196607),
-        )
-    )
+    return any(i <= c <= j for c in (ord(s) for s in string) for i, j in cjk_table)
 
 
 def main(target: tuple, quiet=False):
