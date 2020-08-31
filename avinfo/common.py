@@ -39,21 +39,6 @@ def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", len
         print()
 
 
-def printBanner():
-    msg = ("Adult Video Information Detector", "By David Pi")
-    print(sepSlim)
-    for m in msg:
-        print(m.center(sepWidth))
-    print(sepSlim)
-
-
-def printTaskStart(target: tuple, mode: str):
-    modes = {"a": "Actress", "f": "File", "d": "Directory"}
-    msg = (("Target", target[0]), ("Type", target[1]), ("Mode", modes[mode]))
-    print(". ".join(f"{i}: {j}" for i, j in msg))
-    print("Task start...")
-
-
 def printObjLogs(lst, printer=print):
     for i, obj in enumerate(lst, 1):
         printer(f'{"No":>10}: {i}\n{obj.log}{sepSlim}')

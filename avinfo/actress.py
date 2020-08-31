@@ -6,16 +6,14 @@ from functools import lru_cache
 
 from requests.utils import quote as urlquote
 
-from . import common
-from .common import get_response_tree, list_dir, printObjLogs, printProgressBar, printRed, printYellow
+from avinfo import common
+from avinfo.common import get_response_tree, list_dir, printObjLogs, printProgressBar, printRed, printYellow
 
 _re_split_name = re.compile(r"[\n、/／・,]+")
 _re_clean_name1 = re.compile(r"[【（\[(].*?[】）\])]")
 _re_clean_name2 = re.compile(r"[\s 　]+")
 _re_clean_name3 = re.compile(r"[【（\[(].*|.*?[】）\])]")
-_re_birth = re.compile(
-    r"(?P<year>(19|20)[0-9]{2})\s*年\s*(?P<month>1[0-2]|0?[1-9])\s*月\s*(?P<day>3[01]|[12][0-9]|0?[1-9])\s*日"
-)
+_re_birth = re.compile(r"(?P<y>(19|20)[0-9]{2})\s*年\s*(?P<m>1[0-2]|0?[1-9])\s*月\s*(?P<d>3[01]|[12][0-9]|0?[1-9])\s*日")
 _re_actress_run = re.compile(r"\([0-9]{4}(-[0-9]{1,2}){2}\)|\s+")
 
 
@@ -38,7 +36,7 @@ class Wiki:
             name = _clean_name(name)
 
         if birth:
-            birth = f'{birth["year"]}-{birth["month"].zfill(2)}-{birth["day"].zfill(2)}'
+            birth = f'{birth["y"]}-{birth["m"].zfill(2)}-{birth["d"].zfill(2)}'
 
         alias = set(_clean_name_list(alias))
         if name:

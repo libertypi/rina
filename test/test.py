@@ -5,11 +5,11 @@ import sys
 import unittest
 
 if __name__ == "__main__":
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     from avinfo.files import AV
-    from avinfo import video_scraper, actress
+    from avinfo import videoscraper, actress
 else:
-    raise RuntimeError("Test file should only be launch directly.")
+    raise ImportError("Test file should only be launch directly.")
 
 
 class DuckFile(AV):
@@ -25,7 +25,7 @@ class ScraperTest(unittest.TestCase):
             ("[HD](carib)022716-253 1080p haha 5 ", "022716_253-carib-1080p",),
         )
         for basename, answer in values:
-            result = video_scraper._get_standard_product_id(DuckFile(basename=basename))
+            result = videoscraper._get_standard_product_id(DuckFile(basename=basename))
             self.assertEqual(result, answer)
 
     def test_get_video_suffix(self):
@@ -40,7 +40,7 @@ class ScraperTest(unittest.TestCase):
             ("heyzo-1888-c 青山はな", "heyzo-1888", "C"),
         )
         for basename, keyword, answer in values:
-            result = video_scraper._get_video_suffix(DuckFile(basename=basename, keyword=keyword))
+            result = videoscraper._get_video_suffix(DuckFile(basename=basename, keyword=keyword))
             self.assertEqual(result, answer)
 
     def test_javbus(self):
@@ -62,7 +62,7 @@ class ScraperTest(unittest.TestCase):
             ),
         )
         for keyword, uncensoredOnly, answer in values:
-            result = video_scraper._javbus(DuckFile(keyword=keyword), uncensoredOnly)
+            result = videoscraper._javbus(DuckFile(keyword=keyword), uncensoredOnly)
             # print((keyword, uncensoredOnly, result), ",")
             self.assertEqual(result, answer)
 
@@ -78,8 +78,26 @@ class ScraperTest(unittest.TestCase):
             ),
         )
         for keyword, answer in values:
-            result = video_scraper._javdb(DuckFile(keyword=keyword))
+            result = videoscraper._javdb(DuckFile(keyword=keyword))
             # print((keyword, result), ",")
+            self.assertEqual(result, answer)
+
+    def test_carib(self):
+        values = (
+            (
+                "082920_001-carib-1080p",
+                "082920-001",
+                {"title": "未来のきもち 〜衰えた性欲が一気に取り戻せる乳首ンビンセラピー〜", "source": "caribbeancom.com"},
+            ),
+            (
+                "062317_001-caribpr",
+                "062317-001",
+                {"title": "S Model 172 オフィスレディーの社内交尾", "source": "caribbeancompr.com"},
+            ),
+        )
+        for basename, keyword, answer in values:
+            result = videoscraper._carib(DuckFile(basename=basename, keyword=keyword))
+            # print((basename, keyword, result), ",")
             self.assertEqual(result, answer)
 
     def test_scrape(self):
@@ -335,19 +353,9 @@ class ScraperTest(unittest.TestCase):
             ),
             ("welivetogether 23-jun 2014 test", {"publishDate": 1403481600, "dateSource": "File name",},),
             ("welivetogether dec 23.2014 test", {"publishDate": 1419292800, "dateSource": "File name",},),
-            (
-                "mxbd-241_c",
-                {
-                    "productId": "MXBD-241-C",
-                    "title": "新人 青山はな ～地方局の元お天気お姉さんAVデビュー！おま●こ洪水特別警報発令、桜の開花日直前にAVで一足早く花開く！！～ in HD（ブルーレイディスク）",
-                    "publishDate": 1458086400,
-                    "titleSource": "JavDB",
-                    "dateSource": "JavDB",
-                },
-            ),
         )
         for basename, answer in values:
-            result = video_scraper.scrape(DuckFile(basename=basename))
+            result = videoscraper.scrape(DuckFile(basename=basename))
             # print((basename, result), ", ", sep="")
             self.assertEqual(result, answer)
 
@@ -430,7 +438,3 @@ class ActressTest(unittest.TestCase):
 
 
 unittest.main()
-# print()
-# test = unittest.TestSuite()
-# test.addTest(ActressTest())
-# unittest.TextTestRunner().run(test)

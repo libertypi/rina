@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import argparse
 import os.path
 
@@ -36,7 +34,9 @@ When mode d is selected, the target must be a directory."""
         except Exception as e:
             raise argparse.ArgumentTypeError(f"{searchTarget} is unreachable. Error: {e}")
 
-    parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(
+        prog="avinfo", description=description, formatter_class=argparse.RawTextHelpFormatter
+    )
     parser.add_argument(
         "-m", "--mode", dest="mode", action="store", choices=("f", "a", "d"), default="f", help=help_mode
     )
@@ -51,13 +51,27 @@ When mode d is selected, the target must be a directory."""
     return args
 
 
+def printBanner():
+    msg = ("Adult Video Information Detector", "By David Pi")
+    print(common.sepSlim)
+    for m in msg:
+        print(m.center(common.sepWidth))
+    print(common.sepSlim)
+
+
+def printTaskStart(target: tuple, mode: str):
+    modes = {"a": "Actress", "f": "File", "d": "Directory"}
+    msg = (("Target", target[0]), ("Type", target[1]), ("Mode", modes[mode]))
+    print(". ".join(f"{i}: {j}" for i, j in msg))
+    print("Task start...")
+
+
 def main():
-    common.logFile = os.path.join(os.path.dirname(__file__), common.logFile)
-    common.printBanner()
+    printBanner()
 
     args = parse_args()
 
-    common.printTaskStart(args.target, args.mode)
+    printTaskStart(args.target, args.mode)
 
     if args.mode == "a":
         actress.main(args.target, quiet=args.quiet)
@@ -68,4 +82,5 @@ def main():
 
 
 if __name__ == "__main__":
+    common.logFile = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), common.logFile)
     main()

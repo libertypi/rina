@@ -1,6 +1,10 @@
 import re
+from functools import lru_cache
+from random import choice as random_choice
 
-from .common import epoch_to_str, get_response_tree, session, str_to_epoch
+from requests.compat import urljoin
+
+from avinfo.common import epoch_to_str, get_response_tree, session, str_to_epoch
 
 studios = tuple(
     (re.compile(i), j)
@@ -17,18 +21,14 @@ studios = tuple(
 re_clean = tuple(
     (re.compile(i), j)
     for i, j in (
-        (r"^\[f?hd\]", "",),
+        (r"^(\[f?hd\]|[a-z0-9-]+\.[a-z]{2,}@)", "",),
         (
             r"\[[a-z0-9.-]+\.[a-z]{2,}\]|(^|[^a-z0-9])(168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|fhd|tokyo[\s_-]?hot|1000[\s_-]?girl)([^a-z0-9]|$)",
             " ",
         ),
     )
 )
-_re_carib = re.compile(r"(^|[^a-z0-9])carib(bean|com)*pr([^a-z0-9]|$)")
-_re_sm_miracle = re.compile(r'(?<=[\n,])\s*title:\W*(?P<title>[^\n\'"]+)')
-_re_fc2_1 = re.compile(r"\b20[0-9]{2}\W[0-9]{2}\W[0-9]{2}\b")
-_re_fc2_2 = re.compile(r"(?<=/)20[0-9]{6}(?![0-9])")
-_re_fc2_3 = re.compile(r"(?<=/)20[0-9]{2}/[0-9]{4}(?=/)")
+
 _re_get_video_suffix1 = re.compile(r"[\s_.-]+")
 _re_get_video_suffix2 = re.compile(
     r"[\s\[\(]{1,2}([a-d]|(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|cd|psp)?\s?[0-9]{1,2})([\s\]\)]|$)"
@@ -109,7 +109,7 @@ def scrape(av) -> dict:
         m = reSearch(r"(^|[^a-z0-9])([0-9]{6})[_-]([0-9]{2,4})([^a-z0-9]|$)", basename)
         if m:
             date = str_to_epoch(m.group(2), "%m%d%y", regex=None)
-            av.set_keyword("-".join(m.group(2, 3)))
+            av.set_keyword("_".join(m.group(2, 3)))
             return _query(av, standardID=True, date=date, uncensoredOnly=True)
 
     # 160122_1020_01_Mesubuta
@@ -259,32 +259,41 @@ def _query(av, func=None, standardID=False, date=None, uncensoredOnly=False) -> 
 
 
 def _javbus(av, uncensoredOnly=False) -> dict:
-    mask = re.compile(re.sub("[_-]", "[_-]?", av.keyword.lower()))
+    mask = _get_keyword_mask(av.keyword)
     for prefix in ("uncensored/",) if uncensoredOnly else ("uncensored/", "",):
         response, tree = get_response_tree(f"https://www.javbus.com/{prefix}search/{av.keyword}", decoder="lxml")
         if tree is None:
             continue
-        for a in tree.xpath('//div[@id="waterfall"]//a[@class="movie-box"]//span'):
-            productId, date = (i.strip() for i in a.xpath("date/text()"))
-            if mask.fullmatch(productId.lower()):
+        for span in tree.xpath('//div[@id="waterfall"]//a[@class="movie-box"]//span'):
+            productId, date = (i.strip() for i in span.xpath("date[position()<3]/text()"))
+            if mask.fullmatch(productId):
                 return {
                     "productId": productId,
-                    "title": a.text,
+                    "title": span.text,
                     "publishDate": str_to_epoch(date) if date else None,
                     "source": "JavBus",
                 }
 
 
+_javdb_urlpool = ["https://javdb.com/"]
+
+
 def _javdb(av) -> dict:
-    response, tree = get_response_tree("https://javdb.com/search", params={"q": av.keyword}, decoder="lxml")
+    baseurl = urljoin(random_choice(_javdb_urlpool), "search")
+    response, tree = get_response_tree(baseurl, params={"q": av.keyword}, decoder="lxml")
     if tree is None:
-        return None
-    mask = re.compile(re.sub("[_-]", "[_-]?", av.keyword.lower()))
+        return
+
+    if len(_javdb_urlpool) == 1:
+        pool = set(tree.xpath('//nav[@class="sub-header"]/div[contains(text(), "最新域名")]//a/@href'))
+        _javdb_urlpool.extend(pool.difference(_javdb_urlpool))
+
+    mask = _get_keyword_mask(av.keyword)
     for a in tree.xpath('//div[@id="videos"]//a[@class="box"]'):
         productId = a.xpath('div[@class="uid"]/text()')
         if productId:
-            productId = productId[0].strip()
-            if mask.fullmatch(productId.lower()):
+            productId = productId[0]
+            if mask.fullmatch(productId):
                 title = a.xpath('div[@class="video-title"]')
                 date = a.xpath('div[@class="meta"]/text()')
                 return {
@@ -296,17 +305,17 @@ def _javdb(av) -> dict:
 
 
 def _carib(av) -> dict:
-    if _re_carib.search(av.basename):
+    if re.search(r"(^|[^a-z0-9])carib(bean|com)*pr([^a-z0-9]|$)", av.basename):
         av.set_keyword(av.keyword.replace("-", "_"))
-        url = "https://www.caribbeancompr.com/moviepages"
+        baseurl = "https://www.caribbeancompr.com/moviepages"
         source = "caribbeancompr.com"
     else:
-        url = "https://www.caribbeancom.com/moviepages"
+        baseurl = "https://www.caribbeancom.com/moviepages"
         source = "caribbeancom.com"
 
-    response, tree = get_response_tree(f"{url}/{av.keyword}/", decoder="euc-jp")
+    response, tree = get_response_tree(f"{baseurl}/{av.keyword}/", decoder="euc-jp")
     if tree is None:
-        return None
+        return
 
     title = tree.xpath('//div[@id="moviepages"]//div[@class="heading"]/h1')
     if title:
@@ -320,7 +329,7 @@ def _heyzo(av) -> dict:
     response, tree = get_response_tree(f"https://www.heyzo.com/moviepages/{av.keyword}/")
     av.set_keyword(f"HEYZO-{av.keyword}")
     if tree is None:
-        return None
+        return
 
     title = tree.xpath('//div[@id="wrapper"]//div[@id="movie"]/h1')
     if title:
@@ -344,7 +353,7 @@ def _heydouga(av) -> dict:
 
     response, tree = get_response_tree(url, decoder="utf-8")
     if tree is None:
-        return None
+        return
 
     title = tree.find(".//title")
     date = tree.xpath('//*[@id="movie-info"]//span[contains(text(),"配信日")]/following-sibling::span')
@@ -360,7 +369,7 @@ def _h4610(av) -> dict:
     prefix, suffix = av.keyword.split("-", 1)
     response, tree = get_response_tree(f"https://www.{prefix}.com/moviepages/{suffix}/")
     if tree is None:
-        return None
+        return
 
     title = tree.xpath('//*[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span/text()')
     if title:
@@ -376,7 +385,7 @@ def _h4610(av) -> dict:
 def _x1x(av) -> dict:
     response, tree = get_response_tree(f"http://www.x1x.com/title/{av.keyword.split('-', 1)[1]}")
     if tree is None:
-        return None
+        return
 
     title = tree.find(".//title")
     date = tree.xpath(
@@ -395,7 +404,7 @@ def _sm_miracle(av) -> dict:
     if not response.ok:
         return
     response.encoding = response.apparent_encoding
-    title = _re_sm_miracle.search(response.text)
+    title = re.search(r'(?<=[\n,])\s*title:\W*(?P<title>[^\n\'"]+)', response.text)
     if title:
         return {
             "productId": f"sm-miracle-{av.keyword}",
@@ -415,7 +424,7 @@ def _fc2(av) -> dict:
             title = tree.xpath('//div[@class="items_article_headerInfo"]/h3/text()')
             date = tree.xpath('//div[@class="items_article_Releasedate"]/p/text()')
             if date:
-                date = _re_fc2_1.search(date[0])
+                date = re.search(r"\b20[0-9]{2}\W[0-9]{2}\W[0-9]{2}\b", date[0])
             return {
                 "productId": av.keyword,
                 "title": title[0] if title else None,
@@ -428,7 +437,7 @@ def _fc2(av) -> dict:
         tree = tree.xpath('//*[@id="pjx-search"]//ul/li[1]//a[@title]')
         if tree:
             tree = tree[0]
-            date = _re_fc2_2.search(tree.get("href"))
+            date = re.search(r"(?<=/)20[0-9]{6}(?![0-9])", tree.get("href"))
             return {
                 "productId": av.keyword,
                 "title": tree.text,
@@ -440,7 +449,7 @@ def _fc2(av) -> dict:
     if tree is not None:
         title = tree.xpath('//div[contains(@class,"main")]/div[@class="show-top-grids"]/div[1]/h3/text()')
         for img in tree.xpath('//*[@id="slider"]//img[@class="responsive"]/@src'):
-            m = _re_fc2_3.search(img)
+            m = re.search(r"(?<=/)20[0-9]{2}/[0-9]{4}(?=/)", img)
             if m:
                 date = str_to_epoch(m.group(), "%Y %m%d")
                 break
@@ -452,6 +461,11 @@ def _fc2(av) -> dict:
             "publishDate": date,
             "source": "fc2club.com",
         }
+
+
+@lru_cache(128)
+def _get_keyword_mask(keyword: str):
+    return re.compile(r"\s*{}\s*".format(re.sub(r"[_-]", r"[_-]*", keyword)), flags=re.IGNORECASE)
 
 
 def _get_date_by_string(av) -> dict:

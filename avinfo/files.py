@@ -2,9 +2,15 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 
-from . import common
-from .common import epoch_to_str, printProgressBar, printRed
-from .video_scraper import scrape
+from avinfo import common
+from avinfo.common import epoch_to_str, printProgressBar, printRed
+from avinfo.videoscraper import scrape
+
+_re_trimName = re.compile(r"(.*[^\s。,([])[\s。,([]")
+_re_cleanName = tuple(
+    (re.compile(i), j)
+    for i, j in ((r'[\s<>:"/\\|?* 　]', " "), (r"[\s._]{2,}", " "), (r"^[\s._-]+|[\s【\[（(.,_-]+$", ""))
+)
 
 
 class AV:
@@ -119,12 +125,6 @@ class AVFile(AV):
         )
     )
 
-    re_trimName = re.compile(r"(.*[^\s。,([])[\s。,([]")
-    re_clean = tuple(
-        (re.compile(i), j)
-        for i, j in ((r'[\s<>:"/\\|?* 　]', " "), (r"[\s._]{2,}", " "), (r"^[\s._-]+|[\s【\[（(.,_-]+$", ""))
-    )
-
     def __init__(self, target: str, stat: os.stat_result, namemax: int):
         super().__init__(target)
         self.atime, self.mtime = stat.st_atime, stat.st_mtime
@@ -152,11 +152,11 @@ class AVFile(AV):
         namemax = self.namemax - len(self.ext.encode("utf-8"))
 
         filename = f"{self.productId} {self.title}"
-        for p, r in self.re_clean:
+        for p, r in _re_cleanName:
             filename = p.sub(r, filename)
 
         while len(filename.encode("utf-8")) >= namemax:
-            newname = self.re_trimName.match(filename).group(1)
+            newname = _re_trimName.match(filename).group(1)
             if newname == self.productId:
                 while True:
                     filename = filename[:-1].rstrip(",.-【（([")
