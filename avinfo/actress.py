@@ -2,27 +2,27 @@ import os
 import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 
 from requests.utils import quote as urlquote
 
 from . import common
 from .common import get_response_tree, list_dir, printObjLogs, printProgressBar, printRed, printYellow
 
-_cleanNameCache = dict()
-_nameMaskCache = dict()
+_re_split_name = re.compile(r"[\n、/／・,]+")
+_re_clean_name1 = re.compile(r"[【（\[(].*?[】）\])]")
+_re_clean_name2 = re.compile(r"[\s 　]+")
+_re_clean_name3 = re.compile(r"[【（\[(].*|.*?[】）\])]")
+_re_birth = re.compile(
+    r"(?P<year>(19|20)[0-9]{2})\s*年\s*(?P<month>1[0-2]|0?[1-9])\s*月\s*(?P<day>3[01]|[12][0-9]|0?[1-9])\s*日"
+)
+_re_actress_run = re.compile(r"\([0-9]{4}(-[0-9]{1,2}){2}\)|\s+")
 
 
 class Wiki:
     """Wiki.search method should return a tuple of:
     (name, birth, (alias...))
     """
-
-    re_space = re.compile(r"[\s 　]+")
-    re_clean_name1 = re.compile(r"[【（\[(].*?[】）\])]")
-    re_clean_name2 = re.compile(r"[【（\[(].*|.*?[】）\])]")
-    re_birth = re.compile(
-        r"(?P<year>(19|20)[0-9]{2})\s*年\s*(?P<month>1[0-2]|0?[1-9])\s*月\s*(?P<day>3[01]|[12][0-9]|0?[1-9])\s*日"
-    )
 
     def __init__(self, weight: int):
         self.weight = weight
@@ -35,52 +35,18 @@ class Wiki:
         name, birth, alias = reply
 
         if name:
-            name = self._clean_name(name)
+            name = _clean_name(name)
 
         if birth:
             birth = f'{birth["year"]}-{birth["month"].zfill(2)}-{birth["day"].zfill(2)}'
 
-        alias = set(self._clean_name_list(alias))
+        alias = set(_clean_name_list(alias))
         if name:
             alias.add(name)
         elif not birth and not alias:
             return
 
         return name, birth, alias
-
-    @staticmethod
-    def _split_name(string: str, reg=re.compile(r"[\n、/／・,]+")):
-        return reg.split(string)
-
-    @staticmethod
-    def _get_re_nameMask(searchName: str) -> re.Pattern:
-        result = _nameMaskCache.get(searchName)
-        if not result:
-            result = re.compile(r"\b\s*{}\s*\b".format(r"\s*".join(searchName)))
-            _nameMaskCache[searchName] = result
-        return result
-
-    @classmethod
-    def _clean_name(cls, string: str) -> str:
-        result = _cleanNameCache.get(string)
-        if not result:
-            for result in cls.re_clean_name1.split(cls.re_space.sub("", string)):
-                result = cls.re_clean_name2.sub("", result)
-                if result:
-                    break
-            else:
-                result = ""
-            _cleanNameCache[string] = _cleanNameCache[result] = result
-        elif len(_cleanNameCache) > 1024:
-            _cleanNameCache.clear()
-        return result
-
-    @classmethod
-    def _clean_name_list(cls, nameList):
-        for i in nameList:
-            name = cls._clean_name(i)
-            if len(name) > 1 and contains_cjk(name):
-                yield name
 
 
 class Wikipedia(Wiki):
@@ -99,9 +65,9 @@ class Wikipedia(Wiki):
         box = ((i.find("th").text_content(), i.xpath("td//text()")) for i in box.findall("tbody/tr[th][td]"))
         for k, v in box:
             if not birth and "生年月日" in k:
-                birth = self.re_birth.search("".join(v))
+                birth = _re_birth.search("".join(v))
             elif "別名" in k:
-                alias.extend(j for i in v for j in self._split_name(i))
+                alias.extend(j for i in v for j in _split_name(i))
 
         return name, birth, alias
 
@@ -134,7 +100,7 @@ class MinnanoAV(Wiki):
             if title == "別名":
                 alias.append(td.findtext("p"))
             elif title == "生年月日" and not birth:
-                birth = self.re_birth.search(td.findtext("p"))
+                birth = _re_birth.search(td.findtext("p"))
 
         return name, birth, alias
 
@@ -144,14 +110,14 @@ class MinnanoAV(Wiki):
         tree = tree.xpath('//*[@id="main-area"]//table[contains(@class,"actress")]/tr/td[h2/a[@href]]')
         if not tree:
             return
-        nameMask = self._get_re_nameMask(searchName)
+        nameMask = _get_re_nameMask(searchName)
 
         result = None
         for td in tree:
             if "重複】" in td.text_content():
                 continue
             a = td.find("h2/a[@href]")
-            if nameMask.fullmatch(self._clean_name(a.text)):
+            if nameMask.fullmatch(_clean_name(a.text)):
                 href = a.get("href").split("?", 1)[0]
                 if not result:
                     result = href
@@ -170,11 +136,11 @@ class AVRevolution(Wiki):
         if tree is None:
             return
 
-        nameMask = self._get_re_nameMask(searchName)
+        nameMask = _get_re_nameMask(searchName)
         tree = tree.xpath('//*[@id="entry-01"]//center/table[@summary="AV女優検索結果"]/tbody//td/a[text() and @href]')
         url = None
         for a in tree:
-            if nameMask.fullmatch(self._clean_name(a.text)):
+            if nameMask.fullmatch(_clean_name(a.text)):
                 href = a.get("href")
                 if not url:
                     url = href
@@ -200,7 +166,6 @@ class AVRevolution(Wiki):
 class Seesaawiki(Wiki):
 
     baseurl = "https://seesaawiki.jp/av_neme/d"
-    re_nameChange = re.compile(r"(\W*(女優名|名前)\W*)+変更")
 
     def _search(self, searchName, url=None):
         encodeName = urlquote(searchName, encoding="euc-jp")
@@ -211,7 +176,7 @@ class Seesaawiki(Wiki):
         if tree is None:
             return
 
-        if self.re_nameChange.search(tree.findtext('.//*[@id="content_1"]')):
+        if re.search(r"(\W*(女優名|名前)\W*)+変更", tree.findtext('.//*[@id="content_1"]')):
             a = tree.find('.//*[@id="content_block_1-body"]/span/a[@href]')
             if a is not None and "移動" in a.getparent().text_content():
                 return self._search(a.text, a.get("href"))
@@ -232,9 +197,9 @@ class Seesaawiki(Wiki):
         alias = []
         for k, v in box:
             if not birth and "生年月日" in k:
-                birth = self.re_birth.search(v)
+                birth = _re_birth.search(v)
             elif re.search(r"旧名義|別名|名前|女優名", k):
-                alias.extend(self._split_name(v))
+                alias.extend(_split_name(v))
 
         return name, birth, alias
 
@@ -248,27 +213,27 @@ class Manko(Wiki):
             return
 
         result = None
-        nameMask = self._get_re_nameMask(searchName)
+        nameMask = _get_re_nameMask(searchName)
         for tbody in tree.xpath('//*[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'):
             try:
                 name = tbody.xpath(
                     '(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())[1]'
                 )
-                name = self._clean_name(name[0])
+                name = _clean_name(name[0])
                 if not name:
                     continue
             except Exception:
                 continue
 
             alias = (i.text_content() for i in tbody.xpath('tr[td[1][contains(text(), "別名")]]/td[2]'))
-            alias = tuple(j for i in alias for j in self._split_name(i))
+            alias = tuple(j for i in alias for j in _split_name(i))
 
             if nameMask.fullmatch(name) or any(nameMask.fullmatch(i) for i in alias):
                 if result:
                     return
                 birth = tbody.xpath('tr[td[1][contains(text(), "生年月日")]]/td[2]')
                 if birth:
-                    birth = self.re_birth.search(birth[0].text_content())
+                    birth = _re_birth.search(birth[0].text_content())
                 result = name, birth, alias
 
         return result
@@ -281,11 +246,11 @@ class Etigoya(Wiki):
         response, tree = get_response_tree(self.baseurl, params={"q": searchName})
         if tree is None:
             return
-        nameMask = self._get_re_nameMask(searchName)
+        nameMask = _get_re_nameMask(searchName)
         found = None
         for a in tree.xpath('.//*[@id="main"]/div[@class="content"]/ul/li/a[contains(text(), "＝")]'):
             alias = a.text.split("＝")
-            if any(nameMask.fullmatch(self._clean_name(i)) for i in alias):
+            if any(nameMask.fullmatch(_clean_name(i)) for i in alias):
                 if found:
                     return
                 else:
@@ -301,7 +266,6 @@ class Actress:
     )
     wikiDone = int("1" * len(wikiList), base=2)
 
-    re_nameCleaner = re.compile(r"\([0-9]{4}(-[0-9]{1,2}){2}\)|\s+")
     maxWeight = lambda self, x: max(x.items(), key=lambda y: (len(y[1]), -y[1][0]))[0]
     getWikiName = lambda self, x: self.wikiList[x].__class__.__name__
     is_skipped = lambda self: not self.status & 0b001
@@ -318,7 +282,7 @@ class Actress:
         self.status = 0
 
     def run(self):
-        name = self.re_nameCleaner.sub("", self.basename)
+        name = _re_actress_run.sub("", self.basename)
         if contains_cjk(name):
             try:
                 self._bfs_search(name)
@@ -458,6 +422,31 @@ def contains_cjk(string: str) -> bool:
     return any(i <= c <= j for c in (ord(s) for s in string) for i, j in cjk_table)
 
 
+def _split_name(string: str):
+    return _re_split_name.split(string)
+
+
+@lru_cache(128)
+def _get_re_nameMask(searchName: str) -> re.Pattern:
+    return re.compile(r"\b\s*{}\s*\b".format(r"\s*".join(searchName)))
+
+
+@lru_cache(1024)
+def _clean_name(string: str) -> str:
+    for string in _re_clean_name1.split(_re_clean_name2.sub("", string)):
+        string = _re_clean_name3.sub("", string)
+        if string:
+            return string
+    return ""
+
+
+def _clean_name_list(nameList):
+    for i in nameList:
+        name = _clean_name(i)
+        if len(name) > 1 and contains_cjk(name):
+            yield name
+
+
 def main(target: tuple, quiet=False):
 
     searchTarget, targetType = target
@@ -493,6 +482,7 @@ def main(target: tuple, quiet=False):
     if not totalChanged:
         print(summary, "No change can be made.", sep="\n")
         if failedList:
+            print(common.sepBold)
             printRed("Failures:")
             printObjLogs(failedList, printer=printRed)
         return

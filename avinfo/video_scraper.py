@@ -24,6 +24,19 @@ re_clean = tuple(
         ),
     )
 )
+_re_carib = re.compile(r"(^|[^a-z0-9])carib(bean|com)*pr([^a-z0-9]|$)")
+_re_sm_miracle = re.compile(r'(?<=[\n,])\s*title:\W*(?P<title>[^\n\'"]+)')
+_re_fc2_1 = re.compile(r"\b20[0-9]{2}\W[0-9]{2}\W[0-9]{2}\b")
+_re_fc2_2 = re.compile(r"(?<=/)20[0-9]{6}(?![0-9])")
+_re_fc2_3 = re.compile(r"(?<=/)20[0-9]{2}/[0-9]{4}(?=/)")
+_re_get_video_suffix1 = re.compile(r"[\s_.-]+")
+_re_get_video_suffix2 = re.compile(
+    r"[\s\[\(]{1,2}([a-d]|(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|cd|psp)?\s?[0-9]{1,2})([\s\]\)]|$)"
+)
+_re_get_standard_product_id1 = re.compile(r"[\s\]\[)(}{._-]+")
+_re_get_standard_product_id2 = re.compile(r"\b[0-9]{6} [0-9]{2,5} [0-9]{1,3}\b")
+_re_get_standard_product_id3 = re.compile(r"\b[0-9]{6} [0-9]{2,6}\b")
+_re_get_standard_product_id4 = re.compile(r"(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|psp)[0-9]*|[0-9]")
 
 
 def scrape(av) -> dict:
@@ -283,7 +296,7 @@ def _javdb(av) -> dict:
 
 
 def _carib(av) -> dict:
-    if re.search(r"(^|[^a-z0-9])carib(bean|com)*pr([^a-z0-9]|$)", av.basename):
+    if _re_carib.search(av.basename):
         av.set_keyword(av.keyword.replace("-", "_"))
         url = "https://www.caribbeancompr.com/moviepages"
         source = "caribbeancompr.com"
@@ -382,7 +395,7 @@ def _sm_miracle(av) -> dict:
     if not response.ok:
         return
     response.encoding = response.apparent_encoding
-    title = re.search(r'(?<=[\n,])\s*title:\W*(?P<title>[^\n\'"]+)', response.text)
+    title = _re_sm_miracle.search(response.text)
     if title:
         return {
             "productId": f"sm-miracle-{av.keyword}",
@@ -402,7 +415,7 @@ def _fc2(av) -> dict:
             title = tree.xpath('//div[@class="items_article_headerInfo"]/h3/text()')
             date = tree.xpath('//div[@class="items_article_Releasedate"]/p/text()')
             if date:
-                date = re.search(r"\b20[0-9]{2}\W[0-9]{2}\W[0-9]{2}\b", date[0])
+                date = _re_fc2_1.search(date[0])
             return {
                 "productId": av.keyword,
                 "title": title[0] if title else None,
@@ -415,7 +428,7 @@ def _fc2(av) -> dict:
         tree = tree.xpath('//*[@id="pjx-search"]//ul/li[1]//a[@title]')
         if tree:
             tree = tree[0]
-            date = re.search(r"(?<=/)20[0-9]{6}(?![0-9])", tree.get("href"))
+            date = _re_fc2_2.search(tree.get("href"))
             return {
                 "productId": av.keyword,
                 "title": tree.text,
@@ -427,7 +440,7 @@ def _fc2(av) -> dict:
     if tree is not None:
         title = tree.xpath('//div[contains(@class,"main")]/div[@class="show-top-grids"]/div[1]/h3/text()')
         for img in tree.xpath('//*[@id="slider"]//img[@class="responsive"]/@src'):
-            m = re.search(r"(?<=/)20[0-9]{2}/[0-9]{4}(?=/)", img)
+            m = _re_fc2_3.search(img)
             if m:
                 date = str_to_epoch(m.group(), "%Y %m%d")
                 break
@@ -450,7 +463,7 @@ def _get_date_by_string(av) -> dict:
 
 def _get_standard_product_id(av) -> str:
     i = 0
-    basename = re.sub(r"[\s\]\[)(}{._-]+", " ", av.basename)
+    basename = _re_get_standard_product_id1.sub(" ", av.basename)
     for k, v in studios:
         studio = k.search(basename)
         if studio:
@@ -461,9 +474,9 @@ def _get_standard_product_id(av) -> str:
         return None
 
     if studio == "mesubuta":
-        uid = re.search(r"\b[0-9]{6} [0-9]{2,5} [0-9]{1,3}\b", basename)
+        uid = _re_get_standard_product_id2.search(basename)
     else:
-        uid = re.search(r"\b[0-9]{6} [0-9]{2,6}\b", basename)
+        uid = _re_get_standard_product_id3.search(basename)
     if uid:
         i = max(i, uid.end()) + 1
         uid = uid.group().replace(" ", "_")
@@ -472,7 +485,7 @@ def _get_standard_product_id(av) -> str:
 
     results = [uid, studio]
     for word in basename[i:].split():
-        other = re.fullmatch(r"(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|psp)[0-9]*|[0-9]", word)
+        other = _re_get_standard_product_id4.fullmatch(word)
         if other:
             results.append(other.group())
         else:
@@ -480,9 +493,9 @@ def _get_standard_product_id(av) -> str:
     return "-".join(results)
 
 
-def _get_video_suffix(av, regex=re.compile(r"[\s_.-]+")) -> str:
-    basename = regex.sub(" ", av.basename)
-    keyword = regex.sub(" ", av.keyword)
+def _get_video_suffix(av) -> str:
+    basename = _re_get_video_suffix1.sub(" ", av.basename)
+    keyword = _re_get_video_suffix1.sub(" ", av.keyword)
     i = basename.find(keyword)
     if i < 0:
         keyword = keyword.split()[-1]
@@ -490,12 +503,9 @@ def _get_video_suffix(av, regex=re.compile(r"[\s_.-]+")) -> str:
         if i < 0:
             return None
     i += len(keyword)
-    m = re.match(
-        r"[\s\[\(]{1,2}([a-d]|(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|cd|psp)?\s?[0-9]{1,2})([\s\]\)]|$)",
-        basename[i:],
-    )
+    m = _re_get_video_suffix2.match(basename, i)
     if m:
         suffix = m.group(1)
-        if suffix in {"a", "b", "c", "d"}:
+        if suffix in "abcd":
             suffix = suffix.upper()
         return suffix

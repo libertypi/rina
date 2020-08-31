@@ -59,18 +59,18 @@ def printObjLogs(lst, printer=print):
         printer(f'{"No":>10}: {i}\n{obj.log}{sepSlim}')
 
 
-def walk_dir(topDir: str, filesOnly=False, pathFilter=re.compile(r"[\\/][#@.]")) -> tuple:
+def walk_dir(topDir: str, filesOnly=False, nameFilter=re.compile(r"[#@.]")) -> tuple:
     """Recursively yield tuples of dir entries in a bottom-top order:
         (fullpath: str, stat: os.stat_result, isdir: bool)
     """
     files = []
     with os.scandir(topDir) as it:
         for entry in it:
-            if pathFilter.search(entry.path):
+            if nameFilter.match(entry.name):
                 continue
             try:
                 if entry.is_dir():
-                    for i in walk_dir(entry.path, filesOnly, pathFilter):
+                    for i in walk_dir(entry.path, filesOnly, nameFilter):
                         yield i
                     if not filesOnly:
                         yield entry.path, entry.stat(), True
