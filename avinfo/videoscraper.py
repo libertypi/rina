@@ -28,7 +28,6 @@ re_clean = tuple(
         ),
     )
 )
-
 _re_get_video_suffix1 = re.compile(r"[\s_.-]+")
 _re_get_video_suffix2 = re.compile(
     r"[\s\[\(]{1,2}([a-d]|(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|cd|psp)?\s?[0-9]{1,2})([\s\]\)]|$)"
@@ -275,18 +274,19 @@ def _javbus(av, uncensoredOnly=False) -> dict:
                 }
 
 
-_javdb_urlpool = ["https://javdb.com/"]
+_javdb_urlpool = ["https://javdb.com/search"]
 
 
 def _javdb(av) -> dict:
-    baseurl = urljoin(random_choice(_javdb_urlpool), "search")
+    baseurl = random_choice(_javdb_urlpool)
     response, tree = get_response_tree(baseurl, params={"q": av.keyword}, decoder="lxml")
     if tree is None:
         return
 
     if len(_javdb_urlpool) == 1:
-        pool = set(tree.xpath('//nav[@class="sub-header"]/div[contains(text(), "最新域名")]//a/@href'))
-        _javdb_urlpool.extend(pool.difference(_javdb_urlpool))
+        pool = tree.xpath('//nav[@class="sub-header"]/div[contains(text(), "最新域名")]//a/@href')
+        pool = (urljoin(i, "search") for i in pool)
+        _javdb_urlpool.extend(i for i in pool if i not in _javdb_urlpool)
 
     mask = _get_keyword_mask(av.keyword)
     for a in tree.xpath('//div[@id="videos"]//a[@class="box"]'):
