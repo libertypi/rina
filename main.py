@@ -3,7 +3,7 @@
 import argparse
 import os.path
 
-from avinfo import common
+from avinfo import actress, common, files
 
 
 def parse_args():
@@ -60,16 +60,11 @@ def main():
     common.printTaskStart(args.target, args.mode)
 
     if args.mode == "a":
-        from avinfo import actress
-
         actress.main(args.target, quiet=args.quiet)
+    elif args.mode == "f":
+        files.main(args.target, quiet=args.quiet)
     else:
-        from avinfo import files
-
-        if args.mode == "f":
-            files.main(args.target, quiet=args.quiet)
-        else:
-            files.handle_dirs(args.target)
+        files.handle_dirs(args.target)
 
 
 if __name__ == "__main__":

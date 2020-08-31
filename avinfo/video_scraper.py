@@ -1,6 +1,6 @@
 import re
 
-from avinfo.common import epoch_to_str, get_response_tree, session, str_to_epoch
+from .common import epoch_to_str, get_response_tree, session, str_to_epoch
 
 studios = tuple(
     (re.compile(i), j)
@@ -222,8 +222,9 @@ def _query(av, func=None, standardID=False, date=None, uncensoredOnly=False) -> 
     if not result:
         return None
 
-    if "title" in result:
-        result["title"] = re.sub(r"\s{2,}", " ", result["title"].strip())
+    title = result.get("title")
+    if title:
+        result["title"] = re.sub(r"\s{2,}", " ", title.strip())
         result["titleSource"] = source
 
     if standardID:
@@ -245,9 +246,9 @@ def _query(av, func=None, standardID=False, date=None, uncensoredOnly=False) -> 
 
 
 def _javbus(av, uncensoredOnly=False) -> dict:
-    mask = re.compile(re.sub("[_-]", "[_-]?", av.keyword))
+    mask = re.compile(re.sub("[_-]", "[_-]?", av.keyword.lower()))
     for prefix in ("uncensored/",) if uncensoredOnly else ("uncensored/", "",):
-        response, tree = get_response_tree(f"https://www.javbus.com/{prefix}search/{av.keyword}")
+        response, tree = get_response_tree(f"https://www.javbus.com/{prefix}search/{av.keyword}", decoder="lxml")
         if tree is None:
             continue
         for a in tree.xpath('//div[@id="waterfall"]//a[@class="movie-box"]//span'):
@@ -262,10 +263,10 @@ def _javbus(av, uncensoredOnly=False) -> dict:
 
 
 def _javdb(av) -> dict:
-    response, tree = get_response_tree(f"https://javdb.com/search?q={av.keyword}")
+    response, tree = get_response_tree("https://javdb.com/search", params={"q": av.keyword}, decoder="lxml")
     if tree is None:
         return None
-    mask = re.compile(re.sub("[_-]", "[_-]?", av.keyword))
+    mask = re.compile(re.sub("[_-]", "[_-]?", av.keyword.lower()))
     for a in tree.xpath('//div[@id="videos"]//a[@class="box"]'):
         productId = a.xpath('div[@class="uid"]/text()')
         if productId:

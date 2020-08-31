@@ -9,7 +9,7 @@ if __name__ == "__main__":
     from avinfo.files import AV
     from avinfo import video_scraper, actress
 else:
-    raise RuntimeError("Test file should be running directly.")
+    raise RuntimeError("Test file should only be launch directly.")
 
 
 class DuckFile(AV):
@@ -353,8 +353,20 @@ class ScraperTest(unittest.TestCase):
 
 
 class ActressTest(unittest.TestCase):
+    def test_avrevolution(self):
+        wiki = actress.AVRevolution(0)
+        values = (
+            ("真央", ("知念真桜", None, {"井原のえる", "まお", "佐藤夏美", "羽田まなみ", "知念真央", "真央", "知念真桜"})),
+            ("池田美和子", ("篠田あゆみ", None, {"池田美和子", "菊池紀子", "篠田あゆみ"})),
+            ("蓮美", ("鈴木ありさ", None, {"鈴木ありさ", "藤槻ありさ", "大高頼子", "蓮美"})),
+        )
+        for searchName, answer in values:
+            result = wiki.search(searchName)
+            # print((searchName, result), ", ", sep="")
+            self.assertEqual(result, answer)
+
     def test_wikipedia(self):
-        wikipedia = actress.Wikipedia(0)
+        wiki = actress.Wikipedia(0)
         values = (
             ("鈴木さとみ", ("鈴木さとみ", "1988-09-09", {"鈴木さとみ", "浅田真美", "まお"})),
             ("佐々木愛美", None),
@@ -363,42 +375,56 @@ class ActressTest(unittest.TestCase):
             ("上原結衣", ("上原結衣", "1990-05-01", {"上原志織", "上原結衣"})),
         )
         for searchName, answer in values:
-            result = wikipedia.search(searchName)
+            result = wiki.search(searchName)
             # print((searchName, result), ", ", sep="")
             self.assertEqual(result, answer)
 
     def test_minnanoav(self):
-        minnanoav = actress.MinnanoAV(0)
+        wiki = actress.MinnanoAV(0)
         values = (
             ("片瀬瑞穂", ("成宮梓", "1993-04-12", {"成宮梓", "片瀬瑞穂", "前田ななみ"})),
-            ("佐々木愛美", ("佐々木愛美", "1992-07-14", {"クルミ", "佐々木愛美", "佐伯史華"})),
-            ("池田美和子", ("篠田あゆみ", "1985-11-16", {"菊池紀子", "池田美和子", "さつき", "インセクター篠田", "ちかこ", "篠田あゆみ"})),
-            ("上原結衣", ("上原志織", "1990-05-01", {"上原結衣", "上原志織", "しおり", "斉藤美穂"})),
+            ("佐伯史華", ("佐々木愛美", "1992-07-14", {"佐伯史華", "佐々木愛美", "クルミ"})),
+            ("蓮美", None),
+            ("佐伯史華", ("佐々木愛美", "1992-07-14", {"佐伯史華", "クルミ", "佐々木愛美"})),
+            ("上原志織", ("上原志織", "1990-05-01", {"上原結衣", "上原志織", "しおり", "斉藤美穂"})),
         )
         for searchName, answer in values:
-            result = minnanoav.search(searchName)
+            result = wiki.search(searchName)
             # print((searchName, result), ", ", sep="")
             self.assertEqual(result, answer)
 
     def test_seesaawiki(self):
-        seesaawiki = actress.Seesaawiki(0)
+        wiki = actress.Seesaawiki(0)
         values = (
             ("上原結衣", ("上原志織", "1989-10-10", {"上原志織", "上原結衣"})),
-            ("池田美和子", ("篠田あゆみ", "1985-11-16", {"菊池紀子", "池田美和子", "篠田あゆみ"})),
+            ("篠田あゆみ", ("篠田あゆみ", "1985-11-16", {"池田美和子", "菊池紀子", "篠田あゆみ"})),
+            ("池田美和子", None),
         )
         for searchName, answer in values:
-            result = seesaawiki.search(searchName)
+            result = wiki.search(searchName)
             # print((searchName, result), ", ", sep="")
             self.assertEqual(result, answer)
 
     def test_manko(self):
-        manko = actress.Manko(0)
+        wiki = actress.Manko(0)
         values = (
             ("南星愛", ("南星愛", "1996-01-31", {"山城ゆうひ", "南星愛"})),
             ("北条麻妃", ("北条麻妃", "1978-12-21", {"白石さゆり", "北条麻妃"})),
         )
         for searchName, answer in values:
-            result = manko.search(searchName)
+            result = wiki.search(searchName)
+            # print((searchName, result), ", ", sep="")
+            self.assertEqual(result, answer)
+
+    def test_etigoya(self):
+        wiki = actress.Etigoya(0)
+        values = (
+            ("市原さとみ", (None, None, {"西村江梨", "鶴田沙織", "由宇", "市原さとみ", "じゅんこ", "北野景子"})),
+            ("上原志織", (None, None, {"上原結衣", "上原志織"})),
+            ("佐々木愛美", (None, None, {"佐々木愛美", "佐伯史華", "クルミ"})),
+        )
+        for searchName, answer in values:
+            result = wiki.search(searchName)
             # print((searchName, result), ", ", sep="")
             self.assertEqual(result, answer)
 

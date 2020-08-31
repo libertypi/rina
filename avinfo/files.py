@@ -2,9 +2,9 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 
-from avinfo import common
-from avinfo.common import epoch_to_str, printProgressBar, printRed
-from avinfo.video_scraper import scrape
+from . import common
+from .common import epoch_to_str, printProgressBar, printRed
+from .video_scraper import scrape
 
 
 class AV:
