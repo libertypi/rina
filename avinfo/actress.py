@@ -9,12 +9,11 @@ from requests.utils import quote as urlquote
 from avinfo import common
 from avinfo.common import get_response_tree, list_dir, printObjLogs, printProgressBar, printRed, printYellow
 
-_re_split_name = re.compile(r"[\n、/／・,]+")
+_re_split_name = re.compile(r"\s*[\n、/／・,]+\s*")
 _re_clean_name1 = re.compile(r"[【（\[(].*?[】）\])]")
 _re_clean_name2 = re.compile(r"[\s 　]+")
 _re_clean_name3 = re.compile(r"[【（\[(].*|.*?[】）\])]")
 _re_birth = re.compile(r"(?P<y>(19|20)[0-9]{2})\s*年\s*(?P<m>1[0-2]|0?[1-9])\s*月\s*(?P<d>3[01]|[12][0-9]|0?[1-9])\s*日")
-_re_actress_run = re.compile(r"\([0-9]{4}(-[0-9]{1,2}){2}\)|\s+")
 
 
 class Wiki:
@@ -76,7 +75,9 @@ class MinnanoAV(Wiki):
 
     def _search(self, searchName):
         response, tree = get_response_tree(
-            f"{self.baseurl}/search_result.php", params={"search_scope": "actress", "search_word": searchName}
+            f"{self.baseurl}/search_result.php",
+            params={"search_scope": "actress", "search_word": searchName},
+            decoder="lxml",
         )
         if tree is None:
             return
@@ -130,7 +131,7 @@ class AVRevolution(Wiki):
     baseurl = "http://adultmovie-revolution.com/movies/jyoyuu_kensaku.php"
 
     def _search(self, searchName):
-        response, tree = get_response_tree(self.baseurl, params={"mode": 1, "search": searchName})
+        response, tree = get_response_tree(self.baseurl, params={"mode": 1, "search": searchName}, decoder="lxml")
         if tree is None:
             return
 
@@ -166,11 +167,11 @@ class Seesaawiki(Wiki):
     baseurl = "https://seesaawiki.jp/av_neme/d"
 
     def _search(self, searchName, url=None):
-        encodeName = urlquote(searchName, encoding="euc-jp")
         if not url:
+            encodeName = urlquote(searchName, encoding="euc-jp")
             url = f"{self.baseurl}/{encodeName}"
 
-        response, tree = get_response_tree(url)
+        response, tree = get_response_tree(url, decoder="euc-jp")
         if tree is None:
             return
 
@@ -206,7 +207,7 @@ class Manko(Wiki):
     baseurl = "http://mankowomiseruavzyoyu.blog.fc2.com"
 
     def _search(self, searchName):
-        response, tree = get_response_tree(self.baseurl, decoder="lxml", params={"q": searchName})
+        response, tree = get_response_tree(self.baseurl, params={"q": searchName}, decoder="lxml")
         if tree is None:
             return
 
@@ -262,7 +263,7 @@ class Actress:
     wikiList = tuple(
         wiki(i) for i, wiki in enumerate((Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Manko, Etigoya))
     )
-    wikiDone = int("1" * len(wikiList), base=2)
+    wikiDone = 2 ** len(wikiList) - 1
 
     maxWeight = lambda self, x: max(x.items(), key=lambda y: (len(y[1]), -y[1][0]))[0]
     getWikiName = lambda self, x: self.wikiList[x].__class__.__name__
@@ -280,7 +281,7 @@ class Actress:
         self.status = 0
 
     def run(self):
-        name = _re_actress_run.sub("", self.basename)
+        name = re.sub(r"\([0-9]{4}(-[0-9]{1,2}){2}\)|\s+", "", self.basename)
         if contains_cjk(name):
             try:
                 self._bfs_search(name)

@@ -227,23 +227,18 @@ def _query(av, func=None, standardID=False, date=None, uncensoredOnly=False) -> 
         if not result:
             result = _javdb(av)
 
-    if result:
-        source = result.pop("source", None)
-        result = {k: v for k, v in result.items() if v}
-
     if not result:
         return None
 
+    source = result.pop("source", None)
     title = result.get("title")
     if title:
         result["title"] = re.sub(r"\s{2,}", " ", title.strip())
         result["titleSource"] = source
 
     if standardID:
-        reply = _get_standard_product_id(av)
-        if reply:
-            result["productId"] = reply
-    elif "productId" in result:
+        result["productId"] = _get_standard_product_id(av)
+    elif result.get("productId"):
         suffix = _get_video_suffix(av)
         if suffix:
             result["productId"] = f"{result['productId']}-{suffix}"
@@ -251,8 +246,12 @@ def _query(av, func=None, standardID=False, date=None, uncensoredOnly=False) -> 
     if date:
         result["publishDate"] = date
         result["dateSource"] = "Product ID"
-    elif "publishDate" in result:
+    elif result.get("publishDate"):
         result["dateSource"] = source
+
+    if not all(result.values()):
+        result = {k: v for k, v in result.items() if v}
+        return result if result else None
 
     return result
 
@@ -264,7 +263,7 @@ def _javbus(av, uncensoredOnly=False) -> dict:
         if tree is None:
             continue
         for span in tree.xpath('//div[@id="waterfall"]//a[@class="movie-box"]//span'):
-            productId, date = (i.strip() for i in span.xpath("date[position()<3]/text()"))
+            productId, date = span.xpath("date[position()<3]/text()")
             if mask.fullmatch(productId):
                 return {
                     "productId": productId,
@@ -326,7 +325,7 @@ def _carib(av) -> dict:
 
 
 def _heyzo(av) -> dict:
-    response, tree = get_response_tree(f"https://www.heyzo.com/moviepages/{av.keyword}/")
+    response, tree = get_response_tree(f"https://www.heyzo.com/moviepages/{av.keyword}/", decoder="lxml")
     av.set_keyword(f"HEYZO-{av.keyword}")
     if tree is None:
         return
@@ -403,7 +402,7 @@ def _sm_miracle(av) -> dict:
     response = session.get(f"http://sm-miracle.com/movie/{av.keyword}.dat")
     if not response.ok:
         return
-    response.encoding = response.apparent_encoding
+    response.encoding = "utf-8"
     title = re.search(r'(?<=[\n,])\s*title:\W*(?P<title>[^\n\'"]+)', response.text)
     if title:
         return {
@@ -437,7 +436,7 @@ def _fc2(av) -> dict:
         tree = tree.xpath('//*[@id="pjx-search"]//ul/li[1]//a[@title]')
         if tree:
             tree = tree[0]
-            date = re.search(r"(?<=/)20[0-9]{6}(?![0-9])", tree.get("href"))
+            date = re.search(r"(?<=/)20[0-9]{6}", tree.get("href"))
             return {
                 "productId": av.keyword,
                 "title": tree.text,

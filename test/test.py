@@ -100,6 +100,23 @@ class ScraperTest(unittest.TestCase):
             # print((basename, keyword, result), ",")
             self.assertEqual(result, answer)
 
+    def test_fc2(self):
+        values = (
+            (
+                "340671",
+                {
+                    "productId": "FC2-340671",
+                    "title": "【激シコ美人】かわいくてエロくてマン汁たっぷりのゆうこ18歳にたっぷり中出し",
+                    "publishDate": 1542585600,
+                    "source": "fc2.com",
+                },
+            ),
+        )
+        for keyword, answer in values:
+            result = videoscraper._fc2(DuckFile(keyword=keyword))
+            # print((keyword, result), ",")
+            self.assertEqual(result, answer)
+
     def test_scrape(self):
         values = (
             (
@@ -404,6 +421,14 @@ class ActressTest(unittest.TestCase):
     def test_seesaawiki(self):
         wiki = actress.Seesaawiki(0)
         values = (
+            (
+                "田中志乃",
+                (
+                    "桃井杏南",
+                    "1988-03-31",
+                    {"さとうみつ", "田中志乃", "七草アンナ", "茉莉もも", "桃井アンナ", "辰巳ゆみ", "桃井杏南", "七草まつり", "藤野あや", "水野ふうか"},
+                ),
+            ),
             ("上原結衣", ("上原志織", "1989-10-10", {"上原志織", "上原結衣"})),
             ("篠田あゆみ", ("篠田あゆみ", "1985-11-16", {"池田美和子", "菊池紀子", "篠田あゆみ"})),
             ("池田美和子", None),

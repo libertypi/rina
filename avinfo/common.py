@@ -48,23 +48,20 @@ def walk_dir(topDir: str, filesOnly=False, nameFilter=re.compile(r"[#@.]")) -> t
     """Recursively yield tuples of dir entries in a bottom-top order:
         (fullpath: str, stat: os.stat_result, isdir: bool)
     """
-    files = []
     with os.scandir(topDir) as it:
         for entry in it:
             if nameFilter.match(entry.name):
                 continue
             try:
-                if entry.is_dir():
+                isdir = entry.is_dir()
+                if isdir:
                     for i in walk_dir(entry.path, filesOnly, nameFilter):
                         yield i
-                    if not filesOnly:
-                        yield entry.path, entry.stat(), True
-                else:
-                    files.append(entry)
+                    if filesOnly:
+                        continue
+                yield entry.path, entry.stat(), isdir
             except OSError as e:
                 printRed(f"Error occurred scanning {entry.path}: {e}")
-    for entry in files:
-        yield entry.path, entry.stat(), False
 
 
 def list_dir(topDir: str, nameFilter=re.compile(r"[.#@]")) -> tuple:
