@@ -1,6 +1,5 @@
 api.txt
 *.log
-data
 .vscode/
 
 # Byte-compiled / optimized / DLL files
