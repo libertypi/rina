@@ -46,7 +46,7 @@ def printObjLogs(lst, printer=print):
 
 def walk_dir(topDir: str, filesOnly=False, nameFilter=re.compile(r"[#@.]")) -> tuple:
     """Recursively yield tuples of dir entries in a bottom-top order:
-        (fullpath: str, stat: os.stat_result, isdir: bool)
+    (fullpath: str, stat: os.stat_result, isdir: bool)
     """
     with os.scandir(topDir) as it:
         for entry in it:

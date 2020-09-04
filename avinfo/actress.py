@@ -341,7 +341,10 @@ class Actress:
             logs.extend(
                 (
                     ("Name", f'{self.name} ({", ".join(self.getWikiName(i) for i in self.nameDict[self.name])})'),
-                    ("Birth", f'{self.birth} ({", ".join(self.getWikiName(i) for i in self.birthDict[self.birth])})',),
+                    (
+                        "Birth",
+                        f'{self.birth} ({", ".join(self.getWikiName(i) for i in self.birthDict[self.birth])})',
+                    ),
                 )
             )
 

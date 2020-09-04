@@ -9,7 +9,10 @@ from avinfo.common import epoch_to_str, get_response_tree, session, str_to_epoch
 studios = tuple(
     (re.compile(i), j)
     for i, j in (
-        (r"\b1pon(do)?\b", "1pon",),
+        (
+            r"\b1pon(do)?\b",
+            "1pon",
+        ),
         (r"\b10mu(sume)?\b", "10mu"),
         (r"\bcarib(bean|com)*\b", "carib"),
         (r"\bcarib(bean|com)*pr\b", "caribpr"),
@@ -21,7 +24,10 @@ studios = tuple(
 re_clean = tuple(
     (re.compile(i), j)
     for i, j in (
-        (r"^(\[f?hd\]|[a-z0-9-]+\.[a-z]{2,}@)", "",),
+        (
+            r"^(\[f?hd\]|[a-z0-9-]+\.[a-z]{2,}@)",
+            "",
+        ),
         (
             r"\[[a-z0-9.-]+\.[a-z]{2,}\]|(^|[^a-z0-9])(168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|fhd|tokyo[\s_-]?hot|1000[\s_-]?girl)([^a-z0-9]|$)",
             " ",
@@ -40,11 +46,11 @@ _re_get_standard_product_id4 = re.compile(r"(2160|1080|720|480)p|(high|mid|low|w
 
 def scrape(av) -> dict:
     """The scrape method should return a dict containing:
-        "productId": productId,
-        "title": title,
-        "publishDate": publishDate,
-        "titleSource": titleSource,
-        "dateSource": dateSource,
+    "productId": productId,
+    "title": title,
+    "publishDate": publishDate,
+    "titleSource": titleSource,
+    "dateSource": dateSource,
     """
 
     # Cleanup
@@ -104,7 +110,10 @@ def scrape(av) -> dict:
         return _query(av, func=_fc2)
 
     # 1pondo
-    if reSearch(r"(^|[^a-z0-9])(1pon(do)?|10mu(sume)?|mura(mura)?|paco(pacomama)?)([^a-z0-9]|$)", basename,):
+    if reSearch(
+        r"(^|[^a-z0-9])(1pon(do)?|10mu(sume)?|mura(mura)?|paco(pacomama)?)([^a-z0-9]|$)",
+        basename,
+    ):
         m = reSearch(r"(^|[^a-z0-9])([0-9]{6})[_-]([0-9]{2,4})([^a-z0-9]|$)", basename)
         if m:
             date = str_to_epoch(m.group(2), "%m%d%y", regex=None)
@@ -258,7 +267,14 @@ def _query(av, func=None, standardID=False, date=None, uncensoredOnly=False) -> 
 
 def _javbus(av, uncensoredOnly=False) -> dict:
     mask = _get_keyword_mask(av.keyword)
-    for prefix in ("uncensored/",) if uncensoredOnly else ("uncensored/", "",):
+    for prefix in (
+        ("uncensored/",)
+        if uncensoredOnly
+        else (
+            "uncensored/",
+            "",
+        )
+    ):
         response, tree = get_response_tree(f"https://www.javbus.com/{prefix}search/{av.keyword}", decoder="lxml")
         if tree is None:
             continue
