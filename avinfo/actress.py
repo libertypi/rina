@@ -400,7 +400,7 @@ class ActressFolder(Actress):
             newPath = os.path.join(os.path.dirname(self.fullpath), self.newfilename)
             os.rename(self.fullpath, newPath)
         except OSError as e:
-            self.exception = f'Renaming "{self.fullpath}" to "{newPath}" failed: {e}'
+            self.exception = f'Renaming "{self.fullpath}" to "{self.newfilename}" failed: {e}'
             return False
         return True
 
