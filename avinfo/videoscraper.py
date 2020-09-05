@@ -294,7 +294,7 @@ _javdb_urlpool = ["https://javdb.com/search"]
 
 def _javdb(av) -> dict:
     baseurl = random_choice(_javdb_urlpool)
-    response, tree = get_response_tree(baseurl, params={"q": av.keyword}, decoder="lxml")
+    response, tree = get_response_tree(baseurl, params={"q": av.keyword})
     if tree is None:
         return
 

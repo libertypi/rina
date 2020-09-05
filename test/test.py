@@ -21,8 +21,14 @@ class DuckFile(AV):
 class ScraperTest(unittest.TestCase):
     def test_get_standard_product_id(self):
         values = (
-            ("[carib]022716_253 (high) 3 haha 5 放課後のリフレクソロジー 5", "022716_253-carib-high-3",),
-            ("[HD](carib)022716-253 1080p haha 5 ", "022716_253-carib-1080p",),
+            (
+                "[carib]022716_253 (high) 3 haha 5 放課後のリフレクソロジー 5",
+                "022716_253-carib-high-3",
+            ),
+            (
+                "[HD](carib)022716-253 1080p haha 5 ",
+                "022716_253-carib-1080p",
+            ),
         )
         for basename, answer in values:
             result = videoscraper._get_standard_product_id(DuckFile(basename=basename))
@@ -366,10 +372,25 @@ class ScraperTest(unittest.TestCase):
             ("deeper.20.03.14.rae.lil.black", {"publishDate": 1584144000, "dateSource": "File name"}),
             (
                 "welivetogether.15.08.20.abigail.mac.and.daisy.summers",
-                {"publishDate": 1440028800, "dateSource": "File name",},
+                {
+                    "publishDate": 1440028800,
+                    "dateSource": "File name",
+                },
             ),
-            ("welivetogether 23-jun 2014 test", {"publishDate": 1403481600, "dateSource": "File name",},),
-            ("welivetogether dec 23.2014 test", {"publishDate": 1419292800, "dateSource": "File name",},),
+            (
+                "welivetogether 23-jun 2014 test",
+                {
+                    "publishDate": 1403481600,
+                    "dateSource": "File name",
+                },
+            ),
+            (
+                "welivetogether dec 23.2014 test",
+                {
+                    "publishDate": 1419292800,
+                    "dateSource": "File name",
+                },
+            ),
         )
         for basename, answer in values:
             result = videoscraper.scrape(DuckFile(basename=basename))

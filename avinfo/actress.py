@@ -25,8 +25,9 @@ class Wiki:
         self.weight = weight
         self.mask = 2 ** weight
 
-    def search(self, searchName):
-        reply = self._search(searchName)
+    @classmethod
+    def search(cls, searchName):
+        reply = cls._search(searchName)
         if not reply:
             return None
         name, birth, alias = reply
@@ -45,9 +46,14 @@ class Wiki:
 
         return name, birth, alias
 
+    @classmethod
+    def _search(cls, searchName):
+        raise NotImplementedError
+
 
 class Wikipedia(Wiki):
-    def _search(self, searchName):
+    @classmethod
+    def _search(cls, searchName):
         response, tree = get_response_tree(f"https://ja.wikipedia.org/wiki/{searchName}", decoder="lxml")
         if tree is None:
             return
@@ -70,20 +76,20 @@ class Wikipedia(Wiki):
 
 
 class MinnanoAV(Wiki):
-
     baseurl = "http://www.minnano-av.com"
 
-    def _search(self, searchName):
+    @classmethod
+    def _search(cls, searchName):
         response, tree = get_response_tree(
-            f"{self.baseurl}/search_result.php",
+            f"{cls.baseurl}/search_result.php",
             params={"search_scope": "actress", "search_word": searchName},
             decoder="lxml",
         )
         if tree is None:
             return
 
-        if "/search_result.php?" in response.url or response.url == self.baseurl:
-            tree = self._scan_search_page(searchName, tree)
+        if "/search_result.php?" in response.url or response.url == cls.baseurl:
+            tree = cls._scan_search_page(searchName, tree)
 
         try:
             tree = tree.find('.//*[@id="main-area"]')
@@ -103,7 +109,8 @@ class MinnanoAV(Wiki):
 
         return name, birth, alias
 
-    def _scan_search_page(self, searchName, tree):
+    @classmethod
+    def _scan_search_page(cls, searchName, tree):
         """Return if there's only one match."""
 
         tree = tree.xpath('//*[@id="main-area"]//table[contains(@class,"actress")]/tr/td[h2/a[@href]]')
@@ -124,14 +131,15 @@ class MinnanoAV(Wiki):
                     return
 
         if result:
-            return get_response_tree(f"{self.baseurl}/{result}")[1]
+            return get_response_tree(f"{cls.baseurl}/{result}")[1]
 
 
 class AVRevolution(Wiki):
     baseurl = "http://adultmovie-revolution.com/movies/jyoyuu_kensaku.php"
 
-    def _search(self, searchName):
-        response, tree = get_response_tree(self.baseurl, params={"mode": 1, "search": searchName}, decoder="lxml")
+    @classmethod
+    def _search(cls, searchName):
+        response, tree = get_response_tree(cls.baseurl, params={"mode": 1, "search": searchName}, decoder="lxml")
         if tree is None:
             return
 
@@ -163,13 +171,13 @@ class AVRevolution(Wiki):
 
 
 class Seesaawiki(Wiki):
-
     baseurl = "https://seesaawiki.jp/av_neme/d"
 
-    def _search(self, searchName, url=None):
+    @classmethod
+    def _search(cls, searchName, url=None):
         if not url:
             encodeName = urlquote(searchName, encoding="euc-jp")
-            url = f"{self.baseurl}/{encodeName}"
+            url = f"{cls.baseurl}/{encodeName}"
 
         response, tree = get_response_tree(url, decoder="euc-jp")
         if tree is None:
@@ -178,7 +186,7 @@ class Seesaawiki(Wiki):
         if re.search(r"(\W*(女優名|名前)\W*)+変更", tree.findtext('.//*[@id="content_1"]')):
             a = tree.find('.//*[@id="content_block_1-body"]/span/a[@href]')
             if a is not None and "移動" in a.getparent().text_content():
-                return self._search(a.text, a.get("href"))
+                return cls._search(a.text, a.get("href"))
             return
 
         name = tree.findtext('.//*[@id="page-header-inner"]/div[@class="title"]//h2')
@@ -206,8 +214,9 @@ class Seesaawiki(Wiki):
 class Manko(Wiki):
     baseurl = "http://mankowomiseruavzyoyu.blog.fc2.com"
 
-    def _search(self, searchName):
-        response, tree = get_response_tree(self.baseurl, params={"q": searchName}, decoder="lxml")
+    @classmethod
+    def _search(cls, searchName):
+        response, tree = get_response_tree(cls.baseurl, params={"q": searchName}, decoder="lxml")
         if tree is None:
             return
 
@@ -241,8 +250,9 @@ class Manko(Wiki):
 class Etigoya(Wiki):
     baseurl = "http://etigoya955.blog49.fc2.com"
 
-    def _search(self, searchName):
-        response, tree = get_response_tree(self.baseurl, params={"q": searchName})
+    @classmethod
+    def _search(cls, searchName):
+        response, tree = get_response_tree(cls.baseurl, params={"q": searchName})
         if tree is None:
             return
         nameMask = _get_re_nameMask(searchName)
