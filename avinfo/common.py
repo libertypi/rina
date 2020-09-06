@@ -65,6 +65,7 @@ def walk_dir(topDir: str, filesOnly=False, nameFilter=re.compile(r"[#@.]")) -> t
 
 
 def list_dir(topDir: str, nameFilter=re.compile(r"[.#@]")) -> tuple:
+    """List only dirs under top."""
     with os.scandir(topDir) as it:
         for entry in it:
             try:

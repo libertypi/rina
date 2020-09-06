@@ -9,7 +9,6 @@ from requests.utils import quote as urlquote
 from avinfo import common
 from avinfo.common import get_response_tree, list_dir, printObjLogs, printProgressBar, printRed, printYellow
 
-_re_split_name = re.compile(r"\s*[\n、/／・,]+\s*")
 _re_clean_name1 = re.compile(r"[【（\[(].*?[】）\])]")
 _re_clean_name2 = re.compile(r"[\s 　]+")
 _re_clean_name3 = re.compile(r"[【（\[(].*|.*?[】）\])]")
@@ -418,23 +417,23 @@ class ActressFolder(Actress):
         return True
 
 
-cjk_table = (
-    (4352, 4607),
-    (11904, 42191),
-    (43072, 43135),
-    (44032, 55215),
-    (63744, 64255),
-    (65072, 65103),
-    (65381, 65500),
-    (131072, 196607),
-)
-
-
-def contains_cjk(string: str) -> bool:
+def contains_cjk(
+    string: str,
+    cjk_table=(
+        (4352, 4607),
+        (11904, 42191),
+        (43072, 43135),
+        (44032, 55215),
+        (63744, 64255),
+        (65072, 65103),
+        (65381, 65500),
+        (131072, 196607),
+    ),
+) -> bool:
     return any(i <= c <= j for c in (ord(s) for s in string) for i, j in cjk_table)
 
 
-def _split_name(string: str):
+def _split_name(string: str, _re_split_name=re.compile(r"\s*[\n、/／・,]+\s*")):
     return _re_split_name.split(string)
 
 
