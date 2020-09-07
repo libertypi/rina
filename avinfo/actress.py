@@ -4,7 +4,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 
-from requests.utils import quote as urlquote
+from urllib.parse import quote as urlquote
 
 from avinfo import common
 from avinfo.common import get_response_tree, list_dir, printObjLogs, printProgressBar, printRed, printYellow
