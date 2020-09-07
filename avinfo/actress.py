@@ -201,6 +201,8 @@ class Seesaawiki(Wiki):
             box = ((i.find("th").text_content(), i.find("td").text_content()) for i in box.xpath(".//tr[th][td]"))
         elif tag:
             box = (i.split("：", 1) for i in box.findtext(".").splitlines() if "：" in i)
+        else:
+            return name, None, None
 
         birth = None
         alias = []
