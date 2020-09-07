@@ -175,7 +175,10 @@ class Seesaawiki(Wiki):
     @classmethod
     def _search(cls, searchName, url=None):
         if not url:
-            encodeName = urlquote(searchName, encoding="euc-jp")
+            try:
+                encodeName = urlquote(searchName, encoding="euc-jp")
+            except UnicodeEncodeError:
+                return
             url = f"{cls.baseurl}/{encodeName}"
 
         response, tree = get_response_tree(url, decoder="euc-jp")
@@ -257,7 +260,7 @@ class Etigoya(Wiki):
         nameMask = _get_re_nameMask(searchName)
         found = None
         for a in tree.xpath('.//*[@id="main"]/div[@class="content"]/ul/li/a[contains(text(), "＝")]'):
-            alias = a.text.split("＝")
+            alias = _split_name(a.text)
             if any(nameMask.fullmatch(_clean_name(i)) for i in alias):
                 if found:
                     return
@@ -433,7 +436,7 @@ def contains_cjk(
     return any(i <= c <= j for c in (ord(s) for s in string) for i, j in cjk_table)
 
 
-def _split_name(string: str, _re_split_name=re.compile(r"\s*[\n、/／・,]+\s*")):
+def _split_name(string: str, _re_split_name=re.compile(r"\s*[\n、/／・,＝]+\s*")):
     return _re_split_name.split(string)
 
 
