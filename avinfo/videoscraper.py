@@ -4,7 +4,7 @@ from random import choice as random_choice
 
 from requests.compat import urljoin
 
-from avinfo.common import epoch_to_str, get_response_tree, session, str_to_epoch
+from avinfo.common import get_response_tree, session, str_to_epoch
 
 studios = tuple(
     (re.compile(i), j)

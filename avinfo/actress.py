@@ -22,7 +22,7 @@ class Wiki:
 
     def __init__(self, weight: int):
         self.weight = weight
-        self.mask = 2 ** weight
+        self.mask = 1 << weight
 
     @classmethod
     def search(cls, searchName):
