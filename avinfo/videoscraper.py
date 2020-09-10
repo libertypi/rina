@@ -1,8 +1,7 @@
 import re
 from functools import lru_cache
 from random import choice as random_choice
-
-from requests.compat import urljoin
+from urllib.parse import urljoin
 
 from avinfo.common import get_response_tree, session, str_to_epoch
 
