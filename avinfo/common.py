@@ -84,7 +84,7 @@ def get_response_tree(*args, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwar
     """
     for retry in range(3):
         try:
-            response = session.get(*args, **kwargs)
+            response = session.get(*args, **kwargs, timeout=(7, 28))
             break
         except requests.ConnectionError as e:
             if retry == 2:
