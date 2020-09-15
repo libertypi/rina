@@ -355,10 +355,7 @@ class Actress:
             logs.extend(
                 (
                     ("Name", f'{self.name} ({", ".join(self.getWikiName(i) for i in self.nameDict[self.name])})'),
-                    (
-                        "Birth",
-                        f'{self.birth} ({", ".join(self.getWikiName(i) for i in self.birthDict[self.birth])})',
-                    ),
+                    ("Birth", f'{self.birth} ({", ".join(self.getWikiName(i) for i in self.birthDict[self.birth])})'),
                 )
             )
 
@@ -438,7 +435,7 @@ def contains_cjk(
     return any(i <= c <= j for c in (ord(s) for s in string) for i, j in cjk_table)
 
 
-def _split_name(string: str, _re_split_name=re.compile(r"\s*[\n、/／・,＝]+\s*")):
+def _split_name(string: str, _re_split_name: re.Pattern = re.compile(r"\s*[\n、/／・,＝]+\s*")):
     return _re_split_name.split(string)
 
 
