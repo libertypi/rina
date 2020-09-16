@@ -174,9 +174,7 @@ def scrape(av) -> dict:
         return _query(av)
 
     # MX-64
-    m = reSearch(
-        r"(^|[][)(])([a-z]{1,5}(3d|3d2|2d|2m)*[a-z]{,5}|xxx[_-]?av)[\s_-]?([0-9]{2,6})([^a-z0-9]|$)", basename
-    )
+    m = reSearch(r"(^|[][)(])([a-z]{1,5}(3d|3d2|2d|2m)*[a-z]{,5}|xxx[_-]?av)[\s_-]?([0-9]{2,6})([^a-z0-9]|$)", basename)
     if m:
         av.set_keyword("-".join(m.group(2, 4)))
         return _query(av)

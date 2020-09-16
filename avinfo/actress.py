@@ -228,9 +228,7 @@ class Manko(Wiki):
         nameMask = _get_re_nameMask(searchName)
         for tbody in tree.xpath('//*[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'):
             try:
-                name = tbody.xpath(
-                    '(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())[1]'
-                )
+                name = tbody.xpath('(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())[1]')
                 name = _clean_name(name[0])
                 if not name:
                     continue
@@ -274,9 +272,7 @@ class Etigoya(Wiki):
 
 class Actress:
 
-    wikiList = tuple(
-        wiki(i) for i, wiki in enumerate((Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Manko, Etigoya))
-    )
+    wikiList = tuple(wiki(i) for i, wiki in enumerate((Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Manko, Etigoya)))
     wikiDone = 2 ** len(wikiList) - 1
 
     maxWeight = lambda self, x: max(x.items(), key=lambda y: (len(y[1]), -y[1][0]))[0]
