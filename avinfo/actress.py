@@ -3,7 +3,6 @@ import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
-
 from urllib.parse import quote as urlquote
 
 from avinfo import common
@@ -16,9 +15,7 @@ _re_birth = re.compile(r"(?P<y>(19|20)[0-9]{2})\s*年\s*(?P<m>1[0-2]|0?[1-9])\s*
 
 
 class Wiki:
-    """Wiki.search method should return a tuple of:
-    (name, birth, (alias...))
-    """
+    """Wiki.search method should return a tuple of: (name, birth, (alias...))"""
 
     def __init__(self, weight: int):
         self.weight = weight

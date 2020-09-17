@@ -45,8 +45,9 @@ def printObjLogs(lst, printer=print):
 
 
 def walk_dir(topDir: str, filesOnly=False, nameFilter=re.compile(r"[#@.]")) -> tuple:
-    """Recursively yield tuples of dir entries in a bottom-top order:
-    (fullpath: str, stat: os.stat_result, isdir: bool)
+    """Recursively yield tuples of dir entries in a bottom-top order.
+
+    output: (fullpath: str, stat: os.stat_result, isdir: bool)
     """
     with os.scandir(topDir) as it:
         for entry in it:
@@ -76,10 +77,11 @@ def list_dir(topDir: str, nameFilter=re.compile(r"[.#@]")) -> tuple:
         yield os.path.basename(topDir), topDir
 
 
-def get_response_tree(url, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwargs) -> tuple:
+def get_response_tree(url, /, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwargs) -> tuple:
     """Input args to requests, output (response, tree)
-    :decoder: bs4, lxml, or any encoding code.
-    :bs4_hint: code for bs4 to try
+
+    :params: decoder: bs4, lxml, or any encoding code.
+    :params: bs4_hint: code for bs4 to try
     """
     for retry in range(3):
         try:
