@@ -8,10 +8,7 @@ from avinfo.common import get_response_tree, session, str_to_epoch
 studios = tuple(
     (re.compile(i), j)
     for i, j in (
-        (
-            r"\b1pon(do)?\b",
-            "1pon",
-        ),
+        (r"\b1pon(do)?\b", "1pon"),
         (r"\b10mu(sume)?\b", "10mu"),
         (r"\bcarib(bean|com)*\b", "carib"),
         (r"\bcarib(bean|com)*pr\b", "caribpr"),
@@ -23,10 +20,7 @@ studios = tuple(
 re_clean = tuple(
     (re.compile(i), j)
     for i, j in (
-        (
-            r"^(\[f?hd\]|[a-z0-9-]+\.[a-z]{2,}@)",
-            "",
-        ),
+        (r"^(\[f?hd\]|[a-z0-9-]+\.[a-z]{2,}@)", ""),
         (
             r"\[[a-z0-9.-]+\.[a-z]{2,}\]|(^|[^a-z0-9])(168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|fhd|tokyo[\s_-]?hot|1000[\s_-]?girl)([^a-z0-9]|$)",
             " ",

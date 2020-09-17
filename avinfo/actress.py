@@ -8,9 +8,7 @@ from urllib.parse import quote as urlquote
 from avinfo import common
 from avinfo.common import get_response_tree, list_dir, printObjLogs, printProgressBar, printRed, printYellow
 
-_re_clean_name1 = re.compile(r"[【（\[(].*?[】）\])]")
-_re_clean_name2 = re.compile(r"[\s 　]+")
-_re_clean_name3 = re.compile(r"[【（\[(].*|.*?[】）\])]")
+
 _re_birth = re.compile(r"(?P<y>(19|20)[0-9]{2})\s*年\s*(?P<m>1[0-2]|0?[1-9])\s*月\s*(?P<d>3[01]|[12][0-9]|0?[1-9])\s*日")
 
 
@@ -412,20 +410,21 @@ class ActressFolder(Actress):
         return True
 
 
-def contains_cjk(
-    string: str,
-    cjk_table=(
-        (4352, 4607),
-        (11904, 42191),
-        (43072, 43135),
-        (44032, 55215),
-        (63744, 64255),
-        (65072, 65103),
-        (65381, 65500),
-        (131072, 196607),
-    ),
-) -> bool:
-    return any(i <= c <= j for c in (ord(s) for s in string) for i, j in cjk_table)
+def contains_cjk(string: str) -> bool:
+    return any(
+        i <= c <= j
+        for c in (ord(s) for s in string)
+        for i, j in (
+            (4352, 4607),
+            (11904, 42191),
+            (43072, 43135),
+            (44032, 55215),
+            (63744, 64255),
+            (65072, 65103),
+            (65381, 65500),
+            (131072, 196607),
+        )
+    )
 
 
 def _split_name(string: str, _re_split_name: re.Pattern = re.compile(r"\s*[\n、/／・,＝]+\s*")):
@@ -439,8 +438,8 @@ def _get_re_nameMask(searchName: str) -> re.Pattern:
 
 @lru_cache(1024)
 def _clean_name(string: str) -> str:
-    for string in _re_clean_name1.split(_re_clean_name2.sub("", string)):
-        string = _re_clean_name3.sub("", string)
+    for string in re.split(r"[【（\[(].*?[】）\])]", re.sub(r"[\s 　]+", "", string)):
+        string = re.sub(r"[【（\[(].*|.*?[】）\])]", "", string)
         if string:
             return string
     return ""
