@@ -55,8 +55,7 @@ def walk_dir(topDir: str, filesOnly=False, nameFilter=re.compile(r"[#@.]")) -> t
             try:
                 isdir = entry.is_dir()
                 if isdir:
-                    for i in walk_dir(entry.path, filesOnly, nameFilter):
-                        yield i
+                    yield from walk_dir(entry.path, filesOnly, nameFilter)
                     if filesOnly:
                         continue
                 yield entry.path, entry.stat(), isdir
@@ -77,14 +76,14 @@ def list_dir(topDir: str, nameFilter=re.compile(r"[.#@]")) -> tuple:
         yield os.path.basename(topDir), topDir
 
 
-def get_response_tree(*args, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwargs) -> tuple:
+def get_response_tree(url, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwargs) -> tuple:
     """Input args to requests, output (response, tree)
     :decoder: bs4, lxml, or any encoding code.
     :bs4_hint: code for bs4 to try
     """
     for retry in range(3):
         try:
-            response = session.get(*args, **kwargs, timeout=(7, 28))
+            response = session.get(url, **kwargs, timeout=(7, 28))
             break
         except requests.ConnectionError as e:
             if retry == 2:
@@ -94,8 +93,6 @@ def get_response_tree(*args, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwar
     if response.ok:
         if decoder == "bs4":
             content = UnicodeDammit(response.content, override_encodings=bs4_hint, is_html=True).unicode_markup
-            if not content:
-                raise UnicodeDecodeError(f"Failed to detect encoding, url: {','.join(*args)}, decoder: {decoder}.")
         elif decoder == "lxml":
             content = response.content
         else:
