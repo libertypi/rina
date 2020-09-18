@@ -6,7 +6,6 @@ from avinfo import common
 from avinfo.common import epoch_to_str, printProgressBar, printRed
 from avinfo.videoscraper import scrape
 
-_re_trimName = re.compile(r"(.*[^\s。,([])[\s。,([]")
 _re_cleanName = tuple(
     (re.compile(i), j)
     for i, j in ((r'[\s<>:"/\\|?* 　]', " "), (r"[\s._]{2,}", " "), (r"^[\s._-]+|[\s【\[（(.,_-]+$", ""))
@@ -156,7 +155,7 @@ class AVFile(AV):
             filename = p.sub(r, filename)
 
         while len(filename.encode("utf-8")) >= namemax:
-            newname = _re_trimName.match(filename).group(1)
+            newname = re.match(r"(.*[^\s。,([])[\s。,([]", filename).group(1)
             if newname == self.productId:
                 while True:
                     filename = filename[:-1].rstrip(",.-【（([")

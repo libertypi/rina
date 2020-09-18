@@ -5,37 +5,6 @@ from urllib.parse import urljoin
 
 from avinfo.common import get_response_tree, session, str_to_epoch
 
-studios = tuple(
-    (re.compile(i), j)
-    for i, j in (
-        (r"\b1pon(do)?\b", "1pon"),
-        (r"\b10mu(sume)?\b", "10mu"),
-        (r"\bcarib(bean|com)*\b", "carib"),
-        (r"\bcarib(bean|com)*pr\b", "caribpr"),
-        (r"\bmura(mura)?\b", "mura"),
-        (r"\bpaco(pacomama)?\b", "paco"),
-        (r"\bmesubuta\b", "mesubuta"),
-    )
-)
-re_clean = tuple(
-    (re.compile(i), j)
-    for i, j in (
-        (r"^(\[f?hd\]|[a-z0-9-]+\.[a-z]{2,}@)", ""),
-        (
-            r"\[[a-z0-9.-]+\.[a-z]{2,}\]|(^|[^a-z0-9])(168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|fhd|tokyo[\s_-]?hot|1000[\s_-]?girl)([^a-z0-9]|$)",
-            " ",
-        ),
-    )
-)
-_re_get_video_suffix1 = re.compile(r"[\s_.-]+")
-_re_get_video_suffix2 = re.compile(
-    r"[\s\[\(]{1,2}([a-d]|(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|cd|psp)?\s?[0-9]{1,2})([\s\]\)]|$)"
-)
-_re_get_standard_product_id1 = re.compile(r"[\s\]\[)(}{._-]+")
-_re_get_standard_product_id2 = re.compile(r"\b[0-9]{6} [0-9]{2,5} [0-9]{1,3}\b")
-_re_get_standard_product_id3 = re.compile(r"\b[0-9]{6} [0-9]{2,6}\b")
-_re_get_standard_product_id4 = re.compile(r"(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|psp)[0-9]*|[0-9]")
-
 
 def scrape(av) -> dict:
     """The scrape method should return a dict containing:
@@ -47,9 +16,12 @@ def scrape(av) -> dict:
     """
 
     # Cleanup
-    basename = av.basename
-    for p, r in re_clean:
-        basename = p.sub(r, basename)
+    basename = re.sub(r"^(\[f?hd\]|[a-z0-9-]+\.[a-z]{2,}@)", "", av.basename)
+    basename = re.sub(
+        r"\[[a-z0-9.-]+\.[a-z]{2,}\]|(^|[^a-z0-9])(168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|fhd|tokyo[\s_-]?hot|1000[\s_-]?girl)([^a-z0-9]|$)",
+        " ",
+        basename,
+    )
     av.basename = basename
     reSearch = re.search
 
@@ -481,9 +453,23 @@ def _get_date_by_string(av) -> dict:
     }
 
 
+studios = tuple(
+    (re.compile(i), j)
+    for i, j in (
+        (r"\b1pon(do)?\b", "1pon"),
+        (r"\b10mu(sume)?\b", "10mu"),
+        (r"\bcarib(bean|com)*\b", "carib"),
+        (r"\bcarib(bean|com)*pr\b", "caribpr"),
+        (r"\bmura(mura)?\b", "mura"),
+        (r"\bpaco(pacomama)?\b", "paco"),
+        (r"\bmesubuta\b", "mesubuta"),
+    )
+)
+
+
 def _get_standard_product_id(av) -> str:
     i = 0
-    basename = _re_get_standard_product_id1.sub(" ", av.basename)
+    basename = re.sub(r"[\s\]\[)(}{._-]+", " ", av.basename)
     for k, v in studios:
         studio = k.search(basename)
         if studio:
@@ -494,9 +480,9 @@ def _get_standard_product_id(av) -> str:
         return None
 
     if studio == "mesubuta":
-        uid = _re_get_standard_product_id2.search(basename)
+        uid = re.search(r"\b[0-9]{6} [0-9]{2,5} [0-9]{1,3}\b", basename)
     else:
-        uid = _re_get_standard_product_id3.search(basename)
+        uid = re.search(r"\b[0-9]{6} [0-9]{2,6}\b", basename)
     if uid:
         i = max(i, uid.end()) + 1
         uid = uid.group().replace(" ", "_")
@@ -505,12 +491,18 @@ def _get_standard_product_id(av) -> str:
 
     results = [uid, studio]
     for word in basename[i:].split():
-        other = _re_get_standard_product_id4.fullmatch(word)
+        other = re.fullmatch(r"(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|psp)[0-9]*|[0-9]", word)
         if other:
             results.append(other.group())
         else:
             break
     return "-".join(results)
+
+
+_re_get_video_suffix1 = re.compile(r"[\s_.-]+")
+_re_get_video_suffix2 = re.compile(
+    r"[\s\[\(]{1,2}([a-d]|(2160|1080|720|480)p|(high|mid|low|whole|hd|sd|cd|psp)?\s?[0-9]{1,2})([\s\]\)]|$)"
+)
 
 
 def _get_video_suffix(av) -> str:

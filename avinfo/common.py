@@ -1,7 +1,7 @@
-import calendar
 import os
 import re
-import time
+from datetime import datetime, timezone
+from time import sleep
 
 import requests
 from bs4 import UnicodeDammit
@@ -90,7 +90,7 @@ def get_response_tree(url, *, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwa
         except requests.ConnectionError as e:
             if retry == 2:
                 raise e
-            time.sleep(1)
+            sleep(1)
 
     if response.ok:
         if decoder == "bs4":
@@ -107,10 +107,12 @@ def get_response_tree(url, *, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwa
 
 
 def str_to_epoch(string: str, dFormat="%Y %m %d", regex=re.compile(r"[^0-9]+")) -> float:
-    if regex:
+    if regex is not None:
         string = regex.sub(" ", string).strip()
-    return calendar.timegm(time.strptime(string, dFormat))
+    return datetime.strptime(string, dFormat).replace(tzinfo=timezone.utc).timestamp()
 
 
 def epoch_to_str(epoch: float, dFormat="%F %T") -> str:
-    return time.strftime(dFormat, time.gmtime(epoch)) if epoch else time.strftime(dFormat)
+    if epoch is not None:
+        return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime(dFormat)
+    return datetime.now().strftime(dFormat)
