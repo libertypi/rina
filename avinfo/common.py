@@ -44,7 +44,7 @@ def printObjLogs(lst, printer=print):
         printer(f'{"No":>10}: {i}\n{obj.log}{sepSlim}')
 
 
-def walk_dir(topDir: str, filesOnly=False, nameFilter=re.compile(r"[#@.]")) -> tuple:
+def walk_dir(topDir: str, filesOnly=False, nameFilter=re.compile(r"[#@.]")):
     """Recursively yield tuples of dir entries in a bottom-top order.
 
     output: (fullpath: str, stat: os.stat_result, isdir: bool)
@@ -64,7 +64,7 @@ def walk_dir(topDir: str, filesOnly=False, nameFilter=re.compile(r"[#@.]")) -> t
                 printRed(f"Error occurred scanning {entry.path}: {e}")
 
 
-def list_dir(topDir: str, nameFilter=re.compile(r"[.#@]")) -> tuple:
+def list_dir(topDir: str, nameFilter=re.compile(r"[.#@]")):
     """List only dirs under top."""
     with os.scandir(topDir) as it:
         for entry in it:
@@ -113,6 +113,6 @@ def str_to_epoch(string: str, dFormat="%Y %m %d", regex=re.compile(r"[^0-9]+")) 
 
 
 def epoch_to_str(epoch: float, dFormat="%F %T") -> str:
-    if epoch is not None:
-        return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime(dFormat)
-    return datetime.now().strftime(dFormat)
+    if epoch is None:
+        return datetime.now().strftime(dFormat)
+    return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime(dFormat)
