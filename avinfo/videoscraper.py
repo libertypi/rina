@@ -230,15 +230,8 @@ def _query(av, func=None, standardID=False, date=None, uncensoredOnly=False) -> 
 
 def _javbus(av, uncensoredOnly=False) -> dict:
     mask = _get_keyword_mask(av.keyword)
-    for prefix in (
-        ("uncensored/",)
-        if uncensoredOnly
-        else (
-            "uncensored/",
-            "",
-        )
-    ):
-        response, tree = get_response_tree(f"https://www.javbus.com/{prefix}search/{av.keyword}", decoder="lxml")
+    for prefix in ("uncensored/",) if uncensoredOnly else ("uncensored/", ""):
+        tree = get_response_tree(f"https://www.javbus.com/{prefix}search/{av.keyword}", decoder="lxml")[1]
         if tree is None:
             continue
         for span in tree.xpath('//div[@id="waterfall"]//a[@class="movie-box"]//span'):
@@ -257,7 +250,7 @@ _javdb_urlpool = ["https://javdb.com/search"]
 
 def _javdb(av) -> dict:
     baseurl = random_choice(_javdb_urlpool)
-    response, tree = get_response_tree(baseurl, params={"q": av.keyword})
+    tree = get_response_tree(baseurl, params={"q": av.keyword})[1]
     if tree is None:
         return
 
@@ -291,7 +284,7 @@ def _carib(av) -> dict:
         baseurl = "https://www.caribbeancom.com/moviepages"
         source = "caribbeancom.com"
 
-    response, tree = get_response_tree(f"{baseurl}/{av.keyword}/", decoder="euc-jp")
+    tree = get_response_tree(f"{baseurl}/{av.keyword}/", decoder="euc-jp")[1]
     if tree is None:
         return
 
@@ -304,7 +297,7 @@ def _carib(av) -> dict:
 
 
 def _heyzo(av) -> dict:
-    response, tree = get_response_tree(f"https://www.heyzo.com/moviepages/{av.keyword}/", decoder="lxml")
+    tree = get_response_tree(f"https://www.heyzo.com/moviepages/{av.keyword}/", decoder="lxml")[1]
     av.set_keyword(f"HEYZO-{av.keyword}")
     if tree is None:
         return
@@ -329,7 +322,7 @@ def _heydouga(av) -> dict:
     else:
         url = f'https://www.heydouga.com/moviepages/{keyword.replace("-", "/")}/'
 
-    response, tree = get_response_tree(url, decoder="utf-8")
+    tree = get_response_tree(url, decoder="utf-8")[1]
     if tree is None:
         return
 
@@ -345,7 +338,7 @@ def _heydouga(av) -> dict:
 
 def _h4610(av) -> dict:
     prefix, suffix = av.keyword.split("-", 1)
-    response, tree = get_response_tree(f"https://www.{prefix}.com/moviepages/{suffix}/")
+    tree = get_response_tree(f"https://www.{prefix}.com/moviepages/{suffix}/")[1]
     if tree is None:
         return
 
@@ -361,7 +354,7 @@ def _h4610(av) -> dict:
 
 
 def _x1x(av) -> dict:
-    response, tree = get_response_tree(f"http://www.x1x.com/title/{av.keyword.split('-', 1)[1]}")
+    tree = get_response_tree(f"http://www.x1x.com/title/{av.keyword.split('-', 1)[1]}")[1]
     if tree is None:
         return
 
@@ -394,7 +387,7 @@ def _sm_miracle(av) -> dict:
 def _fc2(av) -> dict:
     uid = av.keyword
     av.set_keyword(f"FC2-{uid}")
-    response, tree = get_response_tree(f"https://adult.contents.fc2.com/article/{uid}/")
+    tree = get_response_tree(f"https://adult.contents.fc2.com/article/{uid}/")[1]
     if tree is not None:
         tree = tree.xpath('//*[@id="top"]//section[@class="items_article_header"]')
         if tree:
@@ -410,7 +403,7 @@ def _fc2(av) -> dict:
                 "source": "fc2.com",
             }
 
-    response, tree = get_response_tree(f"http://video.fc2.com/a/search/video/?keyword={uid}")
+    tree = get_response_tree(f"http://video.fc2.com/a/search/video/?keyword={uid}")[1]
     if tree is not None:
         tree = tree.xpath('//*[@id="pjx-search"]//ul/li[1]//a[@title]')
         if tree:
@@ -423,7 +416,7 @@ def _fc2(av) -> dict:
                 "source": "fc2.com",
             }
 
-    response, tree = get_response_tree(f"https://fc2club.com/html/{av.keyword}.html")
+    tree = get_response_tree(f"https://fc2club.com/html/{av.keyword}.html")[1]
     if tree is not None:
         title = tree.xpath('//div[contains(@class,"main")]/div[@class="show-top-grids"]/div[1]/h3/text()')
         for img in tree.xpath('//*[@id="slider"]//img[@class="responsive"]/@src'):

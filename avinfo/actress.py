@@ -48,7 +48,7 @@ class Wiki:
 class Wikipedia(Wiki):
     @classmethod
     def _search(cls, searchName):
-        response, tree = get_response_tree(f"https://ja.wikipedia.org/wiki/{searchName}", decoder="lxml")
+        tree = get_response_tree(f"https://ja.wikipedia.org/wiki/{searchName}", decoder="lxml")[1]
         if tree is None:
             return
 
@@ -133,7 +133,7 @@ class AVRevolution(Wiki):
 
     @classmethod
     def _search(cls, searchName):
-        response, tree = get_response_tree(cls.baseurl, params={"mode": 1, "search": searchName}, decoder="lxml")
+        tree = get_response_tree(cls.baseurl, params={"mode": 1, "search": searchName}, decoder="lxml")[1]
         if tree is None:
             return
 
@@ -150,7 +150,7 @@ class AVRevolution(Wiki):
         if not url:
             return
 
-        response, tree = get_response_tree(url)
+        tree = get_response_tree(url)[1]
         try:
             tree = tree.find('.//*[@id="entry-47"][@class="entry-asset"]')
             name = tree.xpath('h2[contains(text(),"「")]/text()')
@@ -176,7 +176,7 @@ class Seesaawiki(Wiki):
                 return
             url = f"{cls.baseurl}/{encodeName}"
 
-        response, tree = get_response_tree(url, decoder="euc-jp")
+        tree = get_response_tree(url, decoder="euc-jp")[1]
         if tree is None:
             return
 
@@ -215,7 +215,7 @@ class Manko(Wiki):
 
     @classmethod
     def _search(cls, searchName):
-        response, tree = get_response_tree(cls.baseurl, params={"q": searchName}, decoder="lxml")
+        tree = get_response_tree(cls.baseurl, params={"q": searchName}, decoder="lxml")[1]
         if tree is None:
             return
 
@@ -249,7 +249,7 @@ class Etigoya(Wiki):
 
     @classmethod
     def _search(cls, searchName):
-        response, tree = get_response_tree(cls.baseurl, params={"q": searchName})
+        tree = get_response_tree(cls.baseurl, params={"q": searchName})[1]
         if tree is None:
             return
         nameMask = _get_re_nameMask(searchName)

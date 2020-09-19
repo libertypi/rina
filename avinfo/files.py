@@ -290,6 +290,7 @@ def handle_dirs(target: tuple):
     if targetType != "dir":
         return
 
+    dirname = os.path.dirname
     rootLen = len(searchTarget)
     records = {}
     total = 1
@@ -303,12 +304,12 @@ def handle_dirs(target: tuple):
             total += 1
             _change_mtime(path, stat)
         else:
-            parent = os.path.dirname(path)
+            parent = dirname(path)
             while len(parent) >= rootLen and parent != path:
                 if records.get(parent, -1) < stat.st_mtime:
                     records[parent] = stat.st_mtime
                 path = parent
-                parent = os.path.dirname(parent)
+                parent = dirname(parent)
     _change_mtime(searchTarget, os.stat(searchTarget))
 
     print(f"Finished. {total} dirs scanned, {success} modified.")

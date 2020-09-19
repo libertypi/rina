@@ -77,7 +77,7 @@ def list_dir(topDir: str, nameFilter=re.compile(r"[.#@]")):
         yield os.path.basename(topDir), topDir
 
 
-def get_response_tree(url, *, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwargs) -> tuple:
+def get_response_tree(url, *, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwargs):
     """Input args to requests, output (response, tree)
 
     :params: decoder: bs4, lxml, or any encoding code.
