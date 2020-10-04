@@ -398,9 +398,6 @@ class ActressFolder(Actress):
                 self.status |= 0b100
 
     def rename(self):
-        if not self.fullpath or not self.newfilename:
-            raise RuntimeError(f"Dest file missing.")
-
         try:
             newPath = os.path.join(os.path.dirname(self.fullpath), self.newfilename)
             os.rename(self.fullpath, newPath)
