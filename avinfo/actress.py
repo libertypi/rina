@@ -267,7 +267,8 @@ class Etigoya(Wiki):
 
 class Actress:
 
-    wikiList = tuple(wiki(i) for i, wiki in enumerate((Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Manko, Etigoya)))
+    # wikiList = tuple(wiki(i) for i, wiki in enumerate((Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Manko, Etigoya)))
+    wikiList = tuple(wiki(i) for i, wiki in enumerate((Wikipedia, MinnanoAV, Seesaawiki, Manko, Etigoya)))
     wikiDone = 2 ** len(wikiList) - 1
 
     maxWeight = lambda self, x: max(x.items(), key=lambda y: (len(y[1]), -y[1][0]))[0]
