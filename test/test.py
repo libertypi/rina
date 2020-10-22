@@ -170,16 +170,6 @@ class ScraperTest(unittest.TestCase):
                 },
             ),
             (
-                "FC2-1204745",
-                {
-                    "productId": "FC2-1204745",
-                    "title": "川上奈奈美无码流出",
-                    "publishDate": 1574380800,
-                    "titleSource": "fc2club.com",
-                    "dateSource": "fc2club.com",
-                },
-            ),
-            (
                 "FC2-1380738",
                 {
                     "productId": "FC2-1380738",
@@ -399,17 +389,16 @@ class ScraperTest(unittest.TestCase):
 
 
 class ActressTest(unittest.TestCase):
-    def test_avrevolution(self):
-        wiki = actress.AVRevolution(0)
-        values = (
-            ("真央", ("知念真桜", None, {"井原のえる", "まお", "佐藤夏美", "羽田まなみ", "知念真央", "真央", "知念真桜"})),
-            ("池田美和子", ("篠田あゆみ", None, {"池田美和子", "菊池紀子", "篠田あゆみ"})),
-            ("蓮美", ("鈴木ありさ", None, {"鈴木ありさ", "藤槻ありさ", "大高頼子", "蓮美"})),
-        )
-        for searchName, answer in values:
-            result = wiki.search(searchName)
-            # print((searchName, result), ", ", sep="")
-            self.assertEqual(result, answer)
+    # def test_avrevolution(self):
+    #     wiki = actress.AVRevolution(0)
+    #     values = (
+    #         ("真央", ("知念真桜", None, {"井原のえる", "まお", "佐藤夏美", "羽田まなみ", "知念真央", "真央", "知念真桜"})),
+    #         ("池田美和子", ("篠田あゆみ", None, {"池田美和子", "菊池紀子", "篠田あゆみ"})),
+    #         ("蓮美", ("鈴木ありさ", None, {"鈴木ありさ", "藤槻ありさ", "大高頼子", "蓮美"})),
+    #     )
+    #     for searchName, answer in values:
+    #         result = wiki.search(searchName)
+    #         self.assertEqual(result, answer)
 
     def test_wikipedia(self):
         wiki = actress.Wikipedia(0)

@@ -416,22 +416,22 @@ def _fc2(av) -> dict:
                 "source": "fc2.com",
             }
 
-    tree = get_response_tree(f"https://fc2club.com/html/{av.keyword}.html")[1]
-    if tree is not None:
-        title = tree.xpath('//div[contains(@class,"main")]/div[@class="show-top-grids"]/div[1]/h3/text()')
-        for img in tree.xpath('//*[@id="slider"]//img[@class="responsive"]/@src'):
-            m = re.search(r"(?<=/)20[0-9]{2}/[0-9]{4}(?=/)", img)
-            if m:
-                date = str_to_epoch(m.group(), "%Y %m%d")
-                break
-        else:
-            date = None
-        return {
-            "productId": av.keyword,
-            "title": re.sub(f"^{av.keyword}\s+", "", title[0], flags=re.IGNORECASE) if title else None,
-            "publishDate": date,
-            "source": "fc2club.com",
-        }
+    # tree = get_response_tree(f"https://fc2club.com/html/{av.keyword}.html")[1]
+    # if tree is not None:
+    #     title = tree.xpath('//div[contains(@class,"main")]/div[@class="show-top-grids"]/div[1]/h3/text()')
+    #     for img in tree.xpath('//*[@id="slider"]//img[@class="responsive"]/@src'):
+    #         m = re.search(r"(?<=/)20[0-9]{2}/[0-9]{4}(?=/)", img)
+    #         if m:
+    #             date = str_to_epoch(m.group(), "%Y %m%d")
+    #             break
+    #     else:
+    #         date = None
+    #     return {
+    #         "productId": av.keyword,
+    #         "title": re.sub(f"^{av.keyword}\s+", "", title[0], flags=re.IGNORECASE) if title else None,
+    #         "publishDate": date,
+    #         "source": "fc2club.com",
+    #     }
 
 
 @lru_cache(128)

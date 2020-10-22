@@ -77,24 +77,26 @@ def list_dir(topDir: str, nameFilter=re.compile(r"[.#@]")):
         yield os.path.basename(topDir), topDir
 
 
-def get_response_tree(url, *, decoder="bs4", bs4_hint=("utf-8", "euc-jp"), **kwargs):
+def get_response_tree(url, *, decoder="bs4", **kwargs):
     """Input args to requests, output (response, tree)
 
     :params: decoder: bs4, lxml, or any encoding code.
     :params: bs4_hint: code for bs4 to try
     """
-    for retry in range(3):
+    for _ in range(3):
         try:
             response = session.get(url, **kwargs, timeout=(7, 28))
             break
-        except requests.ConnectionError as e:
-            if retry == 2:
-                raise e
+        except (requests.ConnectionError, requests.HTTPError, requests.Timeout):
             sleep(1)
+    else:
+        raise requests.RequestException(f"Connection failed: '{url}'")
 
     if response.ok:
         if decoder == "bs4":
-            content = UnicodeDammit(response.content, override_encodings=bs4_hint, is_html=True).unicode_markup
+            content = UnicodeDammit(
+                response.content, override_encodings=("utf-8", "euc-jp"), is_html=True
+            ).unicode_markup
         elif decoder == "lxml":
             content = response.content
         else:

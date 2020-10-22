@@ -205,7 +205,7 @@ def main(target: tuple, quiet=False):
 
     try:
         namemax = os.statvfs(searchTarget).f_namemax
-    except Exception as e:
+    except OSError as e:
         namemax = 255
         printRed(f"Error: Unable to detect filename length limit, using default value (255). {e}")
 
@@ -275,7 +275,7 @@ Please choose an option:
 def handle_dirs(target: tuple):
     def _change_mtime(path: str, stat: os.stat_result):
         nonlocal success
-        record = records.get(path)
+        record = records.get(path, None)
         if record and record != stat.st_mtime:
             try:
                 os.utime(path, (stat.st_atime, record))
@@ -283,7 +283,7 @@ def handle_dirs(target: tuple):
                     f"{epoch_to_str(stat.st_mtime, '%F')}  ==>  {epoch_to_str(record, '%F')}  {os.path.basename(path)}"
                 )
                 success += 1
-            except Exception as e:
+            except OSError as e:
                 printRed(f"Error: {os.path.basename(path)}  ({e})")
 
     searchTarget, targetType = target
