@@ -155,7 +155,7 @@ class AVFile(AV):
             filename = p.sub(r, filename)
 
         while len(filename.encode("utf-8")) >= namemax:
-            newname = re.match(r"(.*[^\s。,([])[\s。,([]", filename).group(1)
+            newname = re.match(r"(.*[^\s。,([！])[\s。,([！]", filename).group(1)
             if newname == self.productId:
                 while True:
                     filename = filename[:-1].rstrip(",.-【（([")
