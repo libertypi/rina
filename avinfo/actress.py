@@ -4,7 +4,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from urllib.parse import quote as urlquote
-
+from lxml import etree
 from avinfo import common
 from avinfo.common import get_response_tree, list_dir, printObjLogs, printProgressBar, printRed, printYellow
 
@@ -46,20 +46,33 @@ class Wiki:
 
 
 class Wikipedia(Wiki):
+
+    baseurl = "https://ja.wikipedia.org/wiki"
+
     @classmethod
     def _search(cls, searchName):
-        tree = get_response_tree(f"https://ja.wikipedia.org/wiki/{searchName}", decoder="lxml")[1]
+
+        try:
+            xpath = cls.xpath
+        except AttributeError:
+            xpath = cls.xpath = (
+                etree.XPath('//a[@title="AV女優" and contains(text(),"AV女優")]'),
+                etree.XPath('//caption[@*="name"]/text()'),
+                etree.XPath("td//text()"),
+            )
+
+        tree = get_response_tree(f"{cls.baseurl}/{searchName}", decoder="lxml")[1]
         if tree is None:
             return
 
         name = tree.findtext('.//*[@id="firstHeading"]')
         box = tree.find('.//*[@id="mw-content-text"]//table[@class="infobox"]')
-        if not name or box is None or not tree.xpath('//a[@title="AV女優" and contains(text(),"AV女優")]'):
+        if not name or box is None or not xpath[0](tree):
             return
 
         birth = None
-        alias = box.xpath('//caption[@*="name"]/text()')
-        box = ((i.find("th").text_content(), i.xpath("td//text()")) for i in box.findall("tbody/tr[th][td]"))
+        alias = xpath[1](box)
+        box = ((i.find("th").text_content(), xpath[2](i)) for i in box.findall("tbody/tr[th][td]"))
         for k, v in box:
             if not birth and "生年月日" in k:
                 birth = _re_birth.search("".join(v))
@@ -74,6 +87,15 @@ class MinnanoAV(Wiki):
 
     @classmethod
     def _search(cls, searchName):
+
+        try:
+            xpath = cls.xpath
+        except AttributeError:
+            xpath = cls.xpath = (
+                etree.XPath('//div[@class="act-profile"]/table//td[span and p]'),
+                etree.XPath('//*[@id="main-area"]//table[contains(@class,"actress")]/tr/td[h2/a[@href]]'),
+            )
+
         response, tree = get_response_tree(
             f"{cls.baseurl}/search_result.php",
             params={"search_scope": "actress", "search_word": searchName},
@@ -94,7 +116,7 @@ class MinnanoAV(Wiki):
 
         birth = None
         alias = []
-        for td in tree.xpath('//div[@class="act-profile"]/table//td[span and p]'):
+        for td in xpath[0](tree):
             title = td.findtext("span").strip()
             if title == "別名":
                 alias.append(td.findtext("p"))
@@ -107,7 +129,7 @@ class MinnanoAV(Wiki):
     def _scan_search_page(cls, searchName, tree):
         """Return if there's only one match."""
 
-        tree = tree.xpath('//*[@id="main-area"]//table[contains(@class,"actress")]/tr/td[h2/a[@href]]')
+        tree = cls.xpath[1](tree)
         if not tree:
             return
         nameMask = _get_re_nameMask(searchName)
@@ -215,28 +237,39 @@ class Manko(Wiki):
 
     @classmethod
     def _search(cls, searchName):
+
+        try:
+            xpath = cls.xpath
+        except AttributeError:
+            xpath = cls.xpath = (
+                etree.XPath('//*[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'),
+                etree.XPath('(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())[1]'),
+                etree.XPath('tr[td[1][contains(text(), "別名")]]/td[2]'),
+                etree.XPath('tr[td[1][contains(text(), "生年月日")]]/td[2]'),
+            )
+
         tree = get_response_tree(cls.baseurl, params={"q": searchName}, decoder="lxml")[1]
         if tree is None:
             return
 
         result = None
         nameMask = _get_re_nameMask(searchName)
-        for tbody in tree.xpath('//*[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'):
+        for tbody in xpath[0](tree):
             try:
-                name = tbody.xpath('(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())[1]')
+                name = xpath[1](tbody)
                 name = _clean_name(name[0])
                 if not name:
                     continue
             except Exception:
                 continue
 
-            alias = (i.text_content() for i in tbody.xpath('tr[td[1][contains(text(), "別名")]]/td[2]'))
+            alias = (i.text_content() for i in xpath[2](tbody))
             alias = tuple(j for i in alias for j in _split_name(i))
 
             if nameMask.fullmatch(name) or any(nameMask.fullmatch(i) for i in alias):
                 if result:
                     return
-                birth = tbody.xpath('tr[td[1][contains(text(), "生年月日")]]/td[2]')
+                birth = xpath[3](tbody)
                 if birth:
                     birth = _re_birth.search(birth[0].text_content())
                 result = name, birth, alias
@@ -249,12 +282,19 @@ class Etigoya(Wiki):
 
     @classmethod
     def _search(cls, searchName):
+
+        try:
+            xpath = cls.xpath
+        except AttributeError:
+            xpath = cls.xpath = etree.XPath('.//*[@id="main"]/div[@class="content"]/ul/li/a[contains(text(), "＝")]')
+
         tree = get_response_tree(cls.baseurl, params={"q": searchName})[1]
         if tree is None:
             return
         nameMask = _get_re_nameMask(searchName)
         found = None
-        for a in tree.xpath('.//*[@id="main"]/div[@class="content"]/ul/li/a[contains(text(), "＝")]'):
+
+        for a in xpath(tree):
             alias = _split_name(a.text)
             if any(nameMask.fullmatch(_clean_name(i)) for i in alias):
                 if found:
