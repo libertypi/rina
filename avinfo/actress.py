@@ -22,9 +22,10 @@ class Wiki:
     @classmethod
     def search(cls, searchName):
         reply = cls._search(searchName)
-        if not reply:
-            return None
-        name, birth, alias = reply
+        try:
+            name, birth, alias = reply
+        except TypeError:
+            return
 
         if name:
             name = _clean_name(name)
@@ -32,7 +33,7 @@ class Wiki:
         if birth:
             birth = f'{birth["y"]}-{birth["m"].zfill(2)}-{birth["d"].zfill(2)}'
 
-        alias = set(_clean_name_list(alias))
+        alias = set(_clean_name_list(alias)) if alias else set()
         if name:
             alias.add(name)
         elif not birth and not alias:
@@ -202,7 +203,8 @@ class Seesaawiki(Wiki):
         if tree is None:
             return
 
-        if re.search(r"(\W*(女優名|名前)\W*)+変更", tree.findtext('.//*[@id="content_1"]')):
+        name = tree.findtext('.//*[@id="content_1"]')
+        if name and re.search(r"(\W*(女優名|名前)\W*)+変更", name):
             a = tree.find('.//*[@id="content_block_1-body"]/span/a[@href]')
             if a is not None and "移動" in a.getparent().text_content():
                 return cls._search(a.text, a.get("href"))
@@ -448,21 +450,22 @@ class ActressFolder(Actress):
         return True
 
 
+_cjk = 0
+for i, j in (
+    (4352, 4607),
+    (11904, 42191),
+    (43072, 43135),
+    (44032, 55215),
+    (63744, 64255),
+    (65072, 65103),
+    (65381, 65500),
+    (131072, 196607),
+):
+    _cjk |= (1 << j + 1) - (1 << i)
+
+
 def contains_cjk(string: str) -> bool:
-    return any(
-        i <= c <= j
-        for c in (ord(s) for s in string)
-        for i, j in (
-            (4352, 4607),
-            (11904, 42191),
-            (43072, 43135),
-            (44032, 55215),
-            (63744, 64255),
-            (65072, 65103),
-            (65381, 65500),
-            (131072, 196607),
-        )
-    )
+    return any(1 << ord(c) & _cjk for c in string)
 
 
 def _split_name(string: str, _re_split_name: re.Pattern = re.compile(r"\s*[\n、/／・,＝]+\s*")):
