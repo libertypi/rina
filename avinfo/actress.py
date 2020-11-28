@@ -1,49 +1,53 @@
+import dataclasses
 import os
 import re
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from urllib.parse import quote as urlquote
+
 from lxml import etree
+
 from avinfo import common
 from avinfo.common import get_response_tree, list_dir, printObjLogs, printProgressBar, printRed, printYellow
-
 
 _re_birth = re.compile(r"(?P<y>(19|20)[0-9]{2})\s*年\s*(?P<m>1[0-2]|0?[1-9])\s*月\s*(?P<d>3[01]|[12][0-9]|0?[1-9])\s*日")
 
 
-class Wiki:
-    """Wiki.search method should return a tuple of: (name, birth, (alias...))"""
+@dataclasses.dataclass
+class SearchResult:
+    name: str = None
+    birth: str = None
+    alias: set = None
 
+    def __post_init__(self):
+        try:
+            self.alias = set(_clean_name_list(self.alias))
+        except TypeError:
+            self.alias = set()
+
+        try:
+            self.name = _clean_name(self.name)
+        except TypeError:
+            pass
+        else:
+            self.alias.add(self.name)
+
+        try:
+            birth = self.birth
+            self.birth = f'{birth["y"]}-{birth["m"].zfill(2)}-{birth["d"].zfill(2)}'
+        except TypeError:
+            pass
+
+
+class Wiki:
     def __init__(self, weight: int):
         self.weight = weight
         self.mask = 1 << weight
 
     @classmethod
     def search(cls, searchName):
-        reply = cls._search(searchName)
-        try:
-            name, birth, alias = reply
-        except TypeError:
-            return
-
-        if name:
-            name = _clean_name(name)
-
-        if birth:
-            birth = f'{birth["y"]}-{birth["m"].zfill(2)}-{birth["d"].zfill(2)}'
-
-        alias = set(_clean_name_list(alias)) if alias else set()
-        if name:
-            alias.add(name)
-        elif not birth and not alias:
-            return
-
-        return name, birth, alias
-
-    @classmethod
-    def _search(cls, searchName):
-        raise NotImplementedError
+        raise NotImplemented
 
 
 class Wikipedia(Wiki):
@@ -51,7 +55,7 @@ class Wikipedia(Wiki):
     baseurl = "https://ja.wikipedia.org/wiki"
 
     @classmethod
-    def _search(cls, searchName):
+    def search(cls, searchName):
 
         try:
             xpath = cls.xpath
@@ -80,14 +84,14 @@ class Wikipedia(Wiki):
             elif "別名" in k:
                 alias.extend(j for i in v for j in _split_name(i))
 
-        return name, birth, alias
+        return SearchResult(name=name, birth=birth, alias=alias)
 
 
 class MinnanoAV(Wiki):
     baseurl = "http://www.minnano-av.com"
 
     @classmethod
-    def _search(cls, searchName):
+    def search(cls, searchName):
 
         try:
             xpath = cls.xpath
@@ -111,8 +115,9 @@ class MinnanoAV(Wiki):
         try:
             tree = tree.find('.//*[@id="main-area"]')
             name = tree.findtext("section/h1")
-            assert name is not None
-        except Exception:
+            if name is None:
+                return
+        except AttributeError:
             return
 
         birth = None
@@ -124,7 +129,7 @@ class MinnanoAV(Wiki):
             elif title == "生年月日" and not birth:
                 birth = _re_birth.search(td.findtext("p"))
 
-        return name, birth, alias
+        return SearchResult(name=name, birth=birth, alias=alias)
 
     @classmethod
     def _scan_search_page(cls, searchName, tree):
@@ -155,7 +160,7 @@ class AVRevolution(Wiki):
     baseurl = "http://adultmovie-revolution.com/movies/jyoyuu_kensaku.php"
 
     @classmethod
-    def _search(cls, searchName):
+    def search(cls, searchName):
         tree = get_response_tree(cls.baseurl, params={"mode": 1, "search": searchName}, decoder="lxml")[1]
         if tree is None:
             return
@@ -181,17 +186,18 @@ class AVRevolution(Wiki):
             if not name:
                 return
             alias = tree.xpath('div/center/table[contains(@summary,"別名")]/tbody//td/text()')
-            return name, None, alias
-
         except Exception:
             pass
+        else:
+            return SearchResult(name=name, alias=alias)
 
 
 class Seesaawiki(Wiki):
     baseurl = "https://seesaawiki.jp/av_neme/d"
 
     @classmethod
-    def _search(cls, searchName, url=None):
+    def search(cls, searchName, url=None):
+
         if not url:
             try:
                 encodeName = urlquote(searchName, encoding="euc-jp")
@@ -203,12 +209,14 @@ class Seesaawiki(Wiki):
         if tree is None:
             return
 
-        name = tree.findtext('.//*[@id="content_1"]')
-        if name and re.search(r"(\W*(女優名|名前)\W*)+変更", name):
-            a = tree.find('.//*[@id="content_block_1-body"]/span/a[@href]')
-            if a is not None and "移動" in a.getparent().text_content():
-                return cls._search(a.text, a.get("href"))
-            return
+        try:
+            if re.search(r"(\W*(女優名|名前)\W*)+変更", tree.findtext('.//*[@id="content_1"]')):
+                a = tree.find('.//*[@id="content_block_1-body"]/span/a[@href]')
+                if a is not None and "移動" in a.getparent().text_content():
+                    return cls.search(a.text, a.get("href"))
+                return
+        except TypeError:
+            pass
 
         name = tree.findtext('.//*[@id="page-header-inner"]/div[@class="title"]//h2')
         if not name:
@@ -221,7 +229,7 @@ class Seesaawiki(Wiki):
         elif tag:
             box = (i.split("：", 1) for i in box.findtext(".").splitlines() if "：" in i)
         else:
-            return name, None, None
+            return SearchResult(name=name)
 
         birth = None
         alias = []
@@ -231,14 +239,53 @@ class Seesaawiki(Wiki):
             elif re.search(r"旧名義|別名|名前|女優名", k):
                 alias.extend(_split_name(v))
 
-        return name, birth, alias
+        return SearchResult(name=name, birth=birth, alias=alias)
+
+
+class Msin(Wiki):
+
+    baseurl = "https://db.msin.jp/search/actress"
+
+    @classmethod
+    def search(cls, searchName: str):
+
+        try:
+            xpath = cls.xpath
+            regex = cls.regex
+        except AttributeError:
+            xpath = cls.xpath = etree.XPath("*[contains(text(), $title)]/following-sibling::*[//text()][1]")
+            regex = cls.regex = re.compile(
+                r"(?P<y>(19|20)[0-9]{2})\s*-\s*(?P<m>1[0-2]|0?[1-9])\s*-\s*(?P<d>3[01]|[12][0-9]|0?[1-9])"
+            )
+
+        tree = get_response_tree(cls.baseurl, params={"str": searchName})[1]
+        try:
+            tree = tree.find('.//*[@id="content"]/*[@id="actress_view"]//*[@class="act_ditail"]')
+            name = _clean_name(tree.findtext('.//*[@class="mv_name"]'))
+            if not name:
+                return
+        except (AttributeError, TypeError):
+            return
+
+        try:
+            alias = _split_name(xpath(tree, title="別名")[0].text_content())
+        except IndexError:
+            alias = ()
+
+        nameMask = _get_re_nameMask(searchName).fullmatch
+        if nameMask(name) or any(nameMask(_clean_name(i)) for i in alias):
+            try:
+                birth = regex.search(xpath(tree, title="生年月日")[0].text_content())
+            except IndexError:
+                birth = None
+            return SearchResult(name=name, birth=birth, alias=alias)
 
 
 class Manko(Wiki):
     baseurl = "http://mankowomiseruavzyoyu.blog.fc2.com"
 
     @classmethod
-    def _search(cls, searchName):
+    def search(cls, searchName):
 
         try:
             xpath = cls.xpath
@@ -274,7 +321,7 @@ class Manko(Wiki):
                 birth = xpath[3](tbody)
                 if birth:
                     birth = _re_birth.search(birth[0].text_content())
-                result = name, birth, alias
+                result = SearchResult(name=name, birth=birth, alias=alias)
 
         return result
 
@@ -283,7 +330,7 @@ class Etigoya(Wiki):
     baseurl = "http://etigoya955.blog49.fc2.com"
 
     @classmethod
-    def _search(cls, searchName):
+    def search(cls, searchName):
 
         try:
             xpath = cls.xpath
@@ -294,23 +341,22 @@ class Etigoya(Wiki):
         if tree is None:
             return
         nameMask = _get_re_nameMask(searchName)
-        found = None
 
+        result = None
         for a in xpath(tree):
             alias = _split_name(a.text)
             if any(nameMask.fullmatch(_clean_name(i)) for i in alias):
-                if found:
+                if result:
                     return
                 else:
-                    found = alias
-        if found:
-            return None, None, found
+                    result = SearchResult(alias=alias)
+        return result
 
 
 class Actress:
 
     # wikiList = tuple(wiki(i) for i, wiki in enumerate((Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Manko, Etigoya)))
-    wikiList = tuple(wiki(i) for i, wiki in enumerate((Wikipedia, MinnanoAV, Seesaawiki, Manko, Etigoya)))
+    wikiList = tuple(wiki(i) for i, wiki in enumerate((Wikipedia, MinnanoAV, Seesaawiki, Msin, Manko, Etigoya)))
     wikiDone = 2 ** len(wikiList) - 1
 
     maxWeight = lambda self, x: max(x.items(), key=lambda y: (len(y[1]), -y[1][0]))[0]
@@ -328,50 +374,60 @@ class Actress:
         # status: filenameDiff success started
         self.status = 0
 
-    def run(self):
+    def run(self, ex: ThreadPoolExecutor = None):
         name = re.sub(r"\([0-9]{4}(-[0-9]{1,2}){2}\)|\s+", "", self.basename)
         if contains_cjk(name):
             try:
-                self._bfs_search(name)
+                self._bfs_search(name, ex)
             except Exception as e:
                 self.exception = e
         self._gen_report()
 
-    def _bfs_search(self, name: str):
+    def _bfs_search(self, name: str, ex: ThreadPoolExecutor):
 
         self.status |= 0b001
         nameDict = self.nameDict = defaultdict(list)
         birthDict = self.birthDict = defaultdict(list)
-        visitedNames = self.visitedNames = dict()
-        unvisitedNames = self.unvisitedNames = dict()
+        visitedNames = self.visitedNames = {}
+        unvisitedNames = self.unvisitedNames = {}
         wikiList = self.wikiList
         wikiDone = self.wikiDone
         wikiStats = 0
 
         unvisitedNames[name] = 0
 
+        if ex is None:
+            ex = ThreadPoolExecutor(max_workers=None)
+
         while unvisitedNames and wikiStats < wikiDone:
 
             searchName = max(unvisitedNames, key=unvisitedNames.get)
             visitedNames[searchName] = unvisitedNames.pop(searchName)
+            ft_to_wiki = {ex.submit(w.search, searchName): w for w in wikiList if not wikiStats & w.mask}
 
-            for wiki in wikiList:
-                if wikiStats & wiki.mask:
+            for ft in as_completed(ft_to_wiki):
+
+                result = ft.result()
+                if not result:
                     continue
-                result = wiki.search(searchName)
-                if result:
-                    name, birth, alias = result
-                    if name:
-                        nameDict[name].append(wiki.weight)
-                    if birth:
-                        birthDict[birth].append(wiki.weight)
-                    for i in alias.difference(visitedNames):
-                        v = unvisitedNames.get(i)
-                        if v:
-                            v[0] += 1
-                        else:
-                            unvisitedNames[i] = [1, len(i)]
-                    wikiStats |= wiki.mask
+                wiki = ft_to_wiki[ft]
+
+                if result.name:
+                    nameDict[result.name].append(wiki.weight)
+
+                if result.birth:
+                    birthDict[result.birth].append(wiki.weight)
+
+                for i in result.alias:
+                    if i in visitedNames:
+                        continue
+                    v = unvisitedNames.get(i)
+                    if v:
+                        v[0] += 1
+                    else:
+                        unvisitedNames[i] = [1, len(i)]
+
+                wikiStats |= wiki.mask
 
         self.unvisitedNames = sorted(unvisitedNames, key=unvisitedNames.get, reverse=True)
 
@@ -429,12 +485,12 @@ class Actress:
 
 
 class ActressFolder(Actress):
-    def __init__(self, basename: str, fullpath: str):
-        super().__init__(basename)
+    def __init__(self, basename: str, fullpath: str, *args, **kwargs):
+        super().__init__(basename, *args, **kwargs)
         self.fullpath = fullpath
 
-    def _bfs_search(self, name: str):
-        super()._bfs_search(name)
+    def _bfs_search(self, name: str, *args, **kwargs):
+        super()._bfs_search(name, *args, **kwargs)
         if self.name and self.birth:
             self.newfilename = f"{self.name}({self.birth})"
             if self.basename != self.newfilename:
@@ -468,8 +524,8 @@ def contains_cjk(string: str) -> bool:
     return any(1 << ord(c) & _cjk for c in string)
 
 
-def _split_name(string: str, _re_split_name: re.Pattern = re.compile(r"\s*[\n、/／・,＝]+\s*")):
-    return _re_split_name.split(string)
+def _split_name(string: str):
+    return re.split(r"\s*[\n、/／・,＝]+\s*", string)
 
 
 @lru_cache(128)
@@ -504,11 +560,13 @@ def main(target: tuple, quiet=False):
         raise RuntimeError(f"'{searchTarget}' should be either a directory or a keyword.")
 
     file_pool = []
-    with ThreadPoolExecutor(max_workers=None) as executor:
+    inner_ex = ThreadPoolExecutor(max_workers=None)
+    with ThreadPoolExecutor(max_workers=None) as ex:
         for basename, fullpath in list_dir(searchTarget):
             aFolder = ActressFolder(basename, fullpath)
-            executor.submit(aFolder.run)
+            ex.submit(aFolder.run, inner_ex)
             file_pool.append(aFolder)
+    inner_ex.shutdown()
 
     changedList = []
     failedList = []

@@ -102,7 +102,7 @@ def get_response_tree(url, *, decoder="bs4", **kwargs):
         else:
             response.encoding = decoder
             content = response.text
-        tree = html.fromstring(content)
+        tree: html.HtmlElement = html.fromstring(content)
     else:
         tree = None
     return response, tree
