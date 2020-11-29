@@ -77,7 +77,7 @@ def list_dir(topDir: str, nameFilter=re.compile(r"[.#@]")):
         yield os.path.basename(topDir), topDir
 
 
-def get_response_tree(url, *, decoder="bs4", **kwargs):
+def get_response_tree(url, *, decoder: str = None, **kwargs):
     """Input args to requests, output (response, tree)
 
     :params: decoder: bs4, lxml, or any encoding code.
@@ -93,7 +93,7 @@ def get_response_tree(url, *, decoder="bs4", **kwargs):
         raise requests.RequestException(f"Connection failed: '{url}'")
 
     if response.ok:
-        if decoder == "bs4":
+        if decoder is None:
             content = UnicodeDammit(
                 response.content, override_encodings=("utf-8", "euc-jp"), is_html=True
             ).unicode_markup
