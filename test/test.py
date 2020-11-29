@@ -3,6 +3,7 @@
 import os
 import sys
 import unittest
+from dataclasses import astuple
 
 if __name__ == "__main__":
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -397,8 +398,15 @@ class ActressTest(unittest.TestCase):
     #         ("蓮美", ("鈴木ありさ", None, {"鈴木ありさ", "藤槻ありさ", "大高頼子", "蓮美"})),
     #     )
     #     for searchName, answer in values:
-    #         result = wiki.search(searchName)
+    #         result = astuple(wiki.search(searchName))
     #         self.assertEqual(result, answer)
+
+    def _do_test(self, wiki, values):
+        for searchName, answer in values:
+            result = wiki.search(searchName)
+            if result:
+                result = astuple(result)
+            self.assertEqual(result, answer, msg=result)
 
     def test_wikipedia(self):
         wiki = actress.Wikipedia(0)
@@ -409,10 +417,7 @@ class ActressTest(unittest.TestCase):
             ("池田美和子", ("篠田あゆみ", "1985-11-16", {"篠田あゆみ", "さつき", "みき", "ちかこ", "菊池紀子", "池田美和子"})),
             ("上原結衣", ("上原結衣", "1990-05-01", {"上原志織", "上原結衣"})),
         )
-        for searchName, answer in values:
-            result = wiki.search(searchName)
-            # print((searchName, result), ", ", sep="")
-            self.assertEqual(result, answer)
+        self._do_test(wiki, values)
 
     def test_minnanoav(self):
         wiki = actress.MinnanoAV(0)
@@ -423,10 +428,7 @@ class ActressTest(unittest.TestCase):
             ("佐伯史華", ("佐々木愛美", "1992-07-14", {"佐伯史華", "クルミ", "佐々木愛美"})),
             ("上原志織", ("上原志織", "1990-05-01", {"上原結衣", "上原志織", "しおり", "斉藤美穂"})),
         )
-        for searchName, answer in values:
-            result = wiki.search(searchName)
-            # print((searchName, result), ", ", sep="")
-            self.assertEqual(result, answer)
+        self._do_test(wiki, values)
 
     def test_seesaawiki(self):
         wiki = actress.Seesaawiki(0)
@@ -443,21 +445,32 @@ class ActressTest(unittest.TestCase):
             ("篠田あゆみ", ("篠田あゆみ", "1985-11-16", {"池田美和子", "菊池紀子", "篠田あゆみ"})),
             ("池田美和子", None),
         )
-        for searchName, answer in values:
-            result = wiki.search(searchName)
-            # print((searchName, result), ", ", sep="")
-            self.assertEqual(result, answer)
+        self._do_test(wiki, values)
+
+    def test_msin(self):
+        wiki = actress.Msin(0)
+        values = (
+            (
+                "木内亜美菜",
+                (
+                    "木内亜美菜",
+                    "1991-11-30",
+                    {"佐々木ゆき", "モモ", "葉月美加子", "さくらあきな", "明菜", "ナナ", "あみな", "木内亜美菜", "廣井美加子", "咲羽", "りほ"},
+                ),
+            ),
+            ("今村ゆう", ("沖野るり", "1996-03-15", {"有吉めぐみ", "今村ゆう", "吾妻絵里", "生駒なお", "夏目陽菜", "笠原佐智子", "沖野るり", "野本カノ"})),
+            ("前田ななみ", ("片瀬瑞穂", "1993-04-12", {"成宮梓", "前田ななみ", "片瀬瑞穂"})),
+            ("鈴木ありさ", None),
+        )
+        self._do_test(wiki, values)
 
     def test_manko(self):
         wiki = actress.Manko(0)
         values = (
             ("南星愛", ("南星愛", "1996-01-31", {"山城ゆうひ", "南星愛"})),
-            ("北条麻妃", ("北条麻妃", "1978-12-21", {"白石さゆり", "北条麻妃"})),
+            ("小司あん", ("平子知歌", None, {"小司あん", "平子知歌", "佐々木ゆう", "あん", "いしはらさき"})),
         )
-        for searchName, answer in values:
-            result = wiki.search(searchName)
-            # print((searchName, result), ", ", sep="")
-            self.assertEqual(result, answer)
+        self._do_test(wiki, values)
 
     def test_etigoya(self):
         wiki = actress.Etigoya(0)
@@ -466,10 +479,7 @@ class ActressTest(unittest.TestCase):
             ("上原志織", (None, None, {"上原結衣", "上原志織"})),
             ("佐々木愛美", (None, None, {"佐々木愛美", "佐伯史華", "クルミ"})),
         )
-        for searchName, answer in values:
-            result = wiki.search(searchName)
-            # print((searchName, result), ", ", sep="")
-            self.assertEqual(result, answer)
+        self._do_test(wiki, values)
 
 
 unittest.main()
