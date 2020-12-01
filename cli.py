@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-import os.path
+from pathlib import Path
 from avinfo.__main__ import main
 from avinfo import common
 
 if __name__ == "__main__":
-    common.logFile = os.path.join(os.path.dirname(os.path.abspath(__file__)), common.logFile)
+    common.logFile = Path(__file__).with_name(common.logFile.name)
     main()
