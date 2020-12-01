@@ -5,10 +5,10 @@ from pathlib import Path
 from re import compile as re_compile
 from time import sleep
 
-from requests import Session, RequestException
 from bs4 import UnicodeDammit
 from lxml.etree import XPath
 from lxml.html import HtmlElement, fromstring
+from requests import RequestException, Session
 
 logFile = Path("logfile.log")
 sepWidth = 50

@@ -225,11 +225,11 @@ Please choose an option:
                 f.write(avFile.log)
                 f.write(sepLine)
             else:
-                errors.extend(f"{i:>6}: {j}" for i, j in (("Target", avFile.target), ("Type", avFile.exception)))
+                errors.extend(f"{i:>10} {j}" for i, j in (("Target:", avFile.target), ("Type:", avFile.exception)))
             printProgressBar(i, total)
 
     if errors:
-        printer(f"{'Errors:':>6}\n", "\n".join(errors), color="red")
+        printer(f"{'Errors:':>10}\n", "\n".join(errors), color="red")
 
 
 def handle_dirs(target: Path):

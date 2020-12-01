@@ -67,12 +67,13 @@ class Wikipedia(Wiki):
         birth = None
         alias = xp_compile('//caption[@*="name"]/text()')(box)
         xpath = xp_compile("td//text()")
-        box = ((i.find("th").text_content(), xpath(i)) for i in box.iterfind("tbody/tr[th][td]"))
-        for k, v in box:
+
+        for tr in box.iterfind("tbody/tr[th][td]"):
+            k = tr.find("th").text_content()
             if not birth and "生年月日" in k:
-                birth = _birth_searcher("".join(v))
+                birth = _birth_searcher("".join(xpath(tr)))
             elif "別名" in k:
-                alias.extend(j for i in v for j in _split_name(i))
+                alias.extend(j for i in xpath(tr) for j in _split_name(i))
 
         return SearchResult(name=name, birth=birth, alias=alias)
 
@@ -105,10 +106,10 @@ class MinnanoAV(Wiki):
         birth = None
         alias = []
         for td in xp_compile('//div[@class="act-profile"]/table//td[span and p]')(tree):
-            title = td.findtext("span").strip()
-            if title == "別名":
+            title = td.findtext("span")
+            if "別名" in title:
                 alias.append(td.findtext("p"))
-            elif title == "生年月日" and not birth:
+            elif not birth and "生年月日" in title:
                 birth = _birth_searcher(td.findtext("p"))
 
         return SearchResult(name=name, birth=birth, alias=alias)
@@ -120,15 +121,15 @@ class MinnanoAV(Wiki):
         tree = xp_compile('//*[@id="main-area"]//table[contains(@class,"actress")]/tr/td[h2/a[@href]]')(tree)
         if not tree:
             return
-        nameMask = _get_re_nameMask(searchName)
+        nameMask = _get_re_nameMask(searchName).fullmatch
 
         result = None
         for td in tree:
-            if "重複】" in td.text_content():
+            if "重複" in td.text_content():
                 continue
             a = td.find("h2/a[@href]")
-            if nameMask.fullmatch(_clean_name(a.text)):
-                href = a.get("href").split("?", 1)[0]
+            if nameMask(_clean_name(a.text)):
+                href = a.get("href").partition("?")[0]
                 if not result:
                     result = href
                 elif result != href:
@@ -524,7 +525,8 @@ def main(target, quiet=False):
     print("Actress scan finished.")
 
     if not total_changed:
-        print(summary, "No change can be made.", sep="\n")
+        print(summary)
+        print("No change can be made.")
         return
 
     msg = f"""{summary}
@@ -570,8 +572,8 @@ Please choose an option:
                 f.write(actress.log)
                 f.write(sepLine)
             else:
-                failed.extend(f"{i:>6}: {j}" for i, j in (("Target", actress.path), ("Type", actress.exception)))
+                failed.extend(f"{i:>10} {j}" for i, j in (("Target:", actress.path), ("Type:", actress.exception)))
             printProgressBar(i, total_changed)
 
     if failed:
-        printer(f"{'Errors:':>6}\n", "\n".join(failed), color="red")
+        printer(f"{'Errors:':>10}\n", "\n".join(failed), color="red")
