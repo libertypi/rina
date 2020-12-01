@@ -11,7 +11,7 @@ from re import sub as re_sub
 from urllib.parse import quote as urlquote
 
 from avinfo import common
-from avinfo.common import contains_cjk, get_response_tree, printRed, printYellow, xp_compile
+from avinfo.common import contains_cjk, get_response_tree, printer, xp_compile
 
 _birth_searcher = re_compile(
     r"(?P<y>(19|20)[0-9]{2})\s*年\s*(?P<m>1[0-2]|0?[1-9])\s*月\s*(?P<d>3[01]|[12][0-9]|0?[1-9])\s*日"
@@ -442,16 +442,16 @@ class Actress:
 
         status = self.status
         if status == 0b111:
-            printer = printYellow
+            color = "yellow"
             sepLine = common.sepChanged
         elif status & 0b010:
-            printer = print
+            color = None
             sepLine = common.sepSuccess
         else:
-            printer = printRed
+            color = "red"
             sepLine = common.sepFailed
 
-        printer(sepLine + self.log, end="")
+        printer(sepLine, self.log, color=color, end="")
 
 
 class ActressFolder(Actress):
@@ -507,7 +507,8 @@ def main(target, quiet=False):
     changed = []
     failed = []
     total = 0
-    with ThreadPoolExecutor(max_workers=None) as ex, ThreadPoolExecutor(max_workers=None) as exe:
+    worker = min(32, os.cpu_count() + 4) / 2
+    with ThreadPoolExecutor(max_workers=worker) as ex, ThreadPoolExecutor(max_workers=None) as exe:
         for ft in as_completed(ex.submit(ActressFolder(p).run, exe) for p in common.list_dir(target)):
             actress, status = ft.result()
             total += 1
@@ -545,12 +546,12 @@ Please choose an option:
         print(common.sepBold)
         if choice == "2":
             if changed:
-                common.printObjLogs(changed, printer=printYellow)
+                common.log_printer(changed, color="yellow")
             else:
                 print("Nothing here.")
         elif choice == "3":
             if failed:
-                common.printObjLogs(failed, printer=printRed)
+                common.log_printer(failed, color="red")
             else:
                 print("Nothing here.")
         else:
@@ -573,5 +574,4 @@ Please choose an option:
             printProgressBar(i, total_changed)
 
     if failed:
-        printRed(f"{'Errors':>6}:")
-        printRed("\n".join(failed))
+        printer(f"{'Errors:':>6}\n", "\n".join(failed), color="red")

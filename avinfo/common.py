@@ -21,12 +21,24 @@ session = Session()
 session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"})
 
 
-def printRed(arg, **kargs):
-    print(f"\033[31m{arg}\033[0m", **kargs)
+_colors = {"red": "\033[31m", "yellow": "\033[33m", "end": "\033[0m"}
 
 
-def printYellow(arg, **kargs):
-    print(f"\033[33m{arg}\033[0m", **kargs)
+def printer(*args, color: str = None, **kwargs):
+    print("".join((_colors[color], *args, _colors["end"]) if color else args), **kwargs)
+
+
+def log_printer(lst, color: str = None):
+    if color:
+        print(_colors[color], end="")
+
+    for i, obj in enumerate(lst, 1):
+        print(f'{"No:":>10} {i}')
+        print(obj.log, end="")
+        print(sepSlim)
+
+    if color:
+        print(_colors["end"], end="")
 
 
 def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=sepWidth, fill="█", printEnd="\r"):
@@ -36,11 +48,6 @@ def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", len
     print(f"\r{prefix} |{bar}| {percent}% {suffix}", end=printEnd)
     if iteration == total:
         print()
-
-
-def printObjLogs(lst, printer=print):
-    for i, obj in enumerate(lst, 1):
-        printer(f'{"No":>10}: {i}\n{obj.log}{sepSlim}')
 
 
 def _path_filter(name: str):
@@ -63,7 +70,7 @@ def walk_dir(topDir: Path, filesOnly=False):
                         continue
                 yield path, entry.stat(), is_dir
             except OSError as e:
-                printRed(f"Error occurred scanning {entry.path}: {e}")
+                printer(f"Error occurred scanning {entry.path}: {e}", color="red")
 
 
 def list_dir(topDir: Path):
@@ -74,7 +81,7 @@ def list_dir(topDir: Path):
                 if entry.is_dir() and not _path_filter(entry.name):
                     yield Path(entry.path)
             except OSError as e:
-                printRed(f"Error occurred scanning {entry.path}: {e}")
+                printer(f"Error occurred scanning {entry.path}: {e}", color="red")
     if not _path_filter(topDir.name):
         yield Path(topDir)
 

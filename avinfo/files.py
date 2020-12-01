@@ -8,7 +8,7 @@ from re import search as re_search
 from re import sub as re_sub
 
 from avinfo import common
-from avinfo.common import epoch_to_str, printRed
+from avinfo.common import epoch_to_str, printer
 from avinfo.videoscraper import scrapers
 
 
@@ -72,15 +72,15 @@ class AVString:
                 logs.append(("From Name", self.path.name))
             logs.append(("Source", f"{result.titleSource or '---'} / {result.dateSource or '---'}"))
             sepLine = common.sepSuccess
-            printer = print
+            color = None
         else:
             if self.exception:
                 logs.append(("Error", self.exception))
             sepLine = common.sepFailed
-            printer = printRed
+            color = "red"
 
-        self.log = "".join(f"{k:>10}: {v}\n" for k, v in logs)
-        printer(f"{sepLine}{self.log}", end="")
+        self.log = "".join(f'{k + ":":>10} {v}\n' for k, v in logs)
+        printer(sepLine, self.log, color=color, end="")
 
 
 class AVFile(AVString):
@@ -170,7 +170,7 @@ def handle_files(target: Path, quiet: bool):
         namemax = os.statvfs(target).f_namemax
     except OSError as e:
         namemax = 255
-        printRed(f"Error: Unable to detect filename length limit, using default value (255). {e}")
+        printer(f"Error: Unable to detect max filename, using default (255). {e}", color="red")
 
     if target.is_dir():
         with ThreadPoolExecutor(max_workers=None) as ex:
@@ -207,7 +207,7 @@ Please choose an option:
 
         print(common.sepBold)
         if choice == "2":
-            common.printObjLogs(files)
+            common.log_printer(files)
         else:
             print("Invalid option.")
         print(common.sepBold)
@@ -229,8 +229,7 @@ Please choose an option:
             printProgressBar(i, total)
 
     if errors:
-        printRed(f"{'Errors':>6}:")
-        printRed("\n".join(errors))
+        printer(f"{'Errors:':>6}\n", "\n".join(errors), color="red")
 
 
 def handle_dirs(target: Path):
@@ -249,7 +248,7 @@ def handle_dirs(target: Path):
             try:
                 os.utime(path, (stat.st_atime, record))
             except OSError as e:
-                printRed(f"Error: {path.name}  ({e})")
+                printer(f"Error: {path.name}  ({e})", color="red")
             else:
                 print(f"{epoch_to_str(mtime, '%F')}  ==>  {epoch_to_str(record, '%F')}  {path.name}")
                 return True
