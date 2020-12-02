@@ -28,8 +28,7 @@ class AVString:
         self.input = string
         self.string = self._re_clean2(" ", self._re_clean1("", string.lower()))
         self.scrape_result = None
-        # status: dateDiff filenameDiff success started
-        self.status = 0
+        self.status = 0  # status: || dateDiff | filenameDiff | success | started ||
 
     def scrape(self):
 
