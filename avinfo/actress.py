@@ -44,7 +44,7 @@ class Wiki:
     __slots__ = "baseurl"
 
     @classmethod
-    def search(cls, searchName):
+    def search(cls, keyword: str):
         raise NotImplemented
 
 
@@ -53,9 +53,9 @@ class Wikipedia(Wiki):
     baseurl = "https://ja.wikipedia.org/wiki"
 
     @classmethod
-    def search(cls, searchName):
+    def search(cls, keyword: str):
 
-        tree = get_response_tree(f"{cls.baseurl}/{searchName}", decoder="lxml")[1]
+        tree = get_response_tree(f"{cls.baseurl}/{keyword}", decoder="lxml")[1]
         if tree is None:
             return
 
@@ -82,18 +82,18 @@ class MinnanoAV(Wiki):
     baseurl = "http://www.minnano-av.com"
 
     @classmethod
-    def search(cls, searchName):
+    def search(cls, keyword: str):
 
         response, tree = get_response_tree(
             f"{cls.baseurl}/search_result.php",
-            params={"search_scope": "actress", "search_word": searchName},
+            params={"search_scope": "actress", "search_word": keyword},
             decoder="lxml",
         )
         if tree is None:
             return
 
         if "/search_result.php?" in response.url or response.url == cls.baseurl:
-            tree = cls._scan_search_page(searchName, tree)
+            tree = cls._scan_search_page(keyword, tree)
 
         try:
             tree = tree.find('.//*[@id="main-area"]')
@@ -115,13 +115,13 @@ class MinnanoAV(Wiki):
         return SearchResult(name=name, birth=birth, alias=alias)
 
     @classmethod
-    def _scan_search_page(cls, searchName, tree):
+    def _scan_search_page(cls, keyword: str, tree):
         """Return if there's only one match."""
 
         tree = xp_compile('//*[@id="main-area"]//table[contains(@class,"actress")]/tr/td[h2/a[@href]]')(tree)
         if not tree:
             return
-        nameMask = _get_re_nameMask(searchName).fullmatch
+        nameMask = _get_re_nameMask(keyword).fullmatch
 
         result = None
         for td in tree:
@@ -143,12 +143,12 @@ class AVRevolution(Wiki):
     baseurl = "http://adultmovie-revolution.com/movies/jyoyuu_kensaku.php"
 
     @classmethod
-    def search(cls, searchName):
-        tree = get_response_tree(cls.baseurl, params={"mode": 1, "search": searchName}, decoder="lxml")[1]
+    def search(cls, keyword: str):
+        tree = get_response_tree(cls.baseurl, params={"mode": 1, "search": keyword}, decoder="lxml")[1]
         if tree is None:
             return
 
-        nameMask = _get_re_nameMask(searchName)
+        nameMask = _get_re_nameMask(keyword)
         tree = xp_compile('//*[@id="entry-01"]//center/table[@summary="AV女優検索結果"]/tbody//td/a[text() and @href]')(tree)
         url = None
         for a in tree:
@@ -169,7 +169,7 @@ class AVRevolution(Wiki):
             if not name:
                 return
             alias = xp_compile('div/center/table[contains(@summary,"別名")]/tbody//td/text()')(tree)
-        except Exception:
+        except (AttributeError, TypeError, IndexError):
             pass
         else:
             return SearchResult(name=name, alias=alias)
@@ -179,11 +179,11 @@ class Seesaawiki(Wiki):
     baseurl = "https://seesaawiki.jp/av_neme/d"
 
     @classmethod
-    def search(cls, searchName, url=None):
+    def search(cls, keyword: str, url: str = None):
 
         if not url:
             try:
-                encodeName = urlquote(searchName, encoding="euc-jp")
+                encodeName = urlquote(keyword, encoding="euc-jp")
             except UnicodeEncodeError:
                 return
             url = f"{cls.baseurl}/{encodeName}"
@@ -230,9 +230,9 @@ class Msin(Wiki):
     baseurl = "https://db.msin.jp/search/actress"
 
     @classmethod
-    def search(cls, searchName: str):
+    def search(cls, keyword: str):
 
-        tree = get_response_tree(cls.baseurl, params={"str": searchName})[1]
+        tree = get_response_tree(cls.baseurl, params={"str": keyword})[1]
         try:
             tree = tree.find('.//*[@id="content"]/*[@id="actress_view"]//*[@class="act_ditail"]')
             name = _clean_name(tree.findtext('.//*[@class="mv_name"]'))
@@ -247,7 +247,7 @@ class Msin(Wiki):
         except IndexError:
             alias = ()
 
-        nameMask = _get_re_nameMask(searchName).fullmatch
+        nameMask = _get_re_nameMask(keyword).fullmatch
         if nameMask(name) or any(nameMask(_clean_name(i)) for i in alias):
             try:
                 birth = re_search(
@@ -263,14 +263,14 @@ class Manko(Wiki):
     baseurl = "http://mankowomiseruavzyoyu.blog.fc2.com"
 
     @classmethod
-    def search(cls, searchName):
+    def search(cls, keyword: str):
 
-        tree = get_response_tree(cls.baseurl, params={"q": searchName}, decoder="lxml")[1]
+        tree = get_response_tree(cls.baseurl, params={"q": keyword}, decoder="lxml")[1]
         if tree is None:
             return
 
         result = None
-        nameMask = _get_re_nameMask(searchName)
+        nameMask = _get_re_nameMask(keyword)
         xpath_1 = xp_compile('(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())[1]')
         xpath_2 = xp_compile("tr[td[1][contains(text(), $title)]]/td[2]")
 
@@ -301,12 +301,12 @@ class Etigoya(Wiki):
     baseurl = "http://etigoya955.blog49.fc2.com"
 
     @classmethod
-    def search(cls, searchName):
+    def search(cls, keyword: str):
 
-        tree = get_response_tree(cls.baseurl, params={"q": searchName})[1]
+        tree = get_response_tree(cls.baseurl, params={"q": keyword})[1]
         if tree is None:
             return
-        nameMask = _get_re_nameMask(searchName)
+        nameMask = _get_re_nameMask(keyword)
 
         result = None
         for a in xp_compile('.//*[@id="main"]/div[@class="content"]/ul/li/a[contains(text(), "＝")]')(tree):
@@ -366,18 +366,18 @@ class Actress:
         visited = {}
         unvisited = {}
 
-        weight_to_wiki = {weight: wiki for weight, wiki in enumerate(wiki_list)}
+        weight_to_func = {i: wiki.search for i, wiki in enumerate(wiki_list)}
         unvisited[self.string] = 0
 
         if ex is None:
             ex = ThreadPoolExecutor(max_workers=None)
 
-        while unvisited and weight_to_wiki:
+        while unvisited and weight_to_func:
 
-            searchName = max(unvisited, key=unvisited.get)
-            visited[searchName] = unvisited.pop(searchName)
+            keyword = max(unvisited, key=unvisited.get)
+            visited[keyword] = unvisited.pop(keyword)
 
-            ft_to_weight = {ex.submit(wiki.search, searchName): weight for weight, wiki in weight_to_wiki.items()}
+            ft_to_weight = {ex.submit(f, keyword): i for i, f in weight_to_func.items()}
 
             for ft in as_completed(ft_to_weight):
 
@@ -398,7 +398,7 @@ class Actress:
                         v[0] += 1
                     else:
                         unvisited[i] = [1, len(i)]
-                del weight_to_wiki[weight]
+                del weight_to_func[weight]
 
         log = self.log
         log["Visited"] = ", ".join(visited)
@@ -479,8 +479,8 @@ def _split_name(string: str):
 
 
 @lru_cache(128)
-def _get_re_nameMask(searchName: str) -> re.Pattern:
-    return re_compile(r"\b\s*{}\s*\b".format(r"\s*".join(searchName)))
+def _get_re_nameMask(keyword: str) -> re.Pattern:
+    return re_compile(r"\b\s*{}\s*\b".format(r"\s*".join(keyword)))
 
 
 @lru_cache(512)
