@@ -520,16 +520,16 @@ def main(target, quiet=False):
                     failed.append(actress)
 
     total_changed = len(changed)
-    summary = f"Total: {total}. Changed: {total_changed}. Failed: {len(failed)}."
     print(common.sepBold)
     print("Actress scan finished.")
 
+    msg = f"Total: {total}. Changed: {total_changed}. Failed: {len(failed)}."
     if not total_changed:
-        print(summary)
+        print(msg)
         print("No change can be made.")
         return
 
-    msg = f"""{summary}
+    msg = f"""{msg}
 Please choose an option:
 1) Apply changes.
 2) Reload changes.

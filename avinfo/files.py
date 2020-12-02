@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from re import compile as re_compile
 from re import search as re_search
@@ -9,7 +9,7 @@ from re import sub as re_sub
 
 from avinfo import common
 from avinfo.common import epoch_to_str, printer
-from avinfo.videoscraper import scrapers
+from avinfo.videoscraper import scrape_string
 
 
 class AVString:
@@ -27,65 +27,62 @@ class AVString:
     def __init__(self, string: str):
         self.input = string
         self.string = self._re_clean2(" ", self._re_clean1("", string.lower()))
-        self.scrape_result = self.exception = None
+        self.scrape_result = None
         # status: dateDiff filenameDiff success started
         self.status = 0
 
     def scrape(self):
+
         self.status |= 0b0001
-        string = self.string
 
         try:
-            self.scrape_result = next(filter(None, (s.run(string) for s in scrapers)))
+            self.scrape_result = scrape_string(self.string)
         except StopIteration:
             pass
         except Exception as e:
             self.exception = e
         else:
             self.status |= 0b0010
-            self._analyze_scrape()
 
         self._print_report()
 
-    def _analyze_scrape(self):
-        pass
-
     def _print_report(self):
+
         status = self.status
         if not status & 0b0001:
             raise RuntimeError("Generate report before scraping.")
 
         result = self.scrape_result
-        logs = [("Target", self.input)]
+        logs = [("Target:", self.input)]
 
         if result:
             if result.productId:
-                logs.append(("ProductId", result.productId))
+                logs.append(("ProductId:", result.productId))
             if result.title:
-                logs.append(("Title", result.title))
+                logs.append(("Title:", result.title))
             if result.publishDate:
-                logs.append(("Pub Date", epoch_to_str(result.publishDate)))
+                logs.append(("Date:", epoch_to_str(result.publishDate)))
             if status & 0b1000:
-                logs.append(("From Date", epoch_to_str(self.mtime)))
+                logs.append(("From:", epoch_to_str(self.mtime)))
             if status & 0b0100:
-                logs.append(("New Name", self.newfilename))
-                logs.append(("From Name", self.path.name))
-            logs.append(("Source", f"{result.titleSource or '---'} / {result.dateSource or '---'}"))
+                logs.append(("Name:", self.newfilename))
+                logs.append(("From:", self.path.name))
+            logs.append(("Source:", f"{result.titleSource or '---'} / {result.dateSource or '---'}"))
             sepLine = common.sepSuccess
             color = None
         else:
-            if self.exception:
-                logs.append(("Error", self.exception))
+            if hasattr(self, "exception"):
+                logs.append(("Error:", self.exception))
             sepLine = common.sepFailed
             color = "red"
 
-        self.log = "".join(f'{k + ":":>10} {v}\n' for k, v in logs)
+        self.log = "".join(f"{k:>10} {v}\n" for k, v in logs)
         printer(sepLine, self.log, color=color, end="")
 
 
 class AVFile(AVString):
 
-    video_filter = re_compile(
+    _is_video = re_compile(
         r"\.(?:3gp|asf|avi|bdmv|flv|iso|m(?:2?ts|4p|[24kop]v|p2|p4|pe?g|xf)|rm|rmvb|ts|vob|webm|wmv)",
         flags=re.IGNORECASE,
     ).fullmatch
@@ -98,25 +95,37 @@ class AVFile(AVString):
         self.namemax = namemax
 
     def scrape(self):
-        if self.video_filter(self.path.suffix):
-            super().scrape()
-            if self.status & 0b1100:
-                return self
 
-    def _analyze_scrape(self):
-        result = self.scrape_result
+        if not self._is_video(self.path.suffix):
+            return
 
-        productId = result.productId
-        title = result.title
-        if productId and title:
-            newfilename = self._get_filename(productId, title)
-            if newfilename != self.path.name:
-                self.newfilename = newfilename
-                self.status |= 0b0100
+        self.status |= 0b0001
+        try:
+            result = scrape_string(self.string)
+        except StopIteration:
+            pass
+        except Exception as e:
+            self.exception = e
+        else:
+            self.status |= 0b0010
+            self.scrape_result = result
 
-        publishDate = result.publishDate
-        if publishDate and publishDate != self.mtime:
-            self.status |= 0b1000
+            productId = result.productId
+            title = result.title
+            if productId and title:
+                newfilename = self._get_filename(productId, title)
+                if newfilename != self.path.name:
+                    self.status |= 0b0100
+                    self.newfilename = newfilename
+
+            if result.publishDate and result.publishDate != self.mtime:
+                self.status |= 0b1000
+
+        if self.status != 0b0011:
+            self._print_report()
+
+        if self.status & 0b1100:
+            return self
 
     def _get_filename(self, productId: str, title: str):
 
@@ -137,10 +146,6 @@ class AVFile(AVString):
 
         return f"{productId} {title}{suffix}"
 
-    def _print_report(self):
-        if self.status != 0b0011:
-            super()._print_report()
-
     @staticmethod
     def _trim_title(title: str):
         return re_search(r"^.*\w[\s。！】」）…)\].]+", title)[0]
@@ -152,9 +157,9 @@ class AVFile(AVString):
     def apply(self) -> bool:
         try:
             if self.status & 0b0100:
-                path = self.path.with_name(self.newfilename)
-                os.rename(self.path, path)
-                self.path = path
+                new = self.path.with_name(self.newfilename)
+                os.rename(self.path, new)
+                self.path = new
 
             if self.status & 0b1000:
                 os.utime(self.path, (self.atime, self.scrape_result.publishDate))
@@ -175,9 +180,10 @@ def handle_files(target: Path, quiet: bool):
     if target.is_dir():
         with ThreadPoolExecutor(max_workers=None) as ex:
             files = tuple(
-                ex.submit(AVFile(p, s, namemax).scrape) for p, s, _ in common.walk_dir(target, filesOnly=True)
+                ex.submit(AVFile(path, stat, namemax).scrape)
+                for path, stat, _ in common.walk_dir(target, filesOnly=True)
             )
-        files = tuple(filter(None, (ft.result() for ft in files)))
+        files = tuple(filter(None, map(Future.result, files)))
     else:
         files = AVFile(target, target.stat(), namemax).scrape()
         if files:
@@ -213,8 +219,8 @@ Please choose an option:
         print(common.sepBold)
 
     print("Applying changes...")
-    errors = []
-    sepLine = f"{common.sepSlim}\n"
+    failed = []
+    sepLine = common.sepSlim + "\n"
     printProgressBar = common.printProgressBar
     printProgressBar(0, total)
 
@@ -225,11 +231,11 @@ Please choose an option:
                 f.write(avFile.log)
                 f.write(sepLine)
             else:
-                errors.extend(f"{i:>10} {j}" for i, j in (("Target:", avFile.target), ("Type:", avFile.exception)))
+                failed.extend(f"{i:>10} {j}" for i, j in (("Target:", avFile.target), ("Type:", avFile.exception)))
             printProgressBar(i, total)
 
-    if errors:
-        printer(f"{'Errors:':>10}\n", "\n".join(errors), color="red")
+    if failed:
+        printer(f"{'Errors:':>10}\n", "\n".join(failed), color="red")
 
 
 def handle_dirs(target: Path):

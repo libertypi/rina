@@ -54,18 +54,18 @@ def _path_filter(name: str):
     return name.startswith(("#", "@", "."))
 
 
-def walk_dir(topDir: Path, filesOnly=False):
-    """Recursively yield tuples of dir entries in a bottom-top order."""
+def walk_dir(topDir: Path, filesOnly: bool = False, name_filter=_path_filter):
+    """Recursively yield 3-tuples of (path, stat, is_dir) in a bottom-top order."""
 
     with scandir(topDir) as it:
         for entry in it:
-            if _path_filter(entry.name):
+            if name_filter(entry.name):
                 continue
             path = Path(entry.path)
             try:
                 is_dir = entry.is_dir()
                 if is_dir:
-                    yield from walk_dir(path, filesOnly)
+                    yield from walk_dir(path, filesOnly, name_filter)
                     if filesOnly:
                         continue
                 yield path, entry.stat(), is_dir
@@ -73,16 +73,17 @@ def walk_dir(topDir: Path, filesOnly=False):
                 printer(f"Error occurred scanning {entry.path}: {e}", color="red")
 
 
-def list_dir(topDir: Path):
-    """List only dirs under top."""
+def list_dir(topDir: Path, name_filter=_path_filter):
+    """List dir paths under top."""
+
     with scandir(topDir) as it:
         for entry in it:
             try:
-                if entry.is_dir() and not _path_filter(entry.name):
+                if entry.is_dir() and not name_filter(entry.name):
                     yield Path(entry.path)
             except OSError as e:
                 printer(f"Error occurred scanning {entry.path}: {e}", color="red")
-    if not _path_filter(topDir.name):
+    if not name_filter(topDir.name):
         yield Path(topDir)
 
 

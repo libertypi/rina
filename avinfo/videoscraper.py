@@ -10,6 +10,8 @@ from urllib.parse import urljoin
 from avinfo import common
 from avinfo.common import get_response_tree, str_to_epoch, xp_compile
 
+__all__ = "scrape_string"
+
 
 @dataclass
 class ScrapeResult:
@@ -81,43 +83,61 @@ class Scraper:
             tree = get_response_tree(f"https://www.javbus.com/{base}search/{self.keyword}", decoder="lxml")[1]
             if tree is None:
                 continue
+
             for span in tree.iterfind('.//div[@id="waterfall"]//a[@class="movie-box"]//span'):
                 productId = span.findtext("date[1]")
+
                 if productId and mask(productId):
+                    title = span.text
+                    if not title:
+                        continue
+
                     date = span.findtext("date[2]")
                     self.source = "javbus.com"
+
                     return ScrapeResult(
                         productId=productId,
-                        title=span.text,
+                        title=title,
                         publishDate=str_to_epoch(date) if date else None,
                     )
 
     def _javdb(self):
+
         try:
-            pool = Scraper._javdb_url_pool
+            url = random_choice(Scraper._javdb_url)
         except AttributeError:
-            pool = Scraper._javdb_url_pool = ["https://javdb.com/search"]
+            url = "https://javdb.com/search"
+            tree = get_response_tree(url, params={"q": self.keyword})[1]
+            if tree is None:
+                return
 
-        tree = get_response_tree(random_choice(pool), params={"q": self.keyword})[1]
-        if tree is None:
-            return
-
-        if len(pool) == 1:
-            p = (
+            pool = {url}
+            pool.update(
                 urljoin(i, "search")
                 for i in tree.xpath('//nav[@class="sub-header"]/div[contains(text(), "最新域名")]//a/@href')
             )
-            pool.extend(i for i in p if i not in pool)
+            Scraper._javdb_url = tuple(pool)
+        else:
+            tree = get_response_tree(url, params={"q": self.keyword})[1]
+            if tree is None:
+                return
 
         mask = self._get_keyword_mask()
+
         for a in tree.iterfind('.//div[@id="videos"]//a[@class="box"]'):
             productId = a.findtext('div[@class="uid"]')
             if productId and mask(productId):
+
+                title = a.findtext('div[@class="video-title"]')
+                if not title:
+                    continue
+
                 date = a.findtext('div[@class="meta"]')
                 self.source = "javdb.com"
+
                 return ScrapeResult(
                     productId=productId,
-                    title=a.findtext('div[@class="video-title"]'),
+                    title=title,
                     publishDate=str_to_epoch(date) if date else None,
                 )
 
@@ -125,8 +145,8 @@ class Scraper:
         m = getattr(self, "_keyword_mask", None)
         if not m:
             m = self._keyword_mask = re_compile(
-                r"\s*{}\s*".format(re_sub("[_-]", "[_-]?", self.keyword)),
-                flags=re.I,
+                r"\s*{}\s*".format(re_sub(r"[\s_-]", r"[\\s_-]?", self.keyword)),
+                flags=re.IGNORECASE,
             ).fullmatch
         return m
 
@@ -525,14 +545,19 @@ class NumberMatcher(Scraper):
 
     @classmethod
     def run(cls, string: str):
+
         m = re_search(
             r"(?:^|[^a-z0-9])((?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9])[0-2][0-9])[_-]+([0-9]{2,4})(?:[^a-z0-9]|$)",
             string,
         )
         if m:
+            if re_search(r"\b(?:1pon(?:do)?|10mu(?:sume)?|mura(?:mura)?|paco(?:pacomama)?)\b", string):
+                c = "_"
+            else:
+                c = "-"
             return cls(
                 string,
-                keyword=m.expand(r"\1-\2"),
+                keyword=c.join(m.group(1, 2)),
                 date=str_to_epoch(m[1], "%m%d%y", regex=None),
             ).action()
 
@@ -627,17 +652,34 @@ class DateMatcher(Scraper):
         raise NotImplemented
 
 
-scrapers = (
-    Carib,
-    Heyzo,
-    Heydouga,
-    H4610,
-    X1X,
-    SM_Miracle,
-    FC2,
-    Mesubuta,
-    UncensoredMatcher,
-    NumberMatcher,
-    PrefixMatcher,
-    DateMatcher,
+_SCRAPER_LIST = tuple(
+    s.run
+    for s in (
+        Carib,
+        Heyzo,
+        Heydouga,
+        H4610,
+        X1X,
+        SM_Miracle,
+        FC2,
+        Mesubuta,
+        UncensoredMatcher,
+        NumberMatcher,
+        PrefixMatcher,
+        DateMatcher,
+    )
 )
+
+
+def scrape_string(string: str, error: bool = True):
+    """Scrape information for the given string.
+
+    :error: Raise StopIteration if no result was found.
+    """
+
+    s = (s(string) for s in _SCRAPER_LIST)
+
+    if error:
+        return next(filter(None, s))
+
+    return next(filter(None, s), None)

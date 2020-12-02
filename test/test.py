@@ -13,12 +13,6 @@ else:
 
 
 class ScraperTest(unittest.TestCase):
-
-    # def _run_test(self, values:tuple, obj, method:str):
-    #     for string, answer in values:
-    #         result = getattr(obj(string), method)()
-    #         self.assertEqual(result, answer)
-
     def test_standardize_id(self):
         values = (
             ("[carib]022716_253 (high) 3 haha 5 放課後のリフレクソロジー 5", "022716_253-carib-high-3"),
@@ -49,11 +43,13 @@ class ScraperTest(unittest.TestCase):
         values = (
             ("abs-047", False, ("ABS-047", "一泊二日、美少女完全予約制。 上原瑞穂", 1319241600.0, None, None)),
             ("120618_394", True, ("120618_394", "尾上若葉の全て", 1544054400.0, None, None)),
+            ("081020_001", False, ("081020_001", "朝ゴミ出しする近所の遊び好きノーブラ奥さん 青山未来", 1597017600.0, None, None)),
         )
         scraper = videoscraper.Scraper
         for keyword, uncensored_only, answer in values:
+            keyword = keyword.lower()
             result = scraper(keyword, keyword=keyword, uncensored_only=uncensored_only)._javbus()
-            result = astuple(result)
+            result = astuple(result) if result else None
             self.assertEqual(result, answer, msg=result)
 
     def test_javdb(self):
@@ -64,12 +60,13 @@ class ScraperTest(unittest.TestCase):
         scraper = videoscraper.Scraper
         for keyword, answer in values:
             result = scraper(keyword, keyword=keyword)._javdb()
-            result = astuple(result)
+            result = astuple(result) if result else None
             self.assertEqual(result, answer, msg=result)
 
     def _run_test(self, scraper, values):
         for string, answer in values:
-            result = astuple(scraper.run(string.lower()))
+            result = scraper.run(string.lower())
+            result = astuple(result) if result else None
             self.assertEqual(result, answer, msg=result)
 
     def test_carib(self):
@@ -201,7 +198,7 @@ class ScraperTest(unittest.TestCase):
             ("welivetogether dec 23.2014 test", (None, None, 1419292800, None, "File name")),
         )
         for string, answer in values:
-            result = next(filter(None, (s.run(string.lower()) for s in videoscraper.scrapers)), None)
+            result = videoscraper.scrape_string(string.lower(), error=False)
             result = astuple(result) if result else None
             self.assertEqual(result, answer, msg=result)
 
