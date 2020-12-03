@@ -6,7 +6,7 @@ from avinfo import common
 
 
 def parse_args():
-    def file_or_kw(target: str):
+    def target_func(target: str):
 
         path = Path(target)
         if path.exists():
@@ -58,7 +58,7 @@ def parse_args():
     )
     parser.add_argument(
         "target",
-        type=file_or_kw,
+        type=target_func,
         help="the target, be it a file, a directory, or a keyword",
     )
 
@@ -177,7 +177,7 @@ def main():
             video.AVString(target).print()
         elif mode == "video":
             process_scan_results(
-                *video.scan_path(target),
+                *video.scan_path(target, target_type == "dir"),
                 mode=mode,
                 quiet=args.quiet,
             )

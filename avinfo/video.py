@@ -87,7 +87,7 @@ class AVFile(AVString):
 
     __slots__ = AVString.__slots__ + ("path", "newfilename", "_atime")
 
-    def __init__(self, path: Path, stat: os.stat_result, namemax: int) -> None:
+    def __init__(self, path: Path, stat: os.stat_result = None, namemax: int = None):
 
         super().__init__(path.stem)
 
@@ -98,12 +98,14 @@ class AVFile(AVString):
             return
 
         if self.productId and self.title:
-            name = self._get_filename(namemax)
+            name = self._get_filename(namemax or get_namemax(path))
             if name != path.name:
                 self._status |= 0b010
                 self.newfilename = name
                 self._report.update(NewName=name, FromName=path.name)
 
+        if not stat:
+            stat = path.stat()
         if self.publishDate and self.publishDate != stat.st_mtime:
             self._status |= 0b100
             self._atime = stat.st_atime
@@ -152,18 +154,23 @@ class AVFile(AVString):
         return re_sub(r"^[\s._]+|[\s【「（。、\[(.,_]+$", "", title)
 
 
-def scan_path(target: Path):
-
+def get_namemax(path: Path):
     try:
-        namemax = os.statvfs(target).f_namemax
+        return os.statvfs(path).f_namemax
     except OSError:
-        namemax = 255
+        return 255
+
+
+def scan_path(target: Path, is_dir: bool = None):
 
     changed = []
     failed = []
 
-    if not target.is_dir():
-        avfile = AVFile(target, target.stat(), namemax)
+    if is_dir is None:
+        is_dir = target.is_dir()
+
+    if not is_dir:
+        avfile = AVFile(target)
         avfile.print()
         if avfile.has_new_info:
             changed.append(avfile)
@@ -172,6 +179,7 @@ def scan_path(target: Path):
         return 1, changed, failed
 
     total = 0
+    namemax = get_namemax(target)
     is_video = re_compile(
         r"\.(?:3gp|asf|avi|bdmv|flv|iso|m(?:2?ts|4p|[24kop]v|p2|p4|pe?g|xf)|rm|rmvb|ts|vob|webm|wmv)",
         flags=re.IGNORECASE,

@@ -346,7 +346,7 @@ class Actress:
 
         self._status |= 0b001
         try:
-            if executor is None:
+            if not executor:
                 with ThreadPoolExecutor(max_workers=None) as executor:
                     self._bfs_search(keyword, executor)
             else:
