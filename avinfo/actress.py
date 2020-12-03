@@ -539,8 +539,8 @@ def scan_path(target: Path):
 
     with ThreadPoolExecutor(max_workers=worker) as ex, ThreadPoolExecutor(max_workers=None) as exe:
         for ft in as_completed(ex.submit(ActressFolder, p, exe) for p in common.list_dir(target)):
-            actress = ft.result()
             total += 1
+            actress = ft.result()
             actress.print()
             if actress.has_new_info:
                 changed.append(actress)

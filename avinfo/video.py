@@ -152,11 +152,7 @@ def _strip_title(s: str):
 
 def _trim_title(s: str):
     return (
-        max(
-            re_search(r"^.*?\w.*(?=[【「『｛（《\[(])", s),
-            re_search(r"^.*?\w.*[】」』｝）》\])](?=.)", s),
-            key=lambda m: m.end() if m else -1,
-        )
+        re_search(r"^.*?\w.*(?:(?=[【「『｛（《\[(])|[】」』｝）》\])](?=.))", s)
         or re_search(r"^.*?\w.*[？！!…。.\s](?=.)", s)
         or re_search(r"^.*?\w.*[〜～●・,、_](?=.)", s)
     )[0]
@@ -188,17 +184,15 @@ def scan_path(target: Path, is_dir: bool = None):
 
     total = 0
     namemax = get_namemax(target)
-    is_video = re_compile(
-        r"\.(?:3gp|asf|avi|bdmv|flv|iso|m(?:2?ts|4p|[24kop]v|p2|p4|pe?g|xf)|rm|rmvb|ts|vob|webm|wmv)",
-        flags=re.IGNORECASE,
-    ).fullmatch
+    video_ext = "3gp asf avi bdmv flv iso m2ts m2v m4p m4v mkv mov mp2 mp4 mpeg mpg mpv mts mxf rm rmvb ts vob webm wmv"
+    video_ext = frozenset("." + e for e in video_ext.split())
 
     with ThreadPoolExecutor(max_workers=None) as ex:
 
         for ft in as_completed(
             ex.submit(AVFile, path, stat, namemax)
             for path, stat, _ in common.walk_dir(target, filesOnly=True)
-            if is_video(path.suffix)
+            if path.suffix.lower() in video_ext
         ):
             total += 1
             avfile = ft.result()
@@ -232,7 +226,7 @@ def update_dir_mtime(target: Path):
         return False
 
     print(common.sepBold)
-    print("Scanning directory timestamps...")
+    print("Updating directory timestamps...")
 
     records = {}
     total = 1
