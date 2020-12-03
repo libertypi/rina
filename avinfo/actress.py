@@ -337,7 +337,6 @@ class Actress:
             "Visited": None,
             "Unvisited": None,
             "Result": None,
-            "Error": None,
         }
 
         keyword = re_sub(r"\([0-9]{4}(-[0-9]{1,2}){2}\)|\s+", "", keyword)
@@ -432,18 +431,17 @@ class Actress:
         if isinstance(report, str):
             return report
 
-        logs = []
+        log = []
         for k, v in report.items():
-            if not v:
-                continue
-            if isinstance(v, tuple):
-                v = iter(v)
-                logs.append(f'{k + ":":>10} {next(v)}\n')
-                logs.extend(f'{"":>10} {i}\n' for i in v)
-            else:
-                logs.append(f'{k + ":":>10} {v}\n')
+            if v:
+                if isinstance(v, tuple):
+                    v = iter(v)
+                    log.append(f'{k + ":":>10} {next(v)}\n')
+                    log.extend(f'{"":>10} {i}\n' for i in v)
+                else:
+                    log.append(f'{k + ":":>10} {v}\n')
 
-        report = self._report = "".join(logs)
+        report = self._report = "".join(log)
         return report
 
     def print(self):
