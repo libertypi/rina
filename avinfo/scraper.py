@@ -1,7 +1,6 @@
 import re
 from dataclasses import astuple, dataclass
 from random import choice as random_choice
-from re import VERBOSE as VERBOSE
 from re import compile as re_compile
 from re import search as re_search
 from re import sub as re_sub
@@ -524,7 +523,7 @@ class UncensoredMatcher(Scraper):
                 ([0-9]{6})
                 (?:[^a-z0-9]|$)""",
             )
-            regex = cls.regex = tuple(re_compile(p, flags=VERBOSE).search for p in regex)
+            regex = cls.regex = tuple(re_compile(p, flags=re.VERBOSE).search for p in regex)
 
         for matcher in regex:
             m = matcher(string)
@@ -598,7 +597,7 @@ class PrefixMatcher(Scraper):
                 (?:hhb[0-9]?)?(?:[^a-z0-9]|$)
                 """,
             )
-            regex = cls.regex = tuple(re_compile(p, flags=VERBOSE).finditer for p in regex)
+            regex = cls.regex = tuple(re_compile(p, flags=re.VERBOSE).finditer for p in regex)
 
         for matcher in regex:
             for m in matcher(string):

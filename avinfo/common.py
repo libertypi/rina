@@ -10,7 +10,7 @@ from lxml.etree import XPath
 from lxml.html import HtmlElement, fromstring
 from requests import RequestException, Session
 
-logFile = "logfile.log"
+log_file = "logfile.log"
 sepWidth = 50
 sepBold = "=" * sepWidth
 sepSlim = "-" * sepWidth
@@ -28,15 +28,6 @@ def color_printer(*args, color: str, **kwargs):
     print(_colors[color], end="")
     print(*args, **kwargs)
     print("\033[0m", end="")
-
-
-def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=sepWidth, fill="█", printEnd="\r"):
-    percent = f"{100 * (iteration / float(total)):.1f}"
-    filledLength = int(length * iteration // total)
-    bar = f'{fill * filledLength}{"-" * (length - filledLength)}'
-    print(f"\r{prefix} |{bar}| {percent}% {suffix}", end=printEnd)
-    if iteration == total:
-        print()
 
 
 def _path_filter(name: str):

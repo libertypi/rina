@@ -86,6 +86,15 @@ def print_banner():
     print(common.sepSlim)
 
 
+def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=common.sepWidth, fill="█"):
+    percent = f"{100 * (iteration / float(total)):.1f}"
+    filledLength = int(length * iteration // total)
+    bar = f'{fill * filledLength}{"-" * (length - filledLength)}'
+    print(f"\r{prefix} |{bar}| {percent}% {suffix}", end="\r")
+    if iteration == total:
+        print()
+
+
 def process_scan_results(total: int, changed: list, failed: list, mode: str, quiet: bool):
 
     mode = mode.title()
@@ -128,12 +137,11 @@ Please choose an option:
 
     failed.clear()
     sep = common.sepSlim + "\n"
-    printProgressBar = common.printProgressBar
 
     print("Applying changes...")
     printProgressBar(0, total_changed)
 
-    with open(common.logFile, "a", encoding="utf-8") as f:
+    with open(common.log_file, "a", encoding="utf-8") as f:
         for i, obj in enumerate(changed, 1):
             try:
                 obj.apply()
