@@ -71,7 +71,8 @@ class Scraper:
 
         return result if any(astuple(result)) else None
 
-    def _query(self):
+    @staticmethod
+    def _query():
         pass
 
     def _javbus(self):

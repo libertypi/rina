@@ -99,7 +99,7 @@ class AVFile(AVString):
             return
 
         if self.productId and self.title:
-            name = self._get_filename(namemax or get_namemax(path))
+            name = self._get_filename(namemax or _get_namemax(path))
             if name != path.name:
                 self._status |= 0b010
                 self.newfilename = name
@@ -158,7 +158,7 @@ def _trim_title(s: str):
     )[0]
 
 
-def get_namemax(path: Path):
+def _get_namemax(path: Path):
     try:
         return os.statvfs(path).f_namemax
     except OSError:
@@ -183,7 +183,7 @@ def scan_path(target: Path, is_dir: bool = None):
         return 1, changed, failed
 
     total = 0
-    namemax = get_namemax(target)
+    namemax = _get_namemax(target)
     video_ext = "3gp asf avi bdmv flv iso m2ts m2v m4p m4v mkv mov mp2 mp4 mpeg mpg mpv mts mxf rm rmvb ts vob webm wmv"
     video_ext = frozenset("." + e for e in video_ext.split())
 
