@@ -1,18 +1,13 @@
 import os
-import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from re import compile as re_compile
-from re import search as re_search
-from re import split as re_split
-from re import sub as re_sub
 from urllib.parse import quote as urlquote
 
 from avinfo import common
-from avinfo.common import color_printer, get_response_tree, xp_compile
+from avinfo.common import color_printer, get_response_tree, re_compile, re_search, re_split, re_sub, xp_compile
 
 _RE_BIRTH = re_compile(
     r"(?P<y>(19|20)[0-9]{2})\s*年\s*(?P<m>1[0-2]|0?[1-9])\s*月\s*(?P<d>3[01]|[12][0-9]|0?[1-9])\s*日"
@@ -487,7 +482,7 @@ def _split_name(string: str):
 
 
 @lru_cache(128)
-def _get_re_nameMask(keyword: str) -> re.Pattern:
+def _get_re_nameMask(keyword: str):
     return re_compile(r"\b\s*{}\s*\b".format(r"\s*".join(keyword)))
 
 

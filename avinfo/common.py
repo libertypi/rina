@@ -3,6 +3,9 @@ from functools import lru_cache
 from os import scandir
 from pathlib import Path
 from re import compile as re_compile
+from re import search as re_search
+from re import split as re_split
+from re import sub as re_sub
 from time import sleep
 
 from bs4 import UnicodeDammit
@@ -19,8 +22,6 @@ sepFailed = "FAILED".center(sepWidth, "-") + "\n"
 sepChanged = "CHANGED".center(sepWidth, "-") + "\n"
 session = Session()
 session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"})
-
-
 _colors = {"red": "\033[31m", "yellow": "\033[33m"}
 
 

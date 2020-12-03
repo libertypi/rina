@@ -81,20 +81,20 @@ class Scraper(unittest.TestCase):
                     "未来のきもち 〜衰えた性欲が一気に取り戻せる乳首ンビンセラピー〜",
                     1598659200.0,
                     "caribbeancom.com",
-                    "Product ID",
+                    "product id",
                 ),
             ),
             (
                 "062317_001-caribpr",
-                ("062317_001-caribpr", "S Model 172 オフィスレディーの社内交尾", 1498176000.0, "caribbeancompr.com", "Product ID"),
+                ("062317_001-caribpr", "S Model 172 オフィスレディーの社内交尾", 1498176000.0, "caribbeancompr.com", "product id"),
             ),
             (
                 "022114_777-caribpr-mid",
-                ("022114_777-caribpr-mid", "レッドホットフェティッシュコレクション 108", 1392940800, "caribbeancompr.com", "Product ID"),
+                ("022114_777-caribpr-mid", "レッドホットフェティッシュコレクション 108", 1392940800, "caribbeancompr.com", "product id"),
             ),
             (
                 "072816_001-caribpr-high",
-                ("072816_001-caribpr-high", "続々生中〜ロリ美少女をハメまくる〜", 1469664000, "caribbeancompr.com", "Product ID"),
+                ("072816_001-caribpr-high", "続々生中〜ロリ美少女をハメまくる〜", 1469664000, "caribbeancompr.com", "product id"),
             ),
         )
         self._run_test(values)
@@ -184,11 +184,11 @@ class Scraper(unittest.TestCase):
 
     def test_date(self):
         values = (
-            ("Devon Ray Milf Teen Cum Swap 28Jul2015 1080p", (None, None, 1438041600.0, None, "File name")),
-            ("welivetogether.15.08.20.abigail.mac.and.daisy.summers", (None, None, 1440028800, None, "File name")),
-            ("welivetogether 23-jun 2014 test", (None, None, 1403481600, None, "File name")),
-            ("welivetogether dec 23.2014 test", (None, None, 1419292800, None, "File name")),
-            ("deeper.20.03.14.rae.lil.black", (None, None, 1584144000, None, "File name")),
+            ("Devon Ray Milf Teen Cum Swap 28Jul2015 1080p", (None, None, 1438041600.0, None, "file name")),
+            ("welivetogether.15.08.20.abigail.mac.and.daisy.summers", (None, None, 1440028800, None, "file name")),
+            ("welivetogether 23-jun 2014 test", (None, None, 1403481600, None, "file name")),
+            ("welivetogether dec 23.2014 test", (None, None, 1419292800, None, "file name")),
+            ("deeper.20.03.14.rae.lil.black", (None, None, 1584144000, None, "file name")),
         )
         self._run_test(values)
 
@@ -196,12 +196,12 @@ class Scraper(unittest.TestCase):
         values = (
             (
                 "022418_01-10mu-1080p",
-                ("022418_01-10mu-1080p", "制服時代 〜スカートが短くて恥かしい〜", 1519430400, "javbus.com", "Product ID"),
+                ("022418_01-10mu-1080p", "制服時代 〜スカートが短くて恥かしい〜", 1519430400, "javbus.com", "product id"),
             ),
-            ("112118_772-1pon", ("112118_772-1pon", "パンツを脱いでもメガネは外しません〜家庭教師〜", 1542758400, "javbus.com", "Product ID")),
+            ("112118_772-1pon", ("112118_772-1pon", "パンツを脱いでもメガネは外しません〜家庭教師〜", 1542758400, "javbus.com", "product id")),
             (
                 "160122_1020_01-mesubuta",
-                ("160122_1020_01-mesubuta", "【惨虐】狙われた女子校生", 1453420800, "javbus.com", "Product ID"),
+                ("160122_1020_01-mesubuta", "【惨虐】狙われた女子校生", 1453420800, "javbus.com", "product id"),
             ),
             (
                 "1000Giri-151127 kurumi-HD",
@@ -242,10 +242,10 @@ class Scraper(unittest.TestCase):
                     "javbus.com",
                 ),
             ),
-            ("081018-724", ("081018-724", "女熱大陸 File.063", 1533859200.0, "javbus.com", "Product ID")),
+            ("081018-724", ("081018-724", "女熱大陸 File.063", 1533859200.0, "javbus.com", "product id")),
             (
                 "110614_729-carib-1080p",
-                ("110614_729-carib-1080p", "尾上若葉にどっきり即ハメ！パート2", 1415232000, "caribbeancom.com", "Product ID"),
+                ("110614_729-carib-1080p", "尾上若葉にどっきり即ハメ！パート2", 1415232000, "caribbeancom.com", "product id"),
             ),
         )
         self._run_test(values)

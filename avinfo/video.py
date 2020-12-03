@@ -2,12 +2,9 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from re import compile as re_compile
-from re import search as re_search
-from re import sub as re_sub
 
 from avinfo import common
-from avinfo.common import color_printer, epoch_to_str
+from avinfo.common import color_printer, epoch_to_str, re_compile, re_search, re_sub
 from avinfo.scraper import SCRAPERS
 
 _RE_CLEAN1 = re_compile(r"^(?:\[f?hd\]|[a-z0-9-]+\.[a-z]{2,}@)").sub

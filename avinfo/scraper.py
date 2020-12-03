@@ -1,13 +1,10 @@
 import re
 from dataclasses import astuple, dataclass
 from random import choice as random_choice
-from re import compile as re_compile
-from re import search as re_search
-from re import sub as re_sub
 from urllib.parse import urljoin
 
 from avinfo import common
-from avinfo.common import get_response_tree, str_to_epoch, xp_compile
+from avinfo.common import get_response_tree, re_compile, re_search, re_sub, str_to_epoch, xp_compile
 
 
 @dataclass
@@ -23,14 +20,14 @@ class Scraper:
 
     standard_id: bool = False
     uncensored_only: bool = False
+    date: float = None
     source: str
     url: str
 
-    def __init__(self, string: str, keyword: str, date: float = None, **kwargs) -> None:
+    def __init__(self, string: str, keyword: str, **kwargs) -> None:
 
         self.string = string
         self.keyword = keyword
-        self.date = date
         self.__dict__.update(kwargs)
 
     @classmethod
@@ -53,7 +50,7 @@ class Scraper:
 
         if self.date:
             result.publishDate = self.date
-            result.dateSource = "Product ID"
+            result.dateSource = "product id"
         elif result.publishDate:
             result.dateSource = self.source
 
@@ -211,8 +208,8 @@ class Scraper:
 
 class Carib(Scraper):
 
-    standard_id: bool = True
-    uncensored_only: bool = True
+    standard_id = True
+    uncensored_only = True
 
     @classmethod
     def search(cls, string: str):
@@ -403,16 +400,14 @@ class SM_Miracle(Scraper):
     def search(cls, string: str):
         m = re_search(r"(?:^|[^a-z0-9])sm[\s_-]*miracle[\s_-]*(?:no)?[\s_.-]+e?([0-9]{4})(?:[^a-z0-9]|$)", string)
         if m:
-            uid = f"e{m[1]}"
             return cls(
                 string,
-                keyword=uid,
-                url=f"http://sm-miracle.com/movie/{uid}.dat",
+                keyword=f"e{m[1]}",
             ).process()
 
     def _query(self):
         try:
-            response = common.session.get(self.url)
+            response = common.session.get(f"http://sm-miracle.com/movie/{self.keyword}.dat")
             response.raise_for_status()
         except common.RequestException:
             return
@@ -607,9 +602,9 @@ class PrefixMatcher(Scraper):
                     return result
 
 
-class DateMatcher(Scraper):
+class DateMatcher:
 
-    source = "File name"
+    source = "file name"
 
     @classmethod
     def search(cls, string: str):
@@ -650,13 +645,10 @@ class DateMatcher(Scraper):
                     dateSource=cls.source,
                 )
 
-    def process(self):
-        raise NotImplemented
-
 
 SCRAPERS = tuple(
-    s.search
-    for s in (
+    scraper.search
+    for scraper in (
         Carib,
         Heyzo,
         Heydouga,
