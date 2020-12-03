@@ -1,6 +1,8 @@
 import argparse
+import sys
 from pathlib import Path
-from avinfo import actress, common, files
+
+from avinfo import common
 
 
 def parse_args():
@@ -17,78 +19,170 @@ def parse_args():
 
     parser = argparse.ArgumentParser(
         prog="avinfo",
-        description="""Detect publish ID, title and date for Japanese adult videos.
-Detect name and birthday for Japanese adult video stars.""",
-        formatter_class=argparse.RawTextHelpFormatter,
+        description="""The ultimate AV detector.""",
     )
-    parser.add_argument(
-        "-m",
-        "--mode",
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "-v",
+        "--video",
         dest="mode",
-        action="store",
-        choices=("f", "a", "d"),
-        default="f",
-        help="""Operation mode. (default: %(default)s)
-f:  Detect publish ID, title and date for videos. 
-a:  Detect dir name based on actress name.
-d:  Modify directories' mtime base on their content.""",
+        action="store_const",
+        const="video",
+        help="detect publish ID, title and publish date from videos",
     )
+    group.add_argument(
+        "-a",
+        "--actress",
+        dest="mode",
+        action="store_const",
+        const="actress",
+        help="detect actress name and birth from directories",
+    )
+    group.add_argument(
+        "-d",
+        "--dir",
+        dest="mode",
+        action="store_const",
+        const="dir",
+        help="modify directories' mtime to the newest file inside",
+    )
+    group.set_defaults(mode="video")
+
     parser.add_argument(
         "-q",
         "--quiet",
         dest="quiet",
         action="store_true",
-        help="Apply changes without prompting. (default: %(default)s)",
+        help="apply changes without prompting. (default: %(default)s)",
     )
     parser.add_argument(
         "target",
         type=file_or_kw,
-        help="""The target, be it a file, a directory, or a keyword.
-When mode d is selected, the target must be a directory.""",
+        help="the target, be it a file, a directory, or a keyword",
     )
 
     args = parser.parse_args()
 
-    if args.mode == "d" and not (isinstance(args.target, Path) and args.target.is_dir()):
-        parser.error(f"When '--mode {args.mode}' is selected, the target must be a directory.")
+    if isinstance(args.target, str):
+        target_type = "str"
+    elif args.target.is_dir():
+        target_type = "dir"
+    else:
+        target_type = "file"
 
-    return args
+    if args.mode == "dir" and target_type != "dir":
+        parser.error(f"When mode is '{args.mode}', the target must be a directory.")
+    elif args.mode == "actress" and target_type == "file":
+        parser.error(f"When mode is '{args.mode}', the target must be a directory or a keyword.")
+
+    return args, target_type
 
 
-def printBanner():
-    msg = ("Adult Video Information Detector", "By David Pi")
+def print_banner():
     print(common.sepSlim)
-    for m in msg:
+    for m in ("Adult Video Information Detector", "By David Pi"):
         print(m.center(common.sepWidth))
     print(common.sepSlim)
 
 
-def printTaskStart(args: argparse.Namespace):
-    modes = {"a": "Actress", "f": "File", "d": "Directory"}
-    print(f"Target: {args.target}. Mode: {modes[args.mode]}")
-    print("Task start...")
+def process_scan_results(total: int, changed: list, failed: list, mode: str, quiet: bool):
+
+    total_changed = len(changed)
+    print(common.sepBold)
+    print(f"{mode} scan finished.")
+
+    msg = f"Total: {total}. Changed: {total_changed}. Failed: {len(failed)}."
+    if not total_changed:
+        print(msg)
+        print("No change can be made.")
+        return
+
+    msg = f"""{msg}
+Please choose an option:
+1) apply changes
+2) reload changes
+3) reload failures
+4) quit
+"""
+
+    while not quiet:
+        choice = input(msg)
+
+        if choice == "1":
+            break
+        elif choice == "4":
+            sys.exit()
+
+        print(common.sepBold)
+        if choice == "2":
+            for obj in changed:
+                obj.print()
+        elif choice == "3":
+            for obj in failed:
+                obj.print()
+        else:
+            print("Invalid option.")
+        print(common.sepBold)
+
+    failed.clear()
+    sep = common.sepSlim + "\n"
+    printProgressBar = common.printProgressBar
+
+    print("Applying changes...")
+    printProgressBar(0, total_changed)
+
+    with open(common.logFile, "a", encoding="utf-8") as f:
+        for i, obj in enumerate(changed, 1):
+            try:
+                obj.apply()
+            except OSError as e:
+                failed.append((obj.path, e))
+            else:
+                f.write(f"[{common.now()}] Mode: {mode}\n")
+                f.write(obj.report)
+                f.write(sep)
+            printProgressBar(i, total_changed)
+
+    for path, e in failed:
+        common.color_printer("Target:", path, color="red")
+        common.color_printer("Error:", e, color="red")
 
 
 def main():
-    printBanner()
+    print_banner()
 
-    args = parse_args()
+    args, target_type = parse_args()
     target = args.target
+    mode = args.mode
 
-    printTaskStart(args)
+    print(f"Target: {args.target}. Mode: {mode}")
+    print("Task start...")
 
-    if args.mode == "a":
-        actress.main(target, quiet=args.quiet)
+    if mode == "actress":
+        from avinfo import actress
 
-    elif args.mode == "f":
-        if isinstance(target, Path):
-            files.handle_files(target, args.quiet)
-            files.handle_dirs(target)
+        if target_type == "str":
+            actress.Actress(target).print()
         else:
-            files.AVString(target).scrape()
-
+            process_scan_results(
+                *actress.scan_path(target),
+                mode=mode,
+                quiet=args.quiet,
+            )
     else:
-        files.handle_dirs(target)
+        from avinfo import video
+
+        if target_type == "str":
+            video.AVString(target).print()
+        elif mode == "video":
+            process_scan_results(
+                *video.scan_path(target),
+                mode=mode,
+                quiet=args.quiet,
+            )
+        if target_type == "dir":
+            video.update_dir_mtime(target)
 
 
 if __name__ == "__main__":

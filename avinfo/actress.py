@@ -7,11 +7,12 @@ from functools import lru_cache
 from pathlib import Path
 from re import compile as re_compile
 from re import search as re_search
+from re import split as re_split
 from re import sub as re_sub
 from urllib.parse import quote as urlquote
 
 from avinfo import common
-from avinfo.common import contains_cjk, get_response_tree, printer, xp_compile
+from avinfo.common import color_printer, get_response_tree, xp_compile
 
 _birth_searcher = re_compile(
     r"(?P<y>(19|20)[0-9]{2})\s*年\s*(?P<m>1[0-2]|0?[1-9])\s*月\s*(?P<d>3[01]|[12][0-9]|0?[1-9])\s*日"
@@ -323,13 +324,14 @@ wiki_list = (Wikipedia, MinnanoAV, Seesaawiki, Msin, Manko, Etigoya)
 
 class Actress:
 
-    __slots__ = ("log", "string", "path", "status", "result", "exception")
+    __slots__ = ("name", "birth", "result", "_report", "_status")
 
-    _name_cleaner = re_compile(r"\([0-9]{4}(-[0-9]{1,2}){2}\)|\s+").sub
+    def __init__(self, keyword: str, executor: ThreadPoolExecutor = None):
 
-    def __init__(self, string: str):
-        self.log = {
-            "Target": string,
+        # status: || filenameDiff | success | started ||
+        self._status = 0
+        self._report = {
+            "Target": keyword,
             "Name": None,
             "Birth": None,
             "Visited": None,
@@ -337,40 +339,31 @@ class Actress:
             "Result": None,
             "Error": None,
         }
-        self.string = self._name_cleaner("", string)
-        self.status = 0  # status: || filenameDiff | success | started ||
 
-    def run(self, ex: ThreadPoolExecutor = None):
-        if contains_cjk(self.string):
-            try:
-                self._bfs_search(ex)
-            except Exception as e:
-                self.log["Error"] = e
-        else:
-            self.log["Error"] = "Filename contains no valid actress name."
+        keyword = re_sub(r"\([0-9]{4}(-[0-9]{1,2}){2}\)|\s+", "", keyword)
+        if not contains_cjk(keyword):
+            self._report["Error"] = "Keyword contains no valid actress name."
+            return
 
-        self._gen_report()
+        self._status |= 0b001
+        try:
+            if executor is None:
+                with ThreadPoolExecutor(max_workers=None) as executor:
+                    self._bfs_search(keyword, executor)
+            else:
+                self._bfs_search(keyword, executor)
+        except Exception as e:
+            self._report["Error"] = str(e)
 
-        status = self.status
-        if status == 0b111:
-            return self, True
-        elif status == 0b001:
-            return self, False
-        return None, None
+    def _bfs_search(self, keyword: str, ex: ThreadPoolExecutor):
 
-    def _bfs_search(self, ex: ThreadPoolExecutor):
-
-        self.status |= 0b001
         nameDict = defaultdict(list)
         birthDict = defaultdict(list)
         visited = {}
         unvisited = {}
 
         weight_to_func = {i: wiki.search for i, wiki in enumerate(wiki_list)}
-        unvisited[self.string] = 0
-
-        if ex is None:
-            ex = ThreadPoolExecutor(max_workers=None)
+        unvisited[keyword] = 0
 
         while unvisited and weight_to_func:
 
@@ -400,15 +393,17 @@ class Actress:
                         unvisited[i] = [1, len(i)]
                 del weight_to_func[weight]
 
-        log = self.log
-        log["Visited"] = ", ".join(visited)
-        log["Unvisited"] = ", ".join(sorted(unvisited, key=unvisited.get, reverse=True))
-        name, log["Name"] = self._sort_search_result(nameDict)
-        birth, log["Birth"] = self._sort_search_result(birthDict)
+        report = self._report
+        report["Visited"] = ", ".join(visited)
+        report["Unvisited"] = ", ".join(sorted(unvisited, key=unvisited.get, reverse=True))
+        name, report["Name"] = self._sort_search_result(nameDict)
+        birth, report["Birth"] = self._sort_search_result(birthDict)
 
         if name and birth:
-            self.result = log["Result"] = f"{name}({birth})"
-            self.status |= 0b010
+            self._status |= 0b010
+            self.result = report["Result"] = f"{name}({birth})"
+            self.name = name
+            self.birth = birth
 
     @staticmethod
     def _sort_search_result(result: dict):
@@ -427,10 +422,18 @@ class Actress:
             tuple(f'{k} ({", ".join(wiki_list[i].__name__ for i in v)})' for k, v in result),
         )
 
-    def _gen_report(self):
+    @property
+    def scrape_failed(self):
+        return self._status & 0b011 == 0b001
+
+    @property
+    def report(self):
+        report = self._report
+        if isinstance(report, str):
+            return report
 
         logs = []
-        for k, v in self.log.items():
+        for k, v in report.items():
             if not v:
                 continue
             if isinstance(v, tuple):
@@ -439,43 +442,45 @@ class Actress:
                 logs.extend(f'{"":>10} {i}\n' for i in v)
             else:
                 logs.append(f'{k + ":":>10} {v}\n')
-        self.log = "".join(logs)
 
-        status = self.status
-        if status == 0b111:
-            color = "yellow"
-            sepLine = common.sepChanged
-        elif status & 0b010:
-            color = None
-            sepLine = common.sepSuccess
+        report = self._report = "".join(logs)
+        return report
+
+    def print(self):
+        if self._status == 0b011:
+            print(common.sepSuccess, self.report, sep="", end="")
         else:
-            color = "red"
-            sepLine = common.sepFailed
-
-        printer(sepLine, self.log, color=color, end="")
+            if self._status == 0b111:
+                color = "yellow"
+                sep = common.sepChanged
+            else:
+                color = "red"
+                sep = common.sepFailed
+            color_printer(sep, self.report, color=color, sep="", end="")
 
 
 class ActressFolder(Actress):
-    def __init__(self, path: Path):
-        super().__init__(path.name)
-        self.path = self.log["Target"] = path
 
-    def _bfs_search(self, *args, **kwargs):
-        super()._bfs_search(*args, **kwargs)
-        if self.status & 0b010 and self.result != self.path.name:
-            self.status |= 0b100
+    __slots__ = Actress.__slots__ + ("path",)
+
+    def __init__(self, path: Path, executor: ThreadPoolExecutor = None):
+        super().__init__(path.name, executor)
+        self.path = self._report["Target"] = path
+
+        if self._status & 0b010 and self.result != path.name:
+            self._status |= 0b100
 
     def apply(self):
-        try:
+        if self._status == 0b111:
             os.rename(self.path, self.path.with_name(self.result))
-        except OSError as e:
-            self.exception = e
-            return False
-        return True
+
+    @property
+    def has_new_info(self):
+        return self._status == 0b111
 
 
 def _split_name(string: str):
-    return re.split(r"\s*[\n、/／・,＝]+\s*", string)
+    return re_split(r"\s*[\n、/／・,＝]+\s*", string)
 
 
 @lru_cache(128)
@@ -485,7 +490,7 @@ def _get_re_nameMask(keyword: str) -> re.Pattern:
 
 @lru_cache(512)
 def _clean_name(string: str) -> str:
-    for string in re.split(r"[【（\[(].*?[】）\])]", re_sub(r"[\s 　]+", "", string)):
+    for string in re_split(r"[【（\[(].*?[】）\])]", re_sub(r"[\s 　]+", "", string)):
         string = re_sub(r"[【（\[(].*|.*?[】）\])]", "", string)
         if string:
             return string
@@ -499,81 +504,44 @@ def _clean_name_list(nameList):
             yield name
 
 
-def main(target, quiet=False):
+def contains_cjk():
+    mask = 0
+    for i, j in (
+        (4352, 4607),
+        (11904, 42191),
+        (43072, 43135),
+        (44032, 55215),
+        (63744, 64255),
+        (65072, 65103),
+        (65381, 65500),
+        (131072, 196607),
+    ):
+        mask |= (1 << j + 1) - (1 << i)
 
-    if isinstance(target, str):
-        Actress(target).run()
-        return
+    def _contains_cjk(string: str) -> bool:
+        return any(1 << ord(c) & mask for c in string)
+
+    return _contains_cjk
+
+
+contains_cjk = contains_cjk()
+
+
+def scan_path(target: Path):
 
     changed = []
     failed = []
     total = 0
     worker = min(32, os.cpu_count() + 4) / 2
+
     with ThreadPoolExecutor(max_workers=worker) as ex, ThreadPoolExecutor(max_workers=None) as exe:
-        for ft in as_completed(ex.submit(ActressFolder(p).run, exe) for p in common.list_dir(target)):
-            actress, status = ft.result()
+        for ft in as_completed(ex.submit(ActressFolder, p, exe) for p in common.list_dir(target)):
+            actress = ft.result()
             total += 1
-            if actress:
-                if status:
-                    changed.append(actress)
-                else:
-                    failed.append(actress)
+            actress.print()
+            if actress.has_new_info:
+                changed.append(actress)
+            elif actress.scrape_failed:
+                failed.append(actress)
 
-    total_changed = len(changed)
-    print(common.sepBold)
-    print("Actress scan finished.")
-
-    msg = f"Total: {total}. Changed: {total_changed}. Failed: {len(failed)}."
-    if not total_changed:
-        print(msg)
-        print("No change can be made.")
-        return
-
-    msg = f"""{msg}
-Please choose an option:
-1) Apply changes.
-2) Reload changes.
-3) Reload failures (not including skipped items).
-4) Quit without applying.
-"""
-
-    while not quiet:
-        choice = input(msg)
-
-        if choice == "1":
-            break
-        elif choice == "4":
-            return
-
-        print(common.sepBold)
-        if choice == "2":
-            if changed:
-                common.log_printer(changed, color="yellow")
-            else:
-                print("Nothing here.")
-        elif choice == "3":
-            if failed:
-                common.log_printer(failed, color="red")
-            else:
-                print("Nothing here.")
-        else:
-            print("Invalid option.")
-        print(common.sepBold)
-
-    failed.clear()
-    sepLine = common.sepSlim + "\n"
-    printProgressBar = common.printProgressBar
-    printProgressBar(0, total_changed)
-
-    with open(common.logFile, "a", encoding="utf-8") as f:
-        for i, actress in enumerate(changed, 1):
-            if actress.apply():
-                f.write(f"[{common.epoch_to_str(None)}] Folder Rename\n")
-                f.write(actress.log)
-                f.write(sepLine)
-            else:
-                failed.extend(f"{i:>10} {j}" for i, j in (("Target:", actress.path), ("Type:", actress.exception)))
-            printProgressBar(i, total_changed)
-
-    if failed:
-        printer(f"{'Errors:':>10}\n", "\n".join(failed), color="red")
+    return total, changed, failed

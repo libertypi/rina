@@ -21,24 +21,13 @@ session = Session()
 session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"})
 
 
-_colors = {"red": "\033[31m", "yellow": "\033[33m", "end": "\033[0m"}
+_colors = {"red": "\033[31m", "yellow": "\033[33m"}
 
 
-def printer(*args, color: str = None, **kwargs):
-    print("".join((_colors[color], *args, _colors["end"]) if color else args), **kwargs)
-
-
-def log_printer(lst, color: str = None):
-    if color:
-        print(_colors[color], end="")
-
-    for i, obj in enumerate(lst, 1):
-        print(f'{"No:":>10} {i}')
-        print(obj.log, end="")
-        print(sepSlim)
-
-    if color:
-        print(_colors["end"], end="")
+def color_printer(*args, color: str, **kwargs):
+    print(_colors[color], end="")
+    print(*args, **kwargs)
+    print("\033[0m", end="")
 
 
 def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=sepWidth, fill="█", printEnd="\r"):
@@ -54,36 +43,36 @@ def _path_filter(name: str):
     return name.startswith(("#", "@", "."))
 
 
-def walk_dir(topDir: Path, filesOnly: bool = False, name_filter=_path_filter):
+def walk_dir(topDir: Path, filesOnly: bool = False):
     """Recursively yield 3-tuples of (path, stat, is_dir) in a bottom-top order."""
 
     with scandir(topDir) as it:
         for entry in it:
-            if name_filter(entry.name):
+            if _path_filter(entry.name):
                 continue
             path = Path(entry.path)
             try:
                 is_dir = entry.is_dir()
                 if is_dir:
-                    yield from walk_dir(path, filesOnly, name_filter)
+                    yield from walk_dir(path, filesOnly)
                     if filesOnly:
                         continue
                 yield path, entry.stat(), is_dir
             except OSError as e:
-                printer(f"Error occurred scanning {entry.path}: {e}", color="red")
+                color_printer(f"Error occurred scanning {entry.path}: {e}", color="red")
 
 
-def list_dir(topDir: Path, name_filter=_path_filter):
+def list_dir(topDir: Path):
     """List dir paths under top."""
 
     with scandir(topDir) as it:
         for entry in it:
             try:
-                if entry.is_dir() and not name_filter(entry.name):
+                if entry.is_dir() and not _path_filter(entry.name):
                     yield Path(entry.path)
             except OSError as e:
-                printer(f"Error occurred scanning {entry.path}: {e}", color="red")
-    if not name_filter(topDir.name):
+                color_printer(f"Error occurred scanning {entry.path}: {e}", color="red")
+    if not _path_filter(topDir.name):
         yield Path(topDir)
 
 
@@ -129,35 +118,17 @@ def str_to_epoch(string: str, dFormat: str = "%Y %m %d", regex=re_compile(r"[^0-
     return datetime.strptime(string, dFormat).replace(tzinfo=timezone.utc).timestamp()
 
 
-def epoch_to_str(epoch: float, dFormat: str = "%F %T") -> str:
-    if epoch is None:
-        return datetime.now().strftime(dFormat)
-    return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime(dFormat)
+def epoch_to_str(epoch: float, dFormat: str = "%F %T"):
+    try:
+        return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime(dFormat)
+    except TypeError:
+        pass
+
+
+def now(fmt: str = "%F %T"):
+    return datetime.now().strftime(fmt)
 
 
 @lru_cache(maxsize=128)
 def xp_compile(xpath: str):
     return XPath(xpath)
-
-
-def contains_cjk():
-    mask = 0
-    for i, j in (
-        (4352, 4607),
-        (11904, 42191),
-        (43072, 43135),
-        (44032, 55215),
-        (63744, 64255),
-        (65072, 65103),
-        (65381, 65500),
-        (131072, 196607),
-    ):
-        mask |= (1 << j + 1) - (1 << i)
-
-    def _contains_cjk(string: str) -> bool:
-        return any(1 << ord(c) & mask for c in string)
-
-    return _contains_cjk
-
-
-contains_cjk = contains_cjk()

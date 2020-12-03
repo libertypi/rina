@@ -7,20 +7,20 @@ from pathlib import Path
 
 if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from avinfo import actress, videoscraper
+    from avinfo import actress, scraper, files
 else:
     raise ImportError("Test file should only be launch directly.")
 
 
-class ScraperTest(unittest.TestCase):
+class Scraper(unittest.TestCase):
     def test_standardize_id(self):
         values = (
             ("[carib]022716_253 (high) 3 haha 5 放課後のリフレクソロジー 5", "022716_253-carib-high-3"),
             ("[HD](carib)022716-253 1080p haha 5 ", "022716_253-carib-1080p"),
         )
-        scraper = videoscraper.Scraper
+        s = scraper.Scraper
         for string, answer in values:
-            result = scraper(string)._standardize_id()
+            result = s(string)._standardize_id()
             self.assertEqual(result, answer)
 
     def test_get_video_suffix(self):
@@ -34,21 +34,22 @@ class ScraperTest(unittest.TestCase):
             ("tki-069 人 3", "tki-069", None),
             ("heyzo-1888-c 青山はな", "heyzo-1888", "C"),
         )
-        scraper = videoscraper.Scraper
+        s = scraper.Scraper
         for string, keyword, answer in values:
-            result = scraper(string, keyword=keyword)._get_video_suffix()
+            result = s(string, keyword=keyword)._get_video_suffix()
             self.assertEqual(result, answer)
 
     def test_javbus(self):
         values = (
+            ("CZ016", False, ("CZ016", "出合い頭4秒ファック！ : Part-2", 1504569600.0, None, None)),
             ("abs-047", False, ("ABS-047", "一泊二日、美少女完全予約制。 上原瑞穂", 1319241600.0, None, None)),
             ("120618_394", True, ("120618_394", "尾上若葉の全て", 1544054400.0, None, None)),
             ("081020_001", False, ("081020_001", "朝ゴミ出しする近所の遊び好きノーブラ奥さん 青山未来", 1597017600.0, None, None)),
         )
-        scraper = videoscraper.Scraper
+        s = scraper.Scraper
         for keyword, uncensored_only, answer in values:
             keyword = keyword.lower()
-            result = scraper(keyword, keyword=keyword, uncensored_only=uncensored_only)._javbus()
+            result = s(keyword, keyword=keyword, uncensored_only=uncensored_only)._javbus()
             result = astuple(result) if result else None
             self.assertEqual(result, answer, msg=result)
 
@@ -57,9 +58,9 @@ class ScraperTest(unittest.TestCase):
             ("abs-047", ("ABS-047", "一泊二日、美少女完全予約制。 9", 1316649600.0, None, None)),
             ("120618_394", ("120618_394", "尾上若葉の全てシリーズ特設", 1544054400.0, None, None)),
         )
-        scraper = videoscraper.Scraper
+        s = scraper.Scraper
         for keyword, answer in values:
-            result = scraper(keyword, keyword=keyword)._javdb()
+            result = s(keyword, keyword=keyword)._javdb()
             result = astuple(result) if result else None
             self.assertEqual(result, answer, msg=result)
 
@@ -86,32 +87,76 @@ class ScraperTest(unittest.TestCase):
                 ("062317_001-caribpr", "S Model 172 オフィスレディーの社内交尾", 1498176000.0, "caribbeancompr.com", "Product ID"),
             ),
         )
-        self._run_test(videoscraper.Carib, values)
+        self._run_test(scraper.Carib, values)
+
+    def test_heyzo(self):
+        values = (
+            ("heyzo-1888", ("HEYZO-1888", "Z～元芸能人の美エロボディ～ - 青山はな", 1545436800, "heyzo.com", "heyzo.com")),
+            ("heyzo-1234", ("HEYZO-1234", "都盛星空の足コキでイケ！ - 都盛星空", 1471305600.0, "heyzo.com", "heyzo.com")),
+            ("heyzo-0755", ("HEYZO-0755", "クリスマスは二人で～ロリカワ彼女と彼氏目線でSEX～ - 小司あん", 1419465600.0, "heyzo.com", "heyzo.com")),
+        )
+        self._run_test(scraper.Heyzo, values)
+
+    def test_heydouga(self):
+        values = (
+            (
+                "heydouga 4017-257",
+                (
+                    "heydouga-4017-257",
+                    "ヤバっ！超気持ちいい〜!!お乳とおマ○コがズラリ…全裸でおっぱい姫が抜きまくり！夢の中出しハーレム - 素人りんか 素人かなみ 素人てぃな",
+                    1519862400,
+                    "heydouga.com",
+                    "heydouga.com",
+                ),
+            ),
+            ("honnamatv-216", ("honnamatv-216", "じゅんこ 激ヤセ！M顔娘", 1380585600, "heydouga.com", "heydouga.com")),
+            (
+                "heydouga-4197-001",
+                ("heydouga-4197-001", "刺激を求めて応募の梨香さん、おじさんの3Ｐと中出し - 梨香", 1542931200.0, "heydouga.com", "heydouga.com"),
+            ),
+            (
+                "heydouga-4017-233",
+                (
+                    "heydouga-4017-233",
+                    "ハメ屋旅館でアナル処女まで奪われる！うら若き女子と行く一泊二日の中出し・酒池肉林温泉旅行 - 素人もも 素人かなみ 素人しおん",
+                    1489536000.0,
+                    "heydouga.com",
+                    "heydouga.com",
+                ),
+            ),
+            (
+                "heydouga-4117-050",
+                ("heydouga-4117-050", "スク水DE素股フェラ2 - 河西あみ 渡辺結衣", 1416528000.0, "heydouga.com", "heydouga.com"),
+            ),
+        )
+        self._run_test(scraper.Heydouga, values)
+
+    def test_h4610(self):
+        values = (
+            ("H4610 gol185", ("h4610-gol185", "葉月 美加子 23歳", 1497052800, "h4610.com", "h4610.com")),
+            ("C0930-gol0136", ("c0930-gol0136", "羽田 まなみ 25歳", 1456358400, "c0930.com", "c0930.com")),
+            ("H0930 (ori1575)", ("h0930-ori1575", "吉間 智保 33歳", 1593216000, "h0930.com", "h0930.com")),
+        )
+        self._run_test(scraper.H4610, values)
+
+    def test_x1x(self):
+        values = (
+            (
+                "x1x-111815 一ノ瀬アメリ",
+                ("x1x-111815", "一ノ瀬アメリ - THE一ノ瀬アメリ ぶっかけ50連発！", 1396483200.0, "x1x.com", "x1x.com"),
+            ),
+        )
+        self._run_test(scraper.X1X, values)
+
+    def test_smmiracle(self):
+        values = (("sm miracle e0689", ("sm-miracle-e0689", "黒髪の地方令嬢２", None, "sm-miracle.com", None)),)
+        self._run_test(scraper.SM_Miracle, values)
 
     def test_fc2(self):
         values = (
             (
                 "fc2-340671",
                 ("FC2-340671", "【激シコ美人】かわいくてエロくてマン汁たっぷりのゆうこ18歳にたっぷり中出し", 1542585600.0, "fc2.com", "fc2.com"),
-            ),
-        )
-        self._run_test(videoscraper.FC2, values)
-
-    def test_scrape(self):
-        values = (
-            ("sm miracle e0689", ("sm-miracle-e0689", "黒髪の地方令嬢２", None, "sm-miracle.com", None)),
-            (
-                "022114_777-caribpr-mid",
-                ("022114_777-caribpr-mid", "レッドホットフェティッシュコレクション 108", 1392940800, "caribbeancompr.com", "Product ID"),
-            ),
-            ("CZ016 出合い頭4秒", ("CZ016", "出合い頭4秒ファック！ : Part-2", 1504569600, "javbus.com", "javbus.com")),
-            (
-                "072816_001-caribpr-high",
-                ("072816_001-caribpr-high", "続々生中〜ロリ美少女をハメまくる〜", 1469664000, "caribbeancompr.com", "Product ID"),
-            ),
-            (
-                "022418_01-10mu-1080p",
-                ("022418_01-10mu-1080p", "制服時代 〜スカートが短くて恥かしい〜", 1519430400, "javbus.com", "Product ID"),
             ),
             (
                 "FC2-1380738",
@@ -124,12 +169,22 @@ class ScraperTest(unittest.TestCase):
                 ),
             ),
             ("FC2-PPV-1187535", ("FC2-1187535", "【個人撮影】ゆずき23歳 ショートSEX", 1579132800.0, "fc2.com", "fc2.com")),
-            ("H4610 gol185", ("h4610-gol185", "葉月 美加子 23歳", 1497052800, "h4610.com", "h4610.com")),
-            ("C0930-gol0136", ("c0930-gol0136", "羽田 まなみ 25歳", 1456358400, "c0930.com", "c0930.com")),
-            ("H0930 (ori1575)", ("h0930-ori1575", "吉間 智保 33歳", 1593216000, "h0930.com", "h0930.com")),
+        )
+        self._run_test(scraper.FC2, values)
+
+    def test_scrape(self):
+        values = (
             (
-                "x1x-111815 一ノ瀬アメリ",
-                ("x1x-111815", "一ノ瀬アメリ - THE一ノ瀬アメリ ぶっかけ50連発！", 1396483200.0, "x1x.com", "x1x.com"),
+                "022114_777-caribpr-mid",
+                ("022114_777-caribpr-mid", "レッドホットフェティッシュコレクション 108", 1392940800, "caribbeancompr.com", "Product ID"),
+            ),
+            (
+                "072816_001-caribpr-high",
+                ("072816_001-caribpr-high", "続々生中〜ロリ美少女をハメまくる〜", 1469664000, "caribbeancompr.com", "Product ID"),
+            ),
+            (
+                "022418_01-10mu-1080p",
+                ("022418_01-10mu-1080p", "制服時代 〜スカートが短くて恥かしい〜", 1519430400, "javbus.com", "Product ID"),
             ),
             ("112118_772-1pon", ("112118_772-1pon", "パンツを脱いでもメガネは外しません〜家庭教師〜", 1542758400, "javbus.com", "Product ID")),
             (
@@ -180,30 +235,18 @@ class ScraperTest(unittest.TestCase):
                 "110614_729-carib-1080p",
                 ("110614_729-carib-1080p", "尾上若葉にどっきり即ハメ！パート2", 1415232000, "caribbeancom.com", "Product ID"),
             ),
-            ("heyzo-1888", ("HEYZO-1888", "Z～元芸能人の美エロボディ～ - 青山はな", 1545436800, "heyzo.com", "heyzo.com")),
-            (
-                "heydouga 4017-257",
-                (
-                    "heydouga-4017-257",
-                    "ヤバっ！超気持ちいい〜!!お乳とおマ○コがズラリ…全裸でおっぱい姫が抜きまくり！夢の中出しハーレム - 素人りんか 素人かなみ 素人てぃな",
-                    1519862400,
-                    "heydouga.com",
-                    "heydouga.com",
-                ),
-            ),
-            ("honnamatv-216", ("honnamatv-216", "じゅんこ 激ヤセ！M顔娘", 1380585600, "heydouga.com", "heydouga.com")),
             ("deeper.20.03.14.rae.lil.black", (None, None, 1584144000, None, "File name")),
             ("welivetogether.15.08.20.abigail.mac.and.daisy.summers", (None, None, 1440028800, None, "File name")),
             ("welivetogether 23-jun 2014 test", (None, None, 1403481600, None, "File name")),
             ("welivetogether dec 23.2014 test", (None, None, 1419292800, None, "File name")),
         )
         for string, answer in values:
-            result = videoscraper.scrape_string(string.lower(), error=False)
+            result = next(filter(None, (s(string.lower()) for s in scraper.SCRAPERS)), None)
             result = astuple(result) if result else None
             self.assertEqual(result, answer, msg=result)
 
 
-class ActressTest(unittest.TestCase):
+class Actress(unittest.TestCase):
     # def test_avrevolution(self):
     #     wiki = actress.AVRevolution
     #     values = (
@@ -294,6 +337,42 @@ class ActressTest(unittest.TestCase):
             ("佐々木愛美", (None, None, {"佐々木愛美", "佐伯史華", "クルミ"})),
         )
         self._do_test(wiki, values)
+
+
+class Files(unittest.TestCase):
+    class DuckAVFile(files.AVFile):
+        def __init__(self, **kwargs) -> None:
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+    def test_get_file_name(self):
+        values = (
+            (
+                "FC2-1355235",
+                " \n \t ★顔出し☆スタイル抜群！貧乳美熟女の可奈子さん34歳☆かなりレアな貧乳デカ乳首♥電マ潮吹き♥激フェラでイキそ～♥パイパンまんこに生挿入で中出し射精♥【個人撮影】\n \t ",
+                "FC2-1355235 ★顔出し☆スタイル抜群！貧乳美熟女の可奈子さん34歳☆かなりレアな貧乳デカ乳首♥電マ潮吹き♥激フェラでイキそ～♥パイパンまんこに生挿入で中出し射精♥【個人撮影】.mp4",
+            ),
+            (
+                "DAVK-042",
+                "2920日間ドM調教経過報告 数学教師26歳は結婚していた【優しい夫を裏切り】異常性欲を抑えきれず【浮気男6名連続ザーメン中出し懇願】8年間サークル集団の性処理女として完全支配されてきた彼女が新妻になった今でも6P輪姦ドロドロ体液漬けSEX中毒ドキュメント報告",
+                "DAVK-042 2920日間ドM調教経過報告 数学教師26歳は結婚していた【優しい夫を裏切り】異常性欲を抑えきれず【浮気男6名連続ザーメン中出し懇願】.mp4",
+            ),
+            ("", "日" * 300, None),
+            ("", "abc" * 300, None),
+            ("", "a" * 300 + " a", None),
+            ("", " " + "a" * 300, None),
+        )
+        path = Path("test.Mp4")
+        for productId, title, answer in values:
+            result = self.DuckAVFile(
+                path=path,
+                productId=productId,
+                title=title,
+            )._get_filename(namemax=255)
+            if answer:
+                self.assertEqual(result, answer, msg=result)
+            self.assertLessEqual(len(result.encode("utf-8")), 255)
+            self.assertRegex(result, r"\w+")
 
 
 unittest.main()

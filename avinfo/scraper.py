@@ -1,5 +1,5 @@
 import re
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass
 from random import choice as random_choice
 from re import VERBOSE as VERBOSE
 from re import compile as re_compile
@@ -9,8 +9,6 @@ from urllib.parse import urljoin
 
 from avinfo import common
 from avinfo.common import get_response_tree, str_to_epoch, xp_compile
-
-__all__ = "scrape_string"
 
 
 @dataclass
@@ -72,7 +70,7 @@ class Scraper:
                     productId = f"{productId}-{suffix}"
             result.productId = productId
 
-        return result
+        return result if any(astuple(result)) else None
 
     def _query(self):
         pass
@@ -652,7 +650,7 @@ class DateMatcher(Scraper):
         raise NotImplemented
 
 
-_SCRAPER_LIST = tuple(
+SCRAPERS = tuple(
     s.run
     for s in (
         Carib,
@@ -669,17 +667,3 @@ _SCRAPER_LIST = tuple(
         DateMatcher,
     )
 )
-
-
-def scrape_string(string: str, error: bool = True):
-    """Scrape information for the given string.
-
-    :error: Raise StopIteration if no result was found.
-    """
-
-    s = (s(string) for s in _SCRAPER_LIST)
-
-    if error:
-        return next(filter(None, s))
-
-    return next(filter(None, s), None)
