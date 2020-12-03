@@ -7,12 +7,19 @@ from pathlib import Path
 
 if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from avinfo import actress, scraper, files
+    from avinfo import actress, scraper, video
 else:
     raise ImportError("Test file should only be launch directly.")
 
 
 class Scraper(unittest.TestCase):
+    def _run_test(self, values):
+        for string, answer in values:
+            result = next(filter(None, (s(string.lower()) for s in scraper.SCRAPERS)), None)
+            if result:
+                result = astuple(result)
+            self.assertEqual(result, answer, msg=result)
+
     def test_standardize_id(self):
         values = (
             ("[carib]022716_253 (high) 3 haha 5 放課後のリフレクソロジー 5", "022716_253-carib-high-3"),
@@ -20,19 +27,20 @@ class Scraper(unittest.TestCase):
         )
         s = scraper.Scraper
         for string, answer in values:
-            result = s(string)._standardize_id()
+            result = s(string, keyword=None)._standardize_id()
             self.assertEqual(result, answer)
 
     def test_get_video_suffix(self):
         values = (
-            ("sdmt-775 2 まさかのav出演", "sdmt-775", "2"),
+            ("sdmt-775 2 まさかのav出演", "SDMT-775", "2"),
             ("heydouga 4017-261-3", "heydouga-4017-261", "3"),
-            ("smbd-110 s 2 model 3", "smbd-110", None),
-            ("fc2-ppv-1395289_3", "fc2-1395289", "3"),
+            ("smbd-110 s 2 model 3", "SMBD-110", None),
+            ("fc2-ppv-1395289_3", "FC2-1395289", "3"),
             ("h0930-ki200705[cd2]", "ki200705", "2"),
             ("kbi-042 (5)", "kbi-042", "5"),
             ("tki-069 人 3", "tki-069", None),
             ("heyzo-1888-c 青山はな", "heyzo-1888", "C"),
+            ("151127 kurumi vol.3", "151127-KURUMI", "3"),
         )
         s = scraper.Scraper
         for string, keyword, answer in values:
@@ -64,12 +72,6 @@ class Scraper(unittest.TestCase):
             result = astuple(result) if result else None
             self.assertEqual(result, answer, msg=result)
 
-    def _run_test(self, scraper, values):
-        for string, answer in values:
-            result = scraper.run(string.lower())
-            result = astuple(result) if result else None
-            self.assertEqual(result, answer, msg=result)
-
     def test_carib(self):
         values = (
             (
@@ -86,8 +88,16 @@ class Scraper(unittest.TestCase):
                 "062317_001-caribpr",
                 ("062317_001-caribpr", "S Model 172 オフィスレディーの社内交尾", 1498176000.0, "caribbeancompr.com", "Product ID"),
             ),
+            (
+                "022114_777-caribpr-mid",
+                ("022114_777-caribpr-mid", "レッドホットフェティッシュコレクション 108", 1392940800, "caribbeancompr.com", "Product ID"),
+            ),
+            (
+                "072816_001-caribpr-high",
+                ("072816_001-caribpr-high", "続々生中〜ロリ美少女をハメまくる〜", 1469664000, "caribbeancompr.com", "Product ID"),
+            ),
         )
-        self._run_test(scraper.Carib, values)
+        self._run_test(values)
 
     def test_heyzo(self):
         values = (
@@ -95,7 +105,7 @@ class Scraper(unittest.TestCase):
             ("heyzo-1234", ("HEYZO-1234", "都盛星空の足コキでイケ！ - 都盛星空", 1471305600.0, "heyzo.com", "heyzo.com")),
             ("heyzo-0755", ("HEYZO-0755", "クリスマスは二人で～ロリカワ彼女と彼氏目線でSEX～ - 小司あん", 1419465600.0, "heyzo.com", "heyzo.com")),
         )
-        self._run_test(scraper.Heyzo, values)
+        self._run_test(values)
 
     def test_heydouga(self):
         values = (
@@ -129,7 +139,7 @@ class Scraper(unittest.TestCase):
                 ("heydouga-4117-050", "スク水DE素股フェラ2 - 河西あみ 渡辺結衣", 1416528000.0, "heydouga.com", "heydouga.com"),
             ),
         )
-        self._run_test(scraper.Heydouga, values)
+        self._run_test(values)
 
     def test_h4610(self):
         values = (
@@ -137,7 +147,7 @@ class Scraper(unittest.TestCase):
             ("C0930-gol0136", ("c0930-gol0136", "羽田 まなみ 25歳", 1456358400, "c0930.com", "c0930.com")),
             ("H0930 (ori1575)", ("h0930-ori1575", "吉間 智保 33歳", 1593216000, "h0930.com", "h0930.com")),
         )
-        self._run_test(scraper.H4610, values)
+        self._run_test(values)
 
     def test_x1x(self):
         values = (
@@ -146,11 +156,11 @@ class Scraper(unittest.TestCase):
                 ("x1x-111815", "一ノ瀬アメリ - THE一ノ瀬アメリ ぶっかけ50連発！", 1396483200.0, "x1x.com", "x1x.com"),
             ),
         )
-        self._run_test(scraper.X1X, values)
+        self._run_test(values)
 
     def test_smmiracle(self):
         values = (("sm miracle e0689", ("sm-miracle-e0689", "黒髪の地方令嬢２", None, "sm-miracle.com", None)),)
-        self._run_test(scraper.SM_Miracle, values)
+        self._run_test(values)
 
     def test_fc2(self):
         values = (
@@ -170,18 +180,20 @@ class Scraper(unittest.TestCase):
             ),
             ("FC2-PPV-1187535", ("FC2-1187535", "【個人撮影】ゆずき23歳 ショートSEX", 1579132800.0, "fc2.com", "fc2.com")),
         )
-        self._run_test(scraper.FC2, values)
+        self._run_test(values)
+
+    def test_date(self):
+        values = (
+            ("Devon Ray Milf Teen Cum Swap 28Jul2015 1080p", (None, None, 1438041600.0, None, "File name")),
+            ("welivetogether.15.08.20.abigail.mac.and.daisy.summers", (None, None, 1440028800, None, "File name")),
+            ("welivetogether 23-jun 2014 test", (None, None, 1403481600, None, "File name")),
+            ("welivetogether dec 23.2014 test", (None, None, 1419292800, None, "File name")),
+            ("deeper.20.03.14.rae.lil.black", (None, None, 1584144000, None, "File name")),
+        )
+        self._run_test(values)
 
     def test_scrape(self):
         values = (
-            (
-                "022114_777-caribpr-mid",
-                ("022114_777-caribpr-mid", "レッドホットフェティッシュコレクション 108", 1392940800, "caribbeancompr.com", "Product ID"),
-            ),
-            (
-                "072816_001-caribpr-high",
-                ("072816_001-caribpr-high", "続々生中〜ロリ美少女をハメまくる〜", 1469664000, "caribbeancompr.com", "Product ID"),
-            ),
             (
                 "022418_01-10mu-1080p",
                 ("022418_01-10mu-1080p", "制服時代 〜スカートが短くて恥かしい〜", 1519430400, "javbus.com", "Product ID"),
@@ -235,15 +247,8 @@ class Scraper(unittest.TestCase):
                 "110614_729-carib-1080p",
                 ("110614_729-carib-1080p", "尾上若葉にどっきり即ハメ！パート2", 1415232000, "caribbeancom.com", "Product ID"),
             ),
-            ("deeper.20.03.14.rae.lil.black", (None, None, 1584144000, None, "File name")),
-            ("welivetogether.15.08.20.abigail.mac.and.daisy.summers", (None, None, 1440028800, None, "File name")),
-            ("welivetogether 23-jun 2014 test", (None, None, 1403481600, None, "File name")),
-            ("welivetogether dec 23.2014 test", (None, None, 1419292800, None, "File name")),
         )
-        for string, answer in values:
-            result = next(filter(None, (s(string.lower()) for s in scraper.SCRAPERS)), None)
-            result = astuple(result) if result else None
-            self.assertEqual(result, answer, msg=result)
+        self._run_test(values)
 
 
 class Actress(unittest.TestCase):
@@ -340,7 +345,7 @@ class Actress(unittest.TestCase):
 
 
 class Files(unittest.TestCase):
-    class DuckAVFile(files.AVFile):
+    class DuckAVFile(video.AVFile):
         def __init__(self, **kwargs) -> None:
             for k, v in kwargs.items():
                 setattr(self, k, v)

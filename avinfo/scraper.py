@@ -27,18 +27,18 @@ class Scraper:
     source: str
     url: str
 
-    def __init__(self, string: str, date: float = None, keyword: str = None, **kwargs) -> None:
+    def __init__(self, string: str, keyword: str, date: float = None, **kwargs) -> None:
 
         self.string = string
-        self.date = date
         self.keyword = keyword
+        self.date = date
         self.__dict__.update(kwargs)
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
         raise NotImplemented
 
-    def action(self):
+    def process(self):
 
         result: ScrapeResult = self._query() or self._javbus() or self._javdb()
         if not result:
@@ -190,7 +190,7 @@ class Scraper:
 
     def _get_video_suffix(self):
         string = self._id_cleaner(" ", self.string)
-        keyword = self._id_cleaner(" ", self.keyword)
+        keyword = self._id_cleaner(" ", self.keyword.lower())
 
         i = string.find(keyword)
         if i < 0:
@@ -213,10 +213,9 @@ class Carib(Scraper):
 
     standard_id: bool = True
     uncensored_only: bool = True
-    url: str
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
         m = re_search(r"(?:^|[^a-z0-9])carib(?P<com>bean|pr|com)*(?:[^a-z0-9]|$)", string)
         if m:
             n = re_search(r"(?:^|[^a-z0-9])([0-9]{6})[_-]([0-9]{2,4})(?:[^a-z0-9]|$)", string)
@@ -234,11 +233,11 @@ class Carib(Scraper):
 
             return cls(
                 string,
-                date=str_to_epoch(n[1], "%m%d%y", regex=None),
-                source=source,
                 keyword=keyword,
+                date=str_to_epoch(n[1], "%m%d%y", regex=None),
                 url=f"{baseurl}/{keyword}/",
-            ).action()
+                source=source,
+            ).process()
 
     def _query(self):
         tree = get_response_tree(self.url, decoder="euc-jp")[1]
@@ -256,7 +255,7 @@ class Heyzo(Scraper):
     source = "heyzo.com"
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
         m = re_search(r"(?:^|[^a-z0-9])heyzo[^0-9]*([0-9]{4})(?:[^a-z0-9]|$)", string)
         if m:
             uid = m[1]
@@ -264,7 +263,7 @@ class Heyzo(Scraper):
                 string,
                 keyword=f"HEYZO-{uid}",
                 url=f"https://www.heyzo.com/moviepages/{uid}/",
-            ).action()
+            ).process()
 
     def _query(self):
         tree = get_response_tree(self.url, decoder="lxml")[1]
@@ -293,14 +292,14 @@ class Heydouga(Scraper):
     source = "heydouga.com"
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
         m = re_search(r"(?:^|[^a-z0-9])hey(?:douga)?[^a-z0-9]*([0-9]{4})[^a-z0-9]*([0-9]{3,})(?:[^a-z0-9]|$)", string)
         if m:
             return cls(
                 string,
                 keyword=m.expand(r"heydouga-\1-\2"),
                 url=f"https://www.heydouga.com/moviepages/{m[1]}/{m[2]}/",
-            ).action()
+            ).process()
 
         m = re_search(r"(?:^|[^a-z0-9])honnamatv[^0-9]*([0-9]{3,})(?:[^a-z0-9]|$)", string)
         if m:
@@ -308,7 +307,7 @@ class Heydouga(Scraper):
                 string,
                 keyword=f"honnamatv-{m[1]}",
                 url=f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{m[1]}/",
-            ).action()
+            ).process()
 
     def _query(self):
         tree = get_response_tree(self.url, decoder="utf-8")[1]
@@ -331,15 +330,15 @@ class H4610(Scraper):
     uncensored_only = True
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
         m = re_search(r"(?:^|[^a-z0-9])(h4610|[ch]0930)[^a-z0-9]+([a-z]+[0-9]+)(?:[^a-z0-9]|$)", string)
         if m:
             return cls(
                 string,
                 keyword=m.expand(r"\1-\2"),
-                source=f"{m[1]}.com",
                 url=f"https://www.{m[1]}.com/moviepages/{m[2]}/",
-            ).action()
+                source=f"{m[1]}.com",
+            ).process()
 
     def _query(self):
         tree = get_response_tree(self.url)[1]
@@ -367,7 +366,7 @@ class X1X(Scraper):
     source = "x1x.com"
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
         m = re_search(r"(?:^|[^a-z0-9])x1x[\s_-]+([0-9]{6})(?:[^a-z0-9]|$)", string)
         if m:
             uid = m[1]
@@ -375,7 +374,7 @@ class X1X(Scraper):
                 string,
                 keyword=f"x1x-{uid}",
                 url=f"http://www.x1x.com/title/{uid}",
-            ).action()
+            ).process()
 
     def _query(self):
         tree = get_response_tree(self.url)[1]
@@ -401,7 +400,7 @@ class SM_Miracle(Scraper):
     source = "sm-miracle.com"
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
         m = re_search(r"(?:^|[^a-z0-9])sm[\s_-]*miracle[\s_-]*(?:no)?[\s_.-]+e?([0-9]{4})(?:[^a-z0-9]|$)", string)
         if m:
             uid = f"e{m[1]}"
@@ -409,7 +408,7 @@ class SM_Miracle(Scraper):
                 string,
                 keyword=uid,
                 url=f"http://sm-miracle.com/movie/{uid}.dat",
-            ).action()
+            ).process()
 
     def _query(self):
         try:
@@ -434,15 +433,15 @@ class FC2(Scraper):
     uid: str
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
         m = re_search(r"(?:^|[^a-z0-9])fc2[\s_-]*(?:ppv)?[\s_-]*([0-9]{2,10})(?:[^a-z0-9]|$)", string)
         if m:
             uid = m[1]
             return cls(
                 string,
-                uid=uid,
                 keyword=f"FC2-{uid}",
-            ).action()
+                uid=uid,
+            ).process()
 
     def _query(self):
         title = date = None
@@ -484,15 +483,15 @@ class Mesubuta(Scraper):
     uncensored_only = True
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
         if re_search(r"(?:^|[^a-z0-9])mesubuta(?:[^a-z0-9]|$)", string):
             m = re_search(r"(?:^|[^a-z0-9])([0-9]{6})[_-]([0-9]{2,4})[_-]([0-9]{2,4})(?:[^a-z0-9]|$)", string)
             if m:
                 return cls(
                     string,
-                    date=str_to_epoch(m[1], "%y%m%d", regex=None),
                     keyword="-".join(m.group(1, 2, 3)),
-                ).action()
+                    date=str_to_epoch(m[1], "%y%m%d", regex=None),
+                ).process()
 
 
 class UncensoredMatcher(Scraper):
@@ -500,7 +499,7 @@ class UncensoredMatcher(Scraper):
     uncensored_only = True
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
         try:
             regex = cls.regex
         except AttributeError:
@@ -533,7 +532,7 @@ class UncensoredMatcher(Scraper):
                 return cls(
                     string,
                     keyword="-".join(m.groups()),
-                ).action()
+                ).process()
 
 
 class NumberMatcher(Scraper):
@@ -542,14 +541,17 @@ class NumberMatcher(Scraper):
     uncensored_only = True
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
 
         m = re_search(
             r"(?:^|[^a-z0-9])((?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9])[0-2][0-9])[_-]+([0-9]{2,4})(?:[^a-z0-9]|$)",
             string,
         )
         if m:
-            if re_search(r"\b(?:1pon(?:do)?|10mu(?:sume)?|mura(?:mura)?|paco(?:pacomama)?)\b", string):
+            if re_search(
+                r"(?:^|[^a-z0-9])(?:1pon(?:do)?|10mu(?:sume)?|mura(?:mura)?|paco(?:pacomama)?)(?:[^a-z0-9]|$)",
+                string,
+            ):
                 c = "_"
             else:
                 c = "-"
@@ -557,12 +559,12 @@ class NumberMatcher(Scraper):
                 string,
                 keyword=c.join(m.group(1, 2)),
                 date=str_to_epoch(m[1], "%m%d%y", regex=None),
-            ).action()
+            ).process()
 
 
 class PrefixMatcher(Scraper):
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
 
         try:
             regex = cls.regex
@@ -600,7 +602,7 @@ class PrefixMatcher(Scraper):
 
         for matcher in regex:
             for m in matcher(string):
-                result = cls(string, keyword=m.expand(r"\g<prefix>-\g<id>")).action()
+                result = cls(string, keyword=m.expand(r"\g<prefix>-\g<id>")).process()
                 if result:
                     return result
 
@@ -610,31 +612,33 @@ class DateMatcher(Scraper):
     source = "File name"
 
     @classmethod
-    def run(cls, string: str):
+    def search(cls, string: str):
 
         try:
             regex = cls.regex
         except AttributeError:
-            start = r"(?:^|[^a-z0-9])"
-            end = r"(?:[^a-z0-9]|$)"
-            sep = r"[\s,._-]+"
-            regs = {
-                "y": r"(?:20)?(?P<y>[12][0-9])",
-                "m": r"(?P<m>1[0-2]|0[1-9])",
-                "d": r"(?P<d>3[01]|[12][0-9]|0[1-9])",
+            reg = {
+                "start": r"(?:^|[^a-z0-9])",
+                "end": r"(?:[^a-z0-9]|$)",
+                "sep1": r"[\s,._-]*",
+                "sep2": r"[\s,._-]+",
+                "year": r"(?:20)?(?P<y>[12][0-9])",
+                "mon": r"(?P<m>1[0-2]|0[1-9])",
+                "day1": r"(?P<d>3[01]|[12][0-9]|0?[1-9])",
+                "day2": r"(?P<d>3[01]|[12][0-9]|0[1-9])",
                 "b": r"(?P<b>jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
             }
             regex = cls.regex = tuple(
                 (
-                    re_compile(f"{start}{sep.join(map(regs.get, fmt))}{end}").search,
+                    re_compile(pattern.format_map(reg)).search,
                     " ".join(f"\\g<{f}>" for f in fmt),
                     " ".join("%" + f for f in fmt),
                 )
-                for fmt in (
-                    "dby",  # 23.Jun.(20)14
-                    "bdy",  # Dec.23.(20)14
-                    "ymd",  # (20)19.03.15
-                    "dmy",  # 23.02.(20)19
+                for pattern, fmt in (
+                    ("{start}{day1}{sep1}{b}{sep1}{year}{end}", "dby"),  # 23.Jun.(20)14
+                    ("{start}{b}{sep1}{day1}{sep1}{year}{end}", "bdy"),  # Dec.23.(20)14
+                    ("{start}{year}{sep2}{mon}{sep2}{day2}{end}", "ymd"),  # (20)19.03.15
+                    ("{start}{day2}{sep2}{mon}{sep2}{year}{end}", "dmy"),  # 23.02.(20)19
                 )
             )
 
@@ -646,12 +650,12 @@ class DateMatcher(Scraper):
                     dateSource=cls.source,
                 )
 
-    def _query(self):
+    def process(self):
         raise NotImplemented
 
 
 SCRAPERS = tuple(
-    s.run
+    s.search
     for s in (
         Carib,
         Heyzo,

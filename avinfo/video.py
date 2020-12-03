@@ -10,26 +10,27 @@ from avinfo import common
 from avinfo.common import color_printer, epoch_to_str
 from avinfo.scraper import SCRAPERS
 
+_RE_CLEAN1 = re_compile(r"^(?:\[f?hd\]|[a-z0-9-]+\.[a-z]{2,}@)").sub
+_RE_CLEAN2 = re_compile(
+    r"""
+    \[[a-z0-9.-]+\.[a-z]{2,}\]|
+    (?:^|[^a-z0-9])
+    (?:168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|fhd|tokyo[\s_-]?hot|1000[\s_-]?girl)
+    (?:[^a-z0-9]|$)
+    """,
+    flags=re.VERBOSE,
+).sub
+
 
 class AVString:
 
     __slots__ = ("productId", "title", "publishDate", "titleSource", "dateSource", "_report", "_status")
 
-    _str_cleaner_1 = re_compile(r"^(?:\[f?hd\]|[a-z0-9-]+\.[a-z]{2,}@)").sub
-    _str_cleaner_2 = re_compile(
-        r"""
-        \[[a-z0-9.-]+\.[a-z]{2,}\]|
-        (?:^|[^a-z0-9])
-        (?:168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|fhd|tokyo[\s_-]?hot|1000[\s_-]?girl)
-        (?:[^a-z0-9]|$)
-        """,
-        flags=re.VERBOSE,
-    ).sub
-
     def __init__(self, string: str):
 
         # status: || dateDiff | filenameDiff | success ||
         self._status = 0b000
+        self.productId = self.title = self.publishDate = self.titleSource = self.dateSource = None
         self._report = report = {
             "Target": string,
             "ProductId": None,
@@ -41,7 +42,7 @@ class AVString:
             "Source": None,
         }
 
-        string = self._str_cleaner_2(" ", self._str_cleaner_1("", string.lower()))
+        string = _RE_CLEAN2(" ", _RE_CLEAN1("", string.lower()))
         try:
             result = next(filter(None, (s(string) for s in SCRAPERS)))
         except StopIteration:
@@ -60,8 +61,8 @@ class AVString:
             report["Source"] = f'{self.titleSource or "---"} / {self.dateSource or "---"}'
 
     @property
-    def scrape_failed(self):
-        return self._status == 0b000
+    def success(self):
+        return self._status != 0b000
 
     @property
     def report(self):
@@ -91,10 +92,10 @@ class AVFile(AVString):
 
         super().__init__(path.stem)
 
-        self.path = path
-        self._report["Target"] = path
+        self.path = self._report["Target"] = path
+        self.newfilename = None
 
-        if not self._status & 0b001:
+        if self._status != 0b001:
             return
 
         if self.productId and self.title:
@@ -104,54 +105,61 @@ class AVFile(AVString):
                 self.newfilename = name
                 self._report.update(NewName=name, FromName=path.name)
 
-        if not stat:
-            stat = path.stat()
-        if self.publishDate and self.publishDate != stat.st_mtime:
-            self._status |= 0b100
-            self._atime = stat.st_atime
-            self._report["FromDate"] = epoch_to_str(stat.st_mtime)
-
-    @property
-    def has_new_info(self):
-        return bool(self._status & 0b110)
-
-    def apply(self):
-        path = self.path
-
-        if self._status & 0b010:
-            new = path.with_name(self.newfilename)
-            os.rename(path, new)
-            path = new
-
-        if self._status & 0b100:
-            os.utime(path, (self._atime, self.publishDate))
+        if self.publishDate:
+            if not stat:
+                stat = path.stat()
+            if self.publishDate != stat.st_mtime:
+                self._status |= 0b100
+                self._atime = stat.st_atime
+                self._report["FromDate"] = epoch_to_str(stat.st_mtime)
 
     def _get_filename(self, namemax: int):
 
+        title = _strip_title(re_sub(r'[\s<>:"/\\|?* 　]+', " ", self.title))
         suffix = self.path.suffix.lower()
         namemax = namemax - len(self.productId.encode("utf-8")) - len(suffix.encode("utf-8")) - 1
 
-        title = re_sub(r'[\s<>:"/\\|?* 　]+', " ", self.title)
-        title = self._strip_title(title)
-
-        strategy = self._trim_title
+        strategy = _trim_title
         while len(title.encode("utf-8")) >= namemax:
             try:
                 title = strategy(title)
             except TypeError:
                 strategy = lambda s: s[:-1]
                 title = strategy(title)
-            title = self._strip_title(title)
+            title = _strip_title(title)
 
         return f"{self.productId} {title}{suffix}"
 
-    @staticmethod
-    def _trim_title(title: str):
-        return re_search(r"^(.*\w[\s。！】」）…)\].]+).", title)[1]
+    @property
+    def has_new_info(self):
+        return self._status == 0b111
 
-    @staticmethod
-    def _strip_title(title: str):
-        return re_sub(r"^[\s._]+|[\s【「（。、\[(.,_]+$", "", title)
+    def apply(self):
+        path = self.path
+
+        if self._status & 0b011 == 0b011:
+            new = path.with_name(self.newfilename)
+            os.rename(path, new)
+            path = new
+
+        if self._status & 0b101 == 0b101:
+            os.utime(path, (self._atime, self.publishDate))
+
+
+def _strip_title(s: str):
+    return re_sub(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$", "", s)
+
+
+def _trim_title(s: str):
+    return (
+        max(
+            re_search(r"^.*?\w.*(?=[【「『｛（《\[(])", s),
+            re_search(r"^.*?\w.*[】」』｝）》\])](?=.)", s),
+            key=lambda m: m.end() if m else -1,
+        )
+        or re_search(r"^.*?\w.*[？！!…。.\s](?=.)", s)
+        or re_search(r"^.*?\w.*[〜～●・,、_](?=.)", s)
+    )[0]
 
 
 def get_namemax(path: Path):
@@ -174,7 +182,7 @@ def scan_path(target: Path, is_dir: bool = None):
         avfile.print()
         if avfile.has_new_info:
             changed.append(avfile)
-        elif avfile.scrape_failed:
+        elif not avfile.success:
             failed.append(avfile)
         return 1, changed, failed
 

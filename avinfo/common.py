@@ -10,7 +10,7 @@ from lxml.etree import XPath
 from lxml.html import HtmlElement, fromstring
 from requests import RequestException, Session
 
-logFile = Path("logfile.log")
+logFile = "logfile.log"
 sepWidth = 50
 sepBold = "=" * sepWidth
 sepSlim = "-" * sepWidth

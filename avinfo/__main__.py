@@ -15,7 +15,7 @@ def parse_args():
         if target == path.name == path.stem:
             return target
 
-        raise argparse.ArgumentTypeError(f"Invalid target: '{target}'")
+        raise argparse.ArgumentTypeError(f'"{target}" is unreachable')
 
     parser = argparse.ArgumentParser(
         prog="avinfo",
@@ -29,7 +29,7 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="video",
-        help="detect publish ID, title and publish date from videos",
+        help="detect information from videos (default)",
     )
     group.add_argument(
         "-a",
@@ -37,7 +37,7 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="actress",
-        help="detect actress name and birth from directories",
+        help="detect actress bio from directories",
     )
     group.add_argument(
         "-d",
@@ -54,7 +54,7 @@ def parse_args():
         "--quiet",
         dest="quiet",
         action="store_true",
-        help="apply changes without prompting. (default: %(default)s)",
+        help="apply changes without prompting (default: %(default)s)",
     )
     parser.add_argument(
         "target",
@@ -88,6 +88,7 @@ def print_banner():
 
 def process_scan_results(total: int, changed: list, failed: list, mode: str, quiet: bool):
 
+    mode = mode.title()
     total_changed = len(changed)
     print(common.sepBold)
     print(f"{mode} scan finished.")

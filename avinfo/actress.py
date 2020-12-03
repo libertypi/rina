@@ -14,7 +14,7 @@ from urllib.parse import quote as urlquote
 from avinfo import common
 from avinfo.common import color_printer, get_response_tree, xp_compile
 
-_birth_searcher = re_compile(
+_RE_BIRTH = re_compile(
     r"(?P<y>(19|20)[0-9]{2})\s*年\s*(?P<m>1[0-2]|0?[1-9])\s*月\s*(?P<d>3[01]|[12][0-9]|0?[1-9])\s*日"
 ).search
 
@@ -72,7 +72,7 @@ class Wikipedia(Wiki):
         for tr in box.iterfind("tbody/tr[th][td]"):
             k = tr.find("th").text_content()
             if not birth and "生年月日" in k:
-                birth = _birth_searcher("".join(xpath(tr)))
+                birth = _RE_BIRTH("".join(xpath(tr)))
             elif "別名" in k:
                 alias.extend(j for i in xpath(tr) for j in _split_name(i))
 
@@ -111,7 +111,7 @@ class MinnanoAV(Wiki):
             if "別名" in title:
                 alias.append(td.findtext("p"))
             elif not birth and "生年月日" in title:
-                birth = _birth_searcher(td.findtext("p"))
+                birth = _RE_BIRTH(td.findtext("p"))
 
         return SearchResult(name=name, birth=birth, alias=alias)
 
@@ -219,7 +219,7 @@ class Seesaawiki(Wiki):
         alias = []
         for k, v in box:
             if not birth and "生年月日" in k:
-                birth = _birth_searcher(v)
+                birth = _RE_BIRTH(v)
             elif re_search(r"旧名義|別名|名前|女優名", k):
                 alias.extend(_split_name(v))
 
@@ -292,7 +292,7 @@ class Manko(Wiki):
                     return
                 birth = xpath_2(tbody, title="生年月日")
                 if birth:
-                    birth = _birth_searcher(birth[0].text_content())
+                    birth = _RE_BIRTH(birth[0].text_content())
                 result = SearchResult(name=name, birth=birth, alias=alias)
 
         return result
@@ -319,7 +319,7 @@ class Etigoya(Wiki):
         return result
 
 
-wiki_list = (Wikipedia, MinnanoAV, Seesaawiki, Msin, Manko, Etigoya)
+_WIKI_LIST = (Wikipedia, MinnanoAV, Seesaawiki, Msin, Manko, Etigoya)
 
 
 class Actress:
@@ -330,6 +330,7 @@ class Actress:
 
         # status: || filenameDiff | success | started ||
         self._status = 0
+        self.name = self.birth = self.result = None
         self._report = {
             "Target": keyword,
             "Name": None,
@@ -339,18 +340,18 @@ class Actress:
             "Result": None,
         }
 
-        keyword = re_sub(r"\([0-9]{4}(-[0-9]{1,2}){2}\)|\s+", "", keyword)
-        if not contains_cjk(keyword):
-            self._report["Error"] = "Keyword contains no valid actress name."
+        keyword = re_sub(r"\([0-9\s._-]+\)|\s+", "", keyword)
+        if not (re_search(r"^\w+$", keyword) and contains_cjk(keyword)):
+            self._report["Error"] = "Not valid actress name."
             return
 
         self._status |= 0b001
         try:
-            if not executor:
+            if executor:
+                self._bfs_search(keyword, executor)
+            else:
                 with ThreadPoolExecutor(max_workers=None) as executor:
                     self._bfs_search(keyword, executor)
-            else:
-                self._bfs_search(keyword, executor)
         except Exception as e:
             self._report["Error"] = str(e)
 
@@ -361,7 +362,7 @@ class Actress:
         visited = {}
         unvisited = {}
 
-        weight_to_func = {i: wiki.search for i, wiki in enumerate(wiki_list)}
+        weight_to_func = {i: wiki.search for i, wiki in enumerate(_WIKI_LIST)}
         unvisited[keyword] = 0
 
         while unvisited and weight_to_func:
@@ -418,8 +419,12 @@ class Actress:
         )
         return (
             result[0][0],
-            tuple(f'{k} ({", ".join(wiki_list[i].__name__ for i in v)})' for k, v in result),
+            tuple(f'{k} ({", ".join(_WIKI_LIST[i].__name__ for i in v)})' for k, v in result),
         )
+
+    @property
+    def success(self):
+        return self._status & 0b011 == 0b011
 
     @property
     def scrape_failed(self):
@@ -488,8 +493,8 @@ def _get_re_nameMask(keyword: str) -> re.Pattern:
 
 @lru_cache(512)
 def _clean_name(string: str) -> str:
-    for string in re_split(r"[【（\[(].*?[】）\])]", re_sub(r"[\s 　]+", "", string)):
-        string = re_sub(r"[【（\[(].*|.*?[】）\])]", "", string)
+    for string in re_split(r"[【「『｛（《\[(].*?[】」』｝）》\])]", re_sub(r"[\s 　]+", "", string)):
+        string = re_sub(r"[【「『｛（《\[(].*|.*?[】」』｝）》\])]", "", string)
         if string:
             return string
     return ""
