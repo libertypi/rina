@@ -4,7 +4,23 @@ from random import choice as random_choice
 from urllib.parse import urljoin
 
 from avinfo import common
-from avinfo.common import get_response_tree, re_compile, re_search, re_sub, str_to_epoch, xp_compile
+from avinfo.common import (get_response_tree, re_compile, re_search, re_sub,
+                           str_to_epoch, xp_compile)
+
+_RE_CLEANER = re_compile(r"[\s()\[\]._-]+").sub
+_RE_STUDIO = re_compile(
+    r"""\b(?:
+    (1pon(?:do)?)|
+    (10mu(?:sume)?)|
+    (carib(?:bean|com)*)|
+    (carib(?:bean|com)*pr)|
+    (mura(?:mura)?)|
+    (paco(?:pacomama)?)|
+    (mesubuta)
+    )\b""",
+    flags=re.VERBOSE,
+).search
+_STUDIOS = ("1pon", "10mu", "carib", "caribpr", "mura", "paco", "mesubuta")
 
 
 @dataclass
@@ -145,37 +161,23 @@ class Scraper:
             ).fullmatch
         return m
 
-    _id_cleaner = re_compile(r"[\s()\[\]._-]+").sub
-
     def _standardize_id(self):
-        string = self._id_cleaner(" ", self.string)
-        i = 0
-        for pattern, replace in (
-            (r"\b1pon(?:do)?\b", "1pon"),
-            (r"\b10mu(?:sume)?\b", "10mu"),
-            (r"\bcarib(?:bean|com)*\b", "carib"),
-            (r"\bcarib(?:bean|com)*pr\b", "caribpr"),
-            (r"\bmura(?:mura)?\b", "mura"),
-            (r"\bpaco(?:pacomama)?\b", "paco"),
-            (r"\bmesubuta\b", "mesubuta"),
-        ):
-            studio = re_search(pattern, string)
-            if studio:
-                i = studio.end()
-                studio = replace
-                break
-        else:
+
+        string = _RE_CLEANER(" ", self.string)
+        studio = _RE_STUDIO(string)
+        if not studio:
             return
+        i = studio.end()
+        studio = _STUDIOS[studio.lastindex - 1]
 
         if studio == "mesubuta":
             uid = re_search(r"\b[0-9]{6} [0-9]{2,5} [0-9]{1,3}\b", string)
         else:
-            uid = re_search(r"\b[0-9]{6} [0-9]{2,6}\b", string)
-        if uid:
-            i = max(i, uid.end()) + 1
-            uid = uid[0].replace(" ", "_")
-        else:
+            uid = re_search(r"\b[0-9]{6} [0-9]{2,5}\b", string)
+        if not uid:
             return
+        i = max(i, uid.end()) + 1
+        uid = uid[0].replace(" ", "_")
 
         result = [uid, studio]
         matcher = re_compile(r"(?:(?:[0-9]|(?:high|mid|low|whole|hd|sd|psp)[0-9]*|(?:2160|1080|720|480)p)\b\s?)+")
@@ -186,8 +188,8 @@ class Scraper:
         return "-".join(result)
 
     def _get_video_suffix(self):
-        string = self._id_cleaner(" ", self.string)
-        keyword = self._id_cleaner(" ", self.keyword.lower())
+        string = _RE_CLEANER(" ", self.string)
+        keyword = _RE_CLEANER(" ", self.keyword.lower())
 
         i = string.find(keyword)
         if i < 0:
@@ -197,7 +199,7 @@ class Scraper:
                 return
         i += len(keyword) + 1
 
-        matcher = re_compile(r"(?:(?:f?hd|sd|cd|vol)\s?|(?:2160|1080|720|480)p\s)*(?P<sfx>[0-9]{1,2}|[a-d])\b")
+        matcher = re_compile(r"(?:(?:f?hd|sd|cd|dvd|vol)\s?|(?:2160|1080|720|480)p\s)*(?P<sfx>[0-9]{1,2}|[a-d])\b")
         m = matcher.match(string, i)
         if m:
             suffix = m["sfx"]
