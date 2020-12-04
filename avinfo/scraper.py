@@ -88,6 +88,7 @@ class Scraper:
         pass
 
     def _javbus(self):
+
         mask = self._get_keyword_mask()
         for base in ("uncensored/",) if self.uncensored_only else ("uncensored/", ""):
             tree = get_response_tree(f"https://www.javbus.com/{base}search/{self.keyword}", decoder="lxml")[1]
@@ -152,6 +153,7 @@ class Scraper:
                 )
 
     def _get_keyword_mask(self):
+
         m = getattr(self, "_keyword_mask", None)
         if not m:
             m = self._keyword_mask = re_compile(
@@ -187,6 +189,7 @@ class Scraper:
         return "-".join(result)
 
     def _get_video_suffix(self):
+
         string = _RE_CLEANER(" ", self.string)
         keyword = _RE_CLEANER(" ", self.keyword.lower())
 

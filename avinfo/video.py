@@ -71,14 +71,10 @@ class AVString:
     def print(self):
         if self._status == 0b001:
             print(common.sepSuccess, self.report, sep="", end="")
+        elif self._status & 0b110:
+            color_printer(common.sepChanged, self.report, color="yellow", sep="", end="")
         else:
-            if self._status & 0b110:
-                color = "yellow"
-                sep = common.sepChanged
-            else:
-                color = "red"
-                sep = common.sepFailed
-            color_printer(sep, self.report, color=color, sep="", end="")
+            color_printer(common.sepFailed, self.report, color="red", sep="", end="")
 
 
 class AVFile(AVString):

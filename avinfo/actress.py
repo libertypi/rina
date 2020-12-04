@@ -1,10 +1,11 @@
 import os
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import quote as urlquote
+from urllib.parse import urljoin
 
 from avinfo import common
 from avinfo.common import color_printer, get_response_tree, re_compile, re_search, re_split, re_sub, xp_compile
@@ -26,9 +27,12 @@ class SearchResult:
         else:
             self.alias = set()
 
-        if self.name:
-            self.name = _clean_name(self.name)
-            self.alias.add(self.name)
+        name = self.name
+        if name:
+            name = _clean_name(name)
+            if name:
+                self.alias.add(name)
+            self.name = name
 
         birth = self.birth
         if birth:
@@ -52,12 +56,15 @@ class Wikipedia(Wiki):
     def search(cls, keyword: str):
 
         tree = get_response_tree(f"{cls.baseurl}/{keyword}", decoder="lxml")[1]
-        if tree is None:
+        try:
+            if not xp_compile('//a[@title="AV女優" and contains(text(),"AV女優")]')(tree):
+                return
+        except TypeError:
             return
 
         name = tree.findtext('.//*[@id="firstHeading"]')
         box = tree.find('.//*[@id="mw-content-text"]//table[@class="infobox"]')
-        if not name or box is None or not xp_compile('//a[@title="AV女優" and contains(text(),"AV女優")]')(tree):
+        if not name or box is None:
             return
 
         birth = None
@@ -75,6 +82,7 @@ class Wikipedia(Wiki):
 
 
 class MinnanoAV(Wiki):
+
     baseurl = "http://www.minnano-av.com"
 
     @classmethod
@@ -132,10 +140,11 @@ class MinnanoAV(Wiki):
                     return
 
         if result:
-            return get_response_tree(f"{cls.baseurl}/{result}")[1]
+            return get_response_tree(urljoin(cls.baseurl, result))[1]
 
 
 class AVRevolution(Wiki):
+
     baseurl = "http://adultmovie-revolution.com/movies/jyoyuu_kensaku.php"
 
     @classmethod
@@ -144,11 +153,11 @@ class AVRevolution(Wiki):
         if tree is None:
             return
 
-        nameMask = _get_re_nameMask(keyword)
+        nameMask = _get_re_nameMask(keyword).fullmatch
         tree = xp_compile('//*[@id="entry-01"]//center/table[@summary="AV女優検索結果"]/tbody//td/a[text() and @href]')(tree)
         url = None
         for a in tree:
-            if nameMask.fullmatch(_clean_name(a.text)):
+            if nameMask(_clean_name(a.text)):
                 href = a.get("href")
                 if not url:
                     url = href
@@ -172,6 +181,7 @@ class AVRevolution(Wiki):
 
 
 class Seesaawiki(Wiki):
+
     baseurl = "https://seesaawiki.jp/av_neme/d"
 
     @classmethod
@@ -192,7 +202,7 @@ class Seesaawiki(Wiki):
             if re_search(r"(\W*(女優名|名前)\W*)+変更", tree.findtext('.//*[@id="content_1"]')):
                 a = tree.find('.//*[@id="content_block_1-body"]/span/a[@href]')
                 if a is not None and "移動" in a.getparent().text_content():
-                    return cls.search(a.text, a.get("href"))
+                    return cls.search(a.text, urljoin(cls.baseurl, a.get("href")))
                 return
         except TypeError:
             pass
@@ -202,13 +212,12 @@ class Seesaawiki(Wiki):
             return
 
         box = tree.find('.//*[@id="content_block_2"]')
-        tag = getattr(box, "tag", None)
-        if tag == "table":
-            box = ((i.find("th").text_content(), i.find("td").text_content()) for i in xp_compile(".//tr[th][td]")(box))
-        elif tag:
-            box = (i.split("：", 1) for i in box.findtext(".").splitlines() if "：" in i)
-        else:
+        if box is None:
             return SearchResult(name=name)
+        if box.tag == "table":
+            box = ((i.find("th").text_content(), i.find("td").text_content()) for i in xp_compile(".//tr[th][td]")(box))
+        else:
+            box = (i.split("：", 1) for i in box.text.splitlines() if "：" in i)
 
         birth = None
         alias = []
@@ -256,6 +265,7 @@ class Msin(Wiki):
 
 
 class Manko(Wiki):
+
     baseurl = "http://mankowomiseruavzyoyu.blog.fc2.com"
 
     @classmethod
@@ -266,7 +276,7 @@ class Manko(Wiki):
             return
 
         result = None
-        nameMask = _get_re_nameMask(keyword)
+        nameMask = _get_re_nameMask(keyword).fullmatch
         xpath_1 = xp_compile('(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())[1]')
         xpath_2 = xp_compile("tr[td[1][contains(text(), $title)]]/td[2]")
 
@@ -282,7 +292,7 @@ class Manko(Wiki):
             alias = (i.text_content() for i in xpath_2(tbody, title="別名"))
             alias = tuple(j for i in alias for j in _split_name(i))
 
-            if nameMask.fullmatch(name) or any(nameMask.fullmatch(i) for i in alias):
+            if nameMask(name) or any(nameMask(i) for i in alias):
                 if result:
                     return
                 birth = xpath_2(tbody, title="生年月日")
@@ -294,6 +304,7 @@ class Manko(Wiki):
 
 
 class Etigoya(Wiki):
+
     baseurl = "http://etigoya955.blog49.fc2.com"
 
     @classmethod
@@ -302,12 +313,12 @@ class Etigoya(Wiki):
         tree = get_response_tree(cls.baseurl, params={"q": keyword})[1]
         if tree is None:
             return
-        nameMask = _get_re_nameMask(keyword)
+        nameMask = _get_re_nameMask(keyword).fullmatch
 
         result = None
         for a in xp_compile('.//*[@id="main"]/div[@class="content"]/ul/li/a[contains(text(), "＝")]')(tree):
             alias = _split_name(a.text)
-            if any(nameMask.fullmatch(_clean_name(i)) for i in alias):
+            if any(nameMask(_clean_name(i)) for i in alias):
                 if result:
                     return
                 result = SearchResult(alias=alias)
@@ -370,7 +381,7 @@ class Actress:
             for ft in as_completed(ft_to_weight):
 
                 result = ft.result()
-                if not result:
+                if not (result and any(astuple(result))):
                     continue
                 weight = ft_to_weight[ft]
 
@@ -378,14 +389,15 @@ class Actress:
                     nameDict[result.name].append(weight)
                 if result.birth:
                     birthDict[result.birth].append(weight)
+
+                result.alias.difference_update(visited)
                 for i in result.alias:
-                    if i in visited:
-                        continue
                     v = unvisited.get(i)
                     if v:
                         v[0] += 1
                     else:
                         unvisited[i] = [1, len(i)]
+
                 del weight_to_func[weight]
 
         report = self._report
@@ -447,14 +459,10 @@ class Actress:
     def print(self):
         if self._status == 0b011:
             print(common.sepSuccess, self.report, sep="", end="")
+        elif self._status == 0b111:
+            color_printer(common.sepChanged, self.report, color="yellow", sep="", end="")
         else:
-            if self._status == 0b111:
-                color = "yellow"
-                sep = common.sepChanged
-            else:
-                color = "red"
-                sep = common.sepFailed
-            color_printer(sep, self.report, color=color, sep="", end="")
+            color_printer(common.sepFailed, self.report, color="red", sep="", end="")
 
 
 class ActressFolder(Actress):
@@ -530,9 +538,9 @@ def scan_path(target: Path):
     changed = []
     failed = []
     total = 0
-    worker = min(32, os.cpu_count() + 4) / 2
+    w = min(32, os.cpu_count() + 4) / 2
 
-    with ThreadPoolExecutor(max_workers=worker) as ex, ThreadPoolExecutor(max_workers=None) as exe:
+    with ThreadPoolExecutor(max_workers=w) as ex, ThreadPoolExecutor(max_workers=None) as exe:
         for ft in as_completed(ex.submit(ActressFolder, p, exe) for p in common.list_dir(target)):
             total += 1
             actress = ft.result()
