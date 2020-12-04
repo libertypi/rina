@@ -4,8 +4,7 @@ from random import choice as random_choice
 from urllib.parse import urljoin
 
 from avinfo import common
-from avinfo.common import (get_response_tree, re_compile, re_search, re_sub,
-                           str_to_epoch, xp_compile)
+from avinfo.common import get_response_tree, re_compile, re_search, re_sub, str_to_epoch, xp_compile
 
 _RE_CLEANER = re_compile(r"[\s()\[\]._-]+").sub
 _RE_STUDIO = re_compile(
