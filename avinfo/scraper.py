@@ -196,7 +196,7 @@ class StudioMatcher(Scraper):
                 pass
             else:
                 result.dateSource = "product id"
-        return result
+            return result
 
     def _carib(self):
 
