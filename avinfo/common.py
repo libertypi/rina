@@ -104,15 +104,15 @@ def get_response_tree(url, *, decoder: str = None, **kwargs):
     return response, tree
 
 
-def str_to_epoch(string: str, dFormat: str = "%Y %m %d", regex=re_compile(r"[^0-9]+")) -> float:
+def str_to_epoch(string: str, fmt: str = "%Y %m %d", regex=re_compile(r"[^0-9]+")) -> float:
     if regex:
         string = regex.sub(" ", string).strip()
-    return datetime.strptime(string, dFormat).replace(tzinfo=timezone.utc).timestamp()
+    return datetime.strptime(string, fmt).replace(tzinfo=timezone.utc).timestamp()
 
 
-def epoch_to_str(epoch: float, dFormat: str = "%F %T"):
+def epoch_to_str(epoch: float, fmt: str = "%F %T"):
     try:
-        return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime(dFormat)
+        return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime(fmt)
     except TypeError:
         pass
 

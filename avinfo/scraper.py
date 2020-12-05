@@ -1,25 +1,12 @@
 import re
-from dataclasses import astuple, dataclass
+from dataclasses import dataclass
 from random import choice as random_choice
 from urllib.parse import urljoin
 
 from avinfo import common
 from avinfo.common import get_response_tree, re_compile, re_search, re_sub, str_to_epoch, xp_compile
 
-_RE_CLEANER = re_compile(r"[\s()\[\]._-]+").sub
-_RE_STUDIO = re_compile(
-    r"""\b(?:
-    (1pon(?:do)?)|
-    (10mu(?:sume)?)|
-    (carib(?:bean|com)*)|
-    (carib(?:bean|com)*pr)|
-    (mura(?:mura)?)|
-    (paco(?:pacomama)?)|
-    (mesubuta)
-    )\b""",
-    flags=re.VERBOSE,
-).search
-_STUDIOS = ("1pon", "10mu", "carib", "caribpr", "mura", "paco", "mesubuta")
+__all__ = "from_string"
 
 
 @dataclass
@@ -33,55 +20,38 @@ class ScrapeResult:
 
 class Scraper:
 
-    standard_id: bool = False
-    uncensored_only: bool = False
-    date: float = None
+    keyword: str
     source: str
-    url: str
+    uncensored_only: bool = False
+    _mask = None
 
-    def __init__(self, string: str, keyword: str, **kwargs) -> None:
-
+    def __init__(self, string: str, match: re.Match) -> None:
         self.string = string
-        self.keyword = keyword
-        self.__dict__.update(kwargs)
+        self.match = match
 
-    @classmethod
-    def search(cls, string: str):
-        raise NotImplemented
-
-    def process(self):
+    def search(self):
 
         result: ScrapeResult = self._query() or self._javbus() or self._javdb()
         if not result:
             return
 
-        title = result.title
-        if title:
-            if re_search(r"\w", title):
-                result.title = re_sub(r"\s+", " ", title.strip())
-                result.titleSource = self.source
-            else:
-                result.title = None
+        try:
+            productId = result.productId.strip()
+            title = re_sub(r"\s+", " ", result.title.strip())
+        except AttributeError:
+            return
+        if productId and title:
+            result.title = title
+            result.titleSource = self.source
+        else:
+            return
 
-        if self.date:
-            result.publishDate = self.date
-            result.dateSource = "product id"
-        elif result.publishDate:
+        result.productId = self._process_product_id(productId)
+
+        if result.publishDate:
             result.dateSource = self.source
 
-        productId = result.productId
-        if productId:
-            productId = productId.strip()
-        if self.standard_id:
-            result.productId = self._standardize_id() or productId
-        else:
-            if productId:
-                suffix = self._get_video_suffix()
-                if suffix:
-                    productId = f"{productId}-{suffix}"
-            result.productId = productId
-
-        return result if any(astuple(result)) else None
+        return result
 
     @staticmethod
     def _query():
@@ -154,100 +124,109 @@ class Scraper:
 
     def _get_keyword_mask(self):
 
-        m = getattr(self, "_keyword_mask", None)
-        if not m:
-            m = self._keyword_mask = re_compile(
+        mask = self._mask
+        if not mask:
+            mask = self._mask = re_compile(
                 r"\s*{}\s*".format(re_sub(r"[\s_-]", r"[\\s_-]?", self.keyword)),
                 flags=re.IGNORECASE,
             ).fullmatch
-        return m
+        return mask
 
-    def _standardize_id(self):
+    def _process_product_id(self, productId: str):
 
-        string = _RE_CLEANER(" ", self.string)
-        studio = _RE_STUDIO(string)
-        if not studio:
-            return
-        i = studio.end()
-        studio = _STUDIOS[studio.lastindex - 1]
-
-        if studio == "mesubuta":
-            uid = re_search(r"\b[0-9]{6} [0-9]{2,5} [0-9]{1,3}\b", string)
-        else:
-            uid = re_search(r"\b[0-9]{6} [0-9]{2,5}\b", string)
-        if not uid:
-            return
-        i = max(i, uid.end()) + 1
-        uid = uid[0].replace(" ", "_")
-
-        result = [uid, studio]
-        matcher = re_compile(r"(?:(?:[0-9]|(?:high|mid|low|whole|hd|sd|psp)[0-9]*|(?:2160|1080|720|480)p)\b\s?)+")
-        other = matcher.match(string, i)
-        if other:
-            result.extend(other[0].split())
-
-        return "-".join(result)
-
-    def _get_video_suffix(self):
-
-        string = _RE_CLEANER(" ", self.string)
-        keyword = _RE_CLEANER(" ", self.keyword.lower())
-
-        i = string.find(keyword)
-        if i < 0:
-            keyword = keyword.rpartition(" ")[2]
-            i = string.find(keyword)
-            if i < 0:
-                return
-        i += len(keyword) + 1
-
-        matcher = re_compile(r"(?:(?:f?hd|sd|cd|dvd|vol)\s?|(?:2160|1080|720|480)p\s)*(?P<sfx>[0-9]{1,2}|[a-d])\b")
-        m = matcher.match(string, i)
+        string = re_sub(r"[\s()\[\]._-]+", " ", self.string[self.match.end() :])
+        m = re_search(r"^\s?((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<sfx>[0-9]{1,2}|[a-d])\b", string)
         if m:
             suffix = m["sfx"]
             if suffix in "abcd":
-                return suffix.upper()
-            return suffix
+                suffix = suffix.upper()
+            return f"{productId}-{suffix}"
+        return productId
 
 
-class Carib(Scraper):
+class StudioMatcher(Scraper):
 
-    standard_id = True
     uncensored_only = True
+    studio_list = re_compile(
+        r"""\b(?:
+        (carib(?:bean|com)*)|   # 112220-001-carib
+        (carib(?:bean|com)*pr)| # 101515_391-caribpr
+        (1pon(?:do)?)|          # 110411_209-1pon
+        (paco(?:pacomama)?)|    # 120618_394-paco
+        (10mu(?:sume)?)|        # 122812_01-10mu
+        (mura(?:mura)?)|        # 010216_333-mura
+        (mesubuta)              # 160122_1020_01-mesubuta
+        )\b""",
+        flags=re.VERBOSE,
+    ).search
+    studio_list = (studio_list, "carib", "caribpr", "1pon", "paco", "10mu", "mura", "mesubuta")
+    datefmt = "%m%d%y"
 
-    @classmethod
-    def search(cls, string: str):
-        m = re_search(r"(?:^|[^a-z0-9])carib(?P<com>bean|pr|com)*(?:[^a-z0-9]|$)", string)
+    def __init__(self, string: str, match: re.Match) -> None:
+
+        super().__init__(string, match)
+
+        c = "_"
+        keyword = match.group("s1", "s2")
+
+        m = self.studio_match = self.studio_list[0](string)
         if m:
-            n = re_search(r"(?:^|[^a-z0-9])([0-9]{6})[_-]([0-9]{2,4})(?:[^a-z0-9]|$)", string)
-            if not n:
-                return
+            s = self.studio = self.studio_list[m.lastindex]
+            if s == "carib":
+                c = "-"
+                self._query = self._carib
+                self.source = "caribbeancom.com"
+                self.url = "https://www.caribbeancom.com/moviepages"
+            elif s == "caribpr":
+                self._query = self._carib
+                self.source = "caribbeancompr.com"
+                self.url = "https://www.caribbeancompr.com/moviepages"
+            elif s == "mesubuta":
+                keyword = match.group("s1", "s2", "s3")
+                self.datefmt = "%y%m%d"
 
-            if m["com"] == "pr":
-                baseurl = "https://www.caribbeancompr.com/moviepages"
-                source = "caribbeancompr.com"
-                keyword = "_".join(n.groups())
+        self.keyword = c.join(keyword)
+
+    def search(self):
+        result = super().search()
+        if result:
+            try:
+                result.publishDate = str_to_epoch(self.match["s1"], self.datefmt, regex=None)
+            except ValueError:
+                pass
             else:
-                baseurl = "https://www.caribbeancom.com/moviepages"
-                source = "caribbeancom.com"
-                keyword = "-".join(n.groups())
+                result.dateSource = "product id"
+        return result
 
-            return cls(
-                string,
-                keyword=keyword,
-                date=str_to_epoch(n[1], "%m%d%y", regex=None),
-                url=f"{baseurl}/{keyword}/",
-                source=source,
-            ).process()
+    def _carib(self):
 
-    def _query(self):
-        tree = get_response_tree(self.url, decoder="euc-jp")[1]
+        tree = get_response_tree(f"{self.url}/{self.keyword}/", decoder="euc-jp")[1]
         try:
             title = tree.findtext('.//div[@id="moviepages"]//div[@class="heading"]/h1')
         except AttributeError:
             return
         if title:
-            return ScrapeResult(title=title)
+            return ScrapeResult(
+                productId=self.keyword,
+                title=title,
+            )
+
+    def _process_product_id(self, productId: str):
+
+        if not self.studio_match:
+            return productId
+
+        result = f"{self.keyword}-{self.studio}"
+
+        i = max(self.match.end(), self.studio_match.end())
+        string = re_sub(r"[\s()\[\]._-]+", " ", self.string[i:])
+        other = re_search(r"^\s?(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+", string)
+        if other:
+            other = other[0].split()
+            other.insert(0, result)
+            return "-".join(other)
+
+        return result
 
 
 class Heyzo(Scraper):
@@ -255,19 +234,11 @@ class Heyzo(Scraper):
     uncensored_only = True
     source = "heyzo.com"
 
-    @classmethod
-    def search(cls, string: str):
-        m = re_search(r"(?:^|[^a-z0-9])heyzo[^0-9]*([0-9]{4})(?:[^a-z0-9]|$)", string)
-        if m:
-            uid = m[1]
-            return cls(
-                string,
-                keyword=f"HEYZO-{uid}",
-                url=f"https://www.heyzo.com/moviepages/{uid}/",
-            ).process()
-
     def _query(self):
-        tree = get_response_tree(self.url, decoder="lxml")[1]
+        uid = self.match["heyzo"]
+        self.keyword = f"HEYZO-{uid}"
+
+        tree = get_response_tree(f"https://www.heyzo.com/moviepages/{uid}/", decoder="lxml")[1]
 
         try:
             title = tree.findtext('.//div[@id="wrapper"]//div[@id="movie"]/h1')
@@ -292,26 +263,17 @@ class Heydouga(Scraper):
     uncensored_only = True
     source = "heydouga.com"
 
-    @classmethod
-    def search(cls, string: str):
-        m = re_search(r"(?:^|[^a-z0-9])hey(?:douga)?[^a-z0-9]*([0-9]{4})[^a-z0-9]*([0-9]{3,})(?:[^a-z0-9]|$)", string)
-        if m:
-            return cls(
-                string,
-                keyword=m.expand(r"heydouga-\1-\2"),
-                url=f"https://www.heydouga.com/moviepages/{m[1]}/{m[2]}/",
-            ).process()
-
-        m = re_search(r"(?:^|[^a-z0-9])honnamatv[^0-9]*([0-9]{3,})(?:[^a-z0-9]|$)", string)
-        if m:
-            return cls(
-                string,
-                keyword=f"honnamatv-{m[1]}",
-                url=f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{m[1]}/",
-            ).process()
-
     def _query(self):
-        tree = get_response_tree(self.url, decoder="utf-8")[1]
+        m = self.match
+
+        if m["heydouga"]:
+            self.keyword = m.expand(r"heydouga-\g<h1>-\g<h2>")
+            url = m.expand(r"https://www.heydouga.com/moviepages/\g<h1>/\g<h2>/")
+        else:
+            self.keyword = f"honnamatv-{m['honnamatv']}"
+            url = f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{m['honnamatv']}/"
+
+        tree = get_response_tree(url, decoder="utf-8")[1]
         try:
             title = tree.findtext(".//title").rpartition(" - ")[0]
         except AttributeError:
@@ -325,60 +287,62 @@ class Heydouga(Scraper):
         )
 
 
-class H4610(Scraper):
-    """h4610, c0930, h0930"""
+class FC2(Scraper):
 
-    uncensored_only = True
-
-    @classmethod
-    def search(cls, string: str):
-        m = re_search(r"(?:^|[^a-z0-9])(h4610|[ch]0930)[^a-z0-9]+([a-z]+[0-9]+)(?:[^a-z0-9]|$)", string)
-        if m:
-            return cls(
-                string,
-                keyword=m.expand(r"\1-\2"),
-                url=f"https://www.{m[1]}.com/moviepages/{m[2]}/",
-                source=f"{m[1]}.com",
-            ).process()
+    source = "fc2.com"
 
     def _query(self):
-        tree = get_response_tree(self.url)[1]
-        try:
-            title = tree.findtext('.//*[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
-            if not title:
-                return
-        except AttributeError:
-            return
 
-        date = xp_compile('//*[@id="movieInfo"]//section//dt[contains(text(),"公開日")]/following-sibling::dd[1]/text()')(
-            tree
-        )
+        uid = self.match["fc2"]
+        self.keyword = f"FC2-{uid}"
+
+        title = date = None
+
+        tree = get_response_tree(f"https://adult.contents.fc2.com/article/{uid}/")[1]
+        try:
+            tree = tree.find('.//*[@id="top"]//section[@class="items_article_header"]')
+            title = tree.findtext('.//div[@class="items_article_headerInfo"]/h3')
+        except AttributeError:
+            pass
+
+        if title:
+            try:
+                date = tree.findtext('.//div[@class="items_article_Releasedate"]/p')
+                date = re_search(r"\b20[0-9]{2}\W[0-9]{2}\W[0-9]{2}\b", date)
+                date = str_to_epoch(date[0])
+            except TypeError:
+                pass
+        else:
+            tree = get_response_tree(f"http://video.fc2.com/a/search/video/?keyword={uid}")[1]
+            try:
+                tree = tree.find('.//*[@id="pjx-search"]//ul/li[1]//a[@title]')
+                title = tree.text
+            except AttributeError:
+                return
+            try:
+                date = re_search(r"(?<=/)20[0-9]{6}", tree.get("href"))
+                date = str_to_epoch(date[0], "%Y%m%d")
+            except TypeError:
+                pass
+
         return ScrapeResult(
             productId=self.keyword,
             title=title,
-            publishDate=str_to_epoch(date[0]) if date else None,
+            publishDate=date,
         )
 
 
 class X1X(Scraper):
-    """x1x-111815"""
 
     uncensored_only = True
     source = "x1x.com"
 
-    @classmethod
-    def search(cls, string: str):
-        m = re_search(r"(?:^|[^a-z0-9])x1x[\s_-]+([0-9]{6})(?:[^a-z0-9]|$)", string)
-        if m:
-            uid = m[1]
-            return cls(
-                string,
-                keyword=f"x1x-{uid}",
-                url=f"http://www.x1x.com/title/{uid}",
-            ).process()
-
     def _query(self):
-        tree = get_response_tree(self.url)[1]
+
+        uid = self.match["x1x"]
+        self.keyword = f"x1x-{uid}"
+
+        tree = get_response_tree(f"http://www.x1x.com/title/{uid}")[1]
         try:
             title = tree.find(".//title").text
         except AttributeError:
@@ -400,16 +364,9 @@ class SM_Miracle(Scraper):
     uncensored_only = True
     source = "sm-miracle.com"
 
-    @classmethod
-    def search(cls, string: str):
-        m = re_search(r"(?:^|[^a-z0-9])sm[\s_-]*miracle[\s_-]*(?:no)?[\s_.-]+e?([0-9]{4})(?:[^a-z0-9]|$)", string)
-        if m:
-            return cls(
-                string,
-                keyword=f"e{m[1]}",
-            ).process()
-
     def _query(self):
+
+        self.keyword = "e" + self.match["sm"]
         try:
             response = common.session.get(f"http://sm-miracle.com/movie/{self.keyword}.dat")
             response.raise_for_status()
@@ -426,244 +383,170 @@ class SM_Miracle(Scraper):
             pass
 
 
-class FC2(Scraper):
+class H4610(Scraper):
 
-    source = "fc2.com"
-    uid: str
-
-    @classmethod
-    def search(cls, string: str):
-        m = re_search(r"(?:^|[^a-z0-9])fc2[\s_-]*(?:ppv)?[\s_-]*([0-9]{2,10})(?:[^a-z0-9]|$)", string)
-        if m:
-            uid = m[1]
-            return cls(
-                string,
-                keyword=f"FC2-{uid}",
-                uid=uid,
-            ).process()
-
-    def _query(self):
-        title = date = None
-
-        tree = get_response_tree(f"https://adult.contents.fc2.com/article/{self.uid}/")[1]
-        try:
-            tree = tree.find('.//*[@id="top"]//section[@class="items_article_header"]')
-            title = tree.findtext('.//div[@class="items_article_headerInfo"]/h3')
-        except AttributeError:
-            pass
-
-        if title:
-            try:
-                date = tree.findtext('.//div[@class="items_article_Releasedate"]/p')
-                date = re_search(r"\b20[0-9]{2}\W[0-9]{2}\W[0-9]{2}\b", date)
-                date = str_to_epoch(date[0])
-            except TypeError:
-                pass
-        else:
-            tree = get_response_tree(f"http://video.fc2.com/a/search/video/?keyword={self.uid}")[1]
-            try:
-                tree = tree.find('.//*[@id="pjx-search"]//ul/li[1]//a[@title]')
-                title = tree.text
-            except AttributeError:
-                return
-            try:
-                date = re_search(r"(?<=/)20[0-9]{6}", tree.get("href"))
-                date = str_to_epoch(date[0], "%Y%m%d")
-            except TypeError:
-                pass
-
-        return ScrapeResult(productId=self.keyword, title=title, publishDate=date)
-
-
-class Mesubuta(Scraper):
-    """160122_1020_01_Mesubuta"""
-
-    standard_id = True
     uncensored_only = True
 
-    @classmethod
-    def search(cls, string: str):
-        if re_search(r"(?:^|[^a-z0-9])mesubuta(?:[^a-z0-9]|$)", string):
-            m = re_search(r"(?:^|[^a-z0-9])([0-9]{6})[_-]([0-9]{2,4})[_-]([0-9]{2,4})(?:[^a-z0-9]|$)", string)
-            if m:
-                return cls(
-                    string,
-                    keyword="-".join(m.group(1, 2, 3)),
-                    date=str_to_epoch(m[1], "%y%m%d", regex=None),
-                ).process()
+    def _query(self):
+
+        m1, m2 = self.match.group("h41", "h42")
+        self.keyword = f"{m1}-{m2}"
+        self.source = f"{m1}.com"
+
+        tree = get_response_tree(f"https://www.{m1}.com/moviepages/{m2}/")[1]
+        try:
+            title = tree.findtext('.//*[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
+            if not title:
+                return
+        except AttributeError:
+            return
+
+        date = xp_compile('//*[@id="movieInfo"]//section//dt[contains(text(),"公開日")]/following-sibling::dd[1]/text()')(
+            tree
+        )
+        return ScrapeResult(
+            productId=self.keyword,
+            title=title,
+            publishDate=str_to_epoch(date[0]) if date else None,
+        )
 
 
 class UncensoredMatcher(Scraper):
 
     uncensored_only = True
 
-    @classmethod
-    def search(cls, string: str):
-        try:
-            regex = cls.regex
-        except AttributeError:
-            regex = (
-                # tokyo-hot
-                r"""(?:^|[^a-z0-9])
-                ((?:n|k|kb|jpgc|shiroutozanmai|hamesamurai)[0-3][0-9]{3}|
-                (?:bouga|ka|sr|tr|sky)[0-9]{3,4})
-                (?:[^a-z0-9]|$)""",
-                # 1000-girl
-                r"""(?:^|[^a-z0-9])
-                ([12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))
-                [\s_-]?
-                ([a-z]{3,}(?:_[a-z]{3,})?)
-                (?:[^a-z0-9]|$)""",
-                # th101
-                r"""(?:^|[^a-z0-9])
-                (th101)
-                [\s_-]
-                ([0-9]{3})
-                [\s_-]
-                ([0-9]{6})
-                (?:[^a-z0-9]|$)""",
-            )
-            regex = cls.regex = tuple(re_compile(p, flags=re.VERBOSE).search for p in regex)
-
-        for matcher in regex:
-            m = matcher(string)
-            if m:
-                return cls(
-                    string,
-                    keyword="-".join(m.groups()),
-                ).process()
+    def __init__(self, string: str, match: re.Match) -> None:
+        super().__init__(string, match)
+        self.keyword = "-".join(filter(None, match.groups()))
 
 
-class NumberMatcher(Scraper):
+class PrefixSearcher(Scraper):
 
-    standard_id = True
-    uncensored_only = True
+    regex = r"(?P<p1>[a-z]{2,8})[\s_-]*(?P<z>0)*(?P<p2>(?(z)[0-9]{3,6}|[0-9]{2,6}))(?:hhb[0-9]?)?"
 
-    @classmethod
-    def search(cls, string: str):
-
-        m = re_search(
-            r"(?:^|[^a-z0-9])((?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9])[0-2][0-9])[_-]+([0-9]{2,4})(?:[^a-z0-9]|$)",
-            string,
-        )
-        if m:
-            if re_search(
-                r"(?:^|[^a-z0-9])(?:1pon(?:do)?|10mu(?:sume)?|mura(?:mura)?|paco(?:pacomama)?)(?:[^a-z0-9]|$)",
-                string,
-            ):
-                c = "_"
-            else:
-                c = "-"
-            return cls(
-                string,
-                keyword=c.join(m.group(1, 2)),
-                date=str_to_epoch(m[1], "%m%d%y", regex=None),
-            ).process()
+    def __init__(self, string: str, match: re.Match) -> None:
+        super().__init__(string, match)
+        self.keyword = match.expand(r"\g<p1>-\g<p2>")
 
 
-class PrefixMatcher(Scraper):
-    @classmethod
-    def search(cls, string: str):
+class DateSearcher(Scraper):
 
-        try:
-            regex = cls.regex
-        except AttributeError:
-            regex = (
-                # mkbd_s24
-                r"""
-                (?:^|[^a-z0-9])
-                (?P<prefix>mkbd|bd)
-                [\s_-]?
-                (?P<id>[sm]?[0-9]+)
-                (?:[^a-z0-9]|$)
-                """,
-                r"""
-                (?:^|[^a-z0-9])
-                (?P<prefix>kin8tengoku|xxx[\s_-]?av|[a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})
-                [\s_-]*
-                (?P<id>[0-9]{2,6})
-                (?:[^a-z0-9]|$)
-                """,
-                # MX-64
-                # 259-LUXU123
-                # 003ppd00123hhb1
-                r"""
-                (?:^|[^a-z0-9])
-                [0-9]{,3}
-                (?P<prefix>[a-z]{2,8})
-                [\s_-]*
-                (?P<z>0)*
-                (?P<id>(?(z)[0-9]{3,6}|[0-9]{2,6}))
-                (?:hhb[0-9]?)?(?:[^a-z0-9]|$)
-                """,
-            )
-            regex = cls.regex = tuple(re_compile(p, flags=re.VERBOSE).finditer for p in regex)
-
-        for matcher in regex:
-            for m in matcher(string):
-                result = cls(string, keyword=m.expand(r"\g<prefix>-\g<id>")).process()
-                if result:
-                    return result
-
-
-class DateMatcher:
-
+    __slots__ = ("string", "match")
     source = "file name"
+    fmt = {}
 
-    @classmethod
-    def search(cls, string: str):
+    @staticmethod
+    def get_regex():
+        fmt = {
+            "sep1": r"[\s,._-]*",
+            "sep2": r"[\s,._-]+",
+            "year": r"(?:20)?([12][0-9])",
+            "mon": r"(1[0-2]|0[1-9])",
+            "day1": r"(3[01]|[12][0-9]|0?[1-9])",
+            "day2": r"(3[01]|[12][0-9]|0[1-9])",
+            "b": r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
+        }
+        return (
+            p.format_map(fmt)
+            for p in (
+                r"(?P<dby>{day1}{sep1}{b}{sep1}{year})",  # 23.Jun.(20)14
+                r"(?P<bdy>{b}{sep1}{day1}{sep1}{year})",  # Dec.23.(20)14
+                r"(?P<ymd>{year}{sep2}{mon}{sep2}{day2})",  # (20)19.03.15
+                r"(?P<dmy>{day2}{sep2}{mon}{sep2}{year})",  # 23.02.(20)19
+            )
+        )
+
+    def search(self):
+
+        m = self.match
+        i = m.lastindex + 1
 
         try:
-            regex = cls.regex
-        except AttributeError:
-            reg = {
-                "start": r"(?:^|[^a-z0-9])",
-                "end": r"(?:[^a-z0-9]|$)",
-                "sep1": r"[\s,._-]*",
-                "sep2": r"[\s,._-]+",
-                "year": r"(?:20)?(?P<y>[12][0-9])",
-                "mon": r"(?P<m>1[0-2]|0[1-9])",
-                "day1": r"(?P<d>3[01]|[12][0-9]|0?[1-9])",
-                "day2": r"(?P<d>3[01]|[12][0-9]|0[1-9])",
-                "b": r"(?P<b>jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
-            }
-            regex = cls.regex = tuple(
-                (
-                    re_compile(pattern.format_map(reg)).search,
-                    " ".join(f"\\g<{f}>" for f in fmt),
-                    " ".join("%" + f for f in fmt),
-                )
-                for pattern, fmt in (
-                    ("{start}{day1}{sep1}{b}{sep1}{year}{end}", "dby"),  # 23.Jun.(20)14
-                    ("{start}{b}{sep1}{day1}{sep1}{year}{end}", "bdy"),  # Dec.23.(20)14
-                    ("{start}{year}{sep2}{mon}{sep2}{day2}{end}", "ymd"),  # (20)19.03.15
-                    ("{start}{day2}{sep2}{mon}{sep2}{year}{end}", "dmy"),  # 23.02.(20)19
-                )
-            )
+            fmt = self.fmt[m.lastgroup]
+        except KeyError:
+            fmt = self.fmt[m.lastgroup] = " ".join("%" + f for f in m.lastgroup)
 
-        for matcher, temp, format in regex:
-            m = matcher(string)
-            if m:
-                return ScrapeResult(
-                    publishDate=str_to_epoch(m.expand(temp), format, regex=None),
-                    dateSource=cls.source,
-                )
+        return ScrapeResult(
+            publishDate=str_to_epoch(
+                string=" ".join(m.group(i, i + 1, i + 2)),
+                fmt=fmt,
+                regex=None,
+            ),
+            dateSource=self.source,
+        )
 
 
-SCRAPERS = tuple(
-    scraper.search
-    for scraper in (
-        Carib,
-        Heyzo,
-        Heydouga,
-        H4610,
-        X1X,
-        SM_Miracle,
-        FC2,
-        Mesubuta,
-        UncensoredMatcher,
-        NumberMatcher,
-        PrefixMatcher,
-        DateMatcher,
-    )
+def _re_combine(reg, begin=r"(?:^|[^a-z0-9])", end=r"(?:[^a-z0-9]|$)") -> re.Pattern:
+    if isinstance(reg, str):
+        return re_compile(f"{begin}{reg}{end}")
+    return re_compile(f'{begin}(?:{"|".join(reg)}){end}')
+
+
+_re_map = {
+    "studio": StudioMatcher,
+    "heyzo": Heyzo,
+    "heydouga": Heydouga,
+    "honnamatv": Heydouga,
+    "fc2": FC2,
+    "x1x": X1X,
+    "sm": SM_Miracle,
+    "h4610": H4610,
+    None: UncensoredMatcher,
+}
+_search_re = (
+    r"(?P<studio>(?P<s1>{m}{d}{y}|{y}{m}{d}){tail})".format_map(
+        {
+            "y": r"[0-2][0-9]",
+            "m": r"(?:1[0-2]|0[1-9])",
+            "d": r"(?:3[01]|[12][0-9]|0[1-9])",
+            "tail": r"[_-](?P<s2>[0-9]{2,5})(?:[_-](?P<s3>[0-9]{1,3}))?",
+        }
+    ),
+    r"heyzo[^0-9]*(?P<heyzo>[0-9]{4})",
+    r"(?P<heydouga>hey(?:douga)?[^a-z0-9]*(?P<h1>[0-9]{4})[^a-z0-9]*(?P<h2>[0-9]{3,}))",
+    r"honnamatv[^0-9]*(?P<honnamatv>[0-9]{3,})",
+    r"fc2[\s_-]*(?:ppv)?[\s_-]*(?P<fc2>[0-9]{2,10})",
+    r"x1x[\s_-]+(?P<x1x>[0-9]{6})",
+    r"sm[\s_-]*miracle[\s_-]*(?:no)?[\s_.-]+e?(?P<sm>[0-9]{4})",
+    r"(?P<h4610>(?P<h41>h4610|[ch]0930)[^a-z0-9]+(?P<h42>[a-z]+[0-9]+))",
+    r"((?:n|k|kb|jpgc|shiroutozanmai|hamesamurai)[0-2][0-9]{3}|(?:bouga|ka|sr|tr|sky)[0-9]{3,4})",
+    r"(mkbd|bd)[\s_-]?([sm]?[0-9]+)",
+    r"(kin8tengoku|xxx[\s_-]?av|[a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s_-]*([0-9]{2,6})",
+    r"(th101)[\s_-]([0-9]{3})[\s_-]([0-9]{6})",
+    r"([12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))[\s_-]?([a-z]{3,8}(?:_[a-z]{3,6})?)",
 )
+
+_search_re = _re_combine(_search_re).search
+_iter_re = (
+    (_re_combine(PrefixSearcher.regex).finditer, PrefixSearcher),
+    (_re_combine(DateSearcher.get_regex()).finditer, DateSearcher),
+)
+
+_str_cleaner = re_compile(
+    r"""\b(?:
+    \[(?:[a-z0-9.-]+\.[a-z]{2,5}|f?hd)\]|
+    [a-z0-9-]+\.[a-z]{2,5}@|
+    168x|44x|3xplanet|
+    sis001|sexinsex|thz|
+    uncensored|nodrm|fhd|
+    tokyo[\s_-]?hot|1000[\s_-]?girl
+    \b)""",
+    flags=re.VERBOSE,
+).sub
+
+
+def from_string(string: str):
+
+    string = _str_cleaner("", string.lower())
+
+    match = _search_re(string)
+    if match:
+        result: ScrapeResult = _re_map[match.lastgroup](string, match).search()
+        if result:
+            return result
+
+    for matcher, scraper in _iter_re:
+        for match in matcher(string):
+            result = scraper(string, match).search()
+            if result:
+                return result

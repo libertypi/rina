@@ -4,19 +4,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from avinfo import common
-from avinfo.common import color_printer, epoch_to_str, re_compile, re_search, re_sub
-from avinfo.scraper import SCRAPERS
-
-_RE_CLEAN1 = re_compile(r"^(?:\[f?hd\]|[a-z0-9-]+\.[a-z]{2,}@)").sub
-_RE_CLEAN2 = re_compile(
-    r"""
-    \[[a-z0-9.-]+\.[a-z]{2,}\]|
-    (?:^|[^a-z0-9])
-    (?:168x|44x|3xplanet|sis001|sexinsex|thz|uncensored|nodrm|fhd|tokyo[\s_-]?hot|1000[\s_-]?girl)
-    (?:[^a-z0-9]|$)
-    """,
-    flags=re.VERBOSE,
-).sub
+from avinfo.common import color_printer, epoch_to_str, re_search, re_sub
+from avinfo.scraper import from_string
 
 
 class AVString:
@@ -39,23 +28,24 @@ class AVString:
             "Source": None,
         }
 
-        string = _RE_CLEAN2(" ", _RE_CLEAN1("", string.lower()))
         try:
-            result = next(filter(None, (s(string) for s in SCRAPERS)))
-        except StopIteration:
-            report["Error"] = "Information not found."
+            result = from_string(string)
         except Exception as e:
             report["Error"] = str(e)
-        else:
-            self._status |= 0b001
+            return
 
-            self.productId = report["ProductId"] = result.productId
-            self.title = report["Title"] = result.title
-            self.publishDate = result.publishDate
-            self.titleSource = result.titleSource
-            self.dateSource = result.dateSource
-            report["PubDate"] = epoch_to_str(self.publishDate)
-            report["Source"] = f'{self.titleSource or "---"} / {self.dateSource or "---"}'
+        if not result:
+            report["Error"] = "Information not found."
+            return
+
+        self._status |= 0b001
+        self.productId = report["ProductId"] = result.productId
+        self.title = report["Title"] = result.title
+        self.publishDate = result.publishDate
+        self.titleSource = result.titleSource
+        self.dateSource = result.dateSource
+        report["PubDate"] = epoch_to_str(self.publishDate)
+        report["Source"] = f'{self.titleSource or "---"} / {self.dateSource or "---"}'
 
     @property
     def success(self):
