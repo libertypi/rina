@@ -71,10 +71,11 @@ def parse_args():
     else:
         target_type = "file"
 
-    if args.mode == "dir" and target_type != "dir":
-        parser.error(f"When mode is '{args.mode}', the target must be a directory.")
-    elif args.mode == "actress" and target_type == "file":
+    if args.mode == "actress" and target_type == "file":
         parser.error(f"When mode is '{args.mode}', the target must be a directory or a keyword.")
+
+    elif args.mode == "dir" and target_type != "dir":
+        parser.error(f"When mode is '{args.mode}', the target must be a directory.")
 
     return args, target_type
 

@@ -8,11 +8,19 @@ from urllib.parse import quote as urlquote
 from urllib.parse import urljoin
 
 from avinfo import common
-from avinfo.common import color_printer, get_response_tree, re_compile, re_search, re_split, re_sub, xp_compile
-
-_RE_BIRTH = re_compile(
-    r"(?P<y>(19|20)[0-9]{2})\s*年\s*(?P<m>1[0-2]|0?[1-9])\s*月\s*(?P<d>3[01]|[12][0-9]|0?[1-9])\s*日",
-).search
+from avinfo.common import (
+    color_printer,
+    date_searcher,
+    get_response_tree,
+    re_compile,
+    re_search,
+    re_split,
+    re_sub,
+    sepChanged,
+    sepFailed,
+    sepSuccess,
+    xp_compile,
+)
 
 
 @dataclass
@@ -74,7 +82,7 @@ class Wikipedia(Wiki):
         for tr in box.iterfind("tbody/tr[th][td]"):
             k = tr.find("th").text_content()
             if not birth and "生年月日" in k:
-                birth = _RE_BIRTH("".join(xpath(tr)))
+                birth = date_searcher("".join(xpath(tr)))
             elif "別名" in k:
                 alias.extend(j for i in xpath(tr) for j in _split_name(i))
 
@@ -114,7 +122,7 @@ class MinnanoAV(Wiki):
             if "別名" in title:
                 alias.append(td.findtext("p"))
             elif not birth and "生年月日" in title:
-                birth = _RE_BIRTH(td.findtext("p"))
+                birth = date_searcher(td.findtext("p"))
 
         return SearchResult(name=name, birth=birth, alias=alias)
 
@@ -223,7 +231,7 @@ class Seesaawiki(Wiki):
         alias = []
         for k, v in box:
             if not birth and "生年月日" in k:
-                birth = _RE_BIRTH(v)
+                birth = date_searcher(v)
             elif re_search(r"旧名義|別名|名前|女優名", k):
                 alias.extend(_split_name(v))
 
@@ -255,10 +263,7 @@ class Msin(Wiki):
         nameMask = _get_re_nameMask(keyword).fullmatch
         if nameMask(name) or any(nameMask(_clean_name(i)) for i in alias):
             try:
-                birth = re_search(
-                    r"(?P<y>(19|20)[0-9]{2})\s*-\s*(?P<m>1[0-2]|0?[1-9])\s*-\s*(?P<d>3[01]|[12][0-9]|0?[1-9])",
-                    xpath(tree, title="生年月日")[0].text_content(),
-                )
+                birth = date_searcher(xpath(tree, title="生年月日")[0].text_content())
             except IndexError:
                 birth = None
             return SearchResult(name=name, birth=birth, alias=alias)
@@ -297,7 +302,7 @@ class Manko(Wiki):
                     return
                 birth = xpath_2(tbody, title="生年月日")
                 if birth:
-                    birth = _RE_BIRTH(birth[0].text_content())
+                    birth = date_searcher(birth[0].text_content())
                 result = SearchResult(name=name, birth=birth, alias=alias)
 
         return result
@@ -458,11 +463,11 @@ class Actress:
 
     def print(self):
         if self._status == 0b011:
-            print(common.sepSuccess, self.report, sep="", end="")
+            print(sepSuccess, self.report, sep="", end="")
         elif self._status == 0b111:
-            color_printer(common.sepChanged, self.report, color="yellow", sep="", end="")
+            color_printer(sepChanged, self.report, color="yellow", sep="", end="")
         else:
-            color_printer(common.sepFailed, self.report, color="red", sep="", end="")
+            color_printer(sepFailed, self.report, color="red", sep="", end="")
 
 
 class ActressFolder(Actress):

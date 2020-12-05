@@ -1,10 +1,9 @@
 import os
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from avinfo import common
-from avinfo.common import color_printer, epoch_to_str, re_search, re_sub
+from avinfo.common import color_printer, epoch_to_str, re_search, re_sub, sepChanged, sepFailed, sepSuccess
 from avinfo.scraper import from_string
 
 
@@ -60,11 +59,11 @@ class AVString:
 
     def print(self):
         if self._status == 0b001:
-            print(common.sepSuccess, self.report, sep="", end="")
+            print(sepSuccess, self.report, sep="", end="")
         elif self._status & 0b110:
-            color_printer(common.sepChanged, self.report, color="yellow", sep="", end="")
+            color_printer(sepChanged, self.report, color="yellow", sep="", end="")
         else:
-            color_printer(common.sepFailed, self.report, color="red", sep="", end="")
+            color_printer(sepFailed, self.report, color="red", sep="", end="")
 
 
 class AVFile(AVString):

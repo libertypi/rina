@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from os import scandir
 from pathlib import Path
+import re
 from re import compile as re_compile
 from re import search as re_search
 from re import split as re_split
@@ -23,6 +24,16 @@ sepChanged = "CHANGED".center(sepWidth, "-") + "\n"
 session = Session()
 session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"})
 _colors = {"red": "\033[31m", "yellow": "\033[33m"}
+
+date_searcher = re_compile(
+    r"""(?P<y>(?:19|20)[0-9]{2})\s*
+    (?:(?P<han>年)|(?P<pun>[/.-]))\s*
+    (?P<m>1[0-2]|0?[1-9])\s*
+    (?(han)月|(?P=pun))\s*
+    (?P<d>3[01]|[12][0-9]|0?[1-9])
+    (?(han)\s*日)""",
+    flags=re.VERBOSE,
+).search
 
 
 def color_printer(*args, color: str, **kwargs):
@@ -102,6 +113,13 @@ def get_response_tree(url, *, decoder: str = None, **kwargs):
     else:
         tree = None
     return response, tree
+
+
+def text_to_epoch(string: str):
+    try:
+        return str_to_epoch(date_searcher(string).expand(r"\g<y> \g<m> \g<d>"), regex=None)
+    except (TypeError, AttributeError):
+        pass
 
 
 def str_to_epoch(string: str, fmt: str = "%Y %m %d", regex=re_compile(r"[^0-9]+")) -> float:
