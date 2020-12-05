@@ -4,7 +4,7 @@ from random import choice as random_choice
 from urllib.parse import urljoin
 
 from avinfo import common
-from avinfo.common import get_response_tree, re_compile, re_search, re_sub, str_to_epoch, xp_compile, text_to_epoch
+from avinfo.common import get_response_tree, re_compile, re_search, re_sub, str_to_epoch, text_to_epoch, xp_compile
 
 __all__ = "from_string"
 
