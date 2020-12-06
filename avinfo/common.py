@@ -21,9 +21,10 @@ sepSlim = "-" * sepWidth
 sepSuccess = "SUCCESS".center(sepWidth, "-") + "\n"
 sepFailed = "FAILED".center(sepWidth, "-") + "\n"
 sepChanged = "CHANGED".center(sepWidth, "-") + "\n"
+_colors = {"red": "\033[31m", "yellow": "\033[33m"}
+
 session = Session()
 session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"})
-_colors = {"red": "\033[31m", "yellow": "\033[33m"}
 
 date_searcher = re_compile(
     r"""(?P<y>(?:19|20)[0-9]{2})\s*

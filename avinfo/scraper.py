@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from random import choice as random_choice
 from urllib.parse import urljoin
 
+from requests.cookies import create_cookie
+
 from avinfo import common
 from avinfo.common import (
     get_response_tree,
@@ -17,6 +19,7 @@ from avinfo.common import (
 
 __all__ = "from_string"
 
+session.cookies.set_cookie(create_cookie(domain="www.javbus.com", name="existmag", value="all"))
 _subspace = re_compile(r"\s+").sub
 
 
@@ -83,9 +86,6 @@ class Scraper:
 
                 if productId and mask(productId):
                     title = span.text
-                    if not title:
-                        continue
-
                     self.source = "javbus.com"
                     return ScrapeResult(
                         productId=productId,
@@ -119,9 +119,6 @@ class Scraper:
             productId = a.findtext('div[@class="uid"]')
             if productId and mask(productId):
                 title = a.findtext('div[@class="video-title"]')
-                if not title:
-                    continue
-
                 self.source = "javdb.com"
                 return ScrapeResult(
                     productId=productId,

@@ -33,7 +33,7 @@ class Scraper(unittest.TestCase):
                     "javbus.com",
                 ),
             ),
-            ("abs-047 [cd2]", ("ABS-047-2", "一泊二日、美少女完全予約制。 上原瑞穂", 1319241600.0, "javbus.com", "javbus.com")),
+            ("bouga012 [cd2]", ("ABS-047-2", "一泊二日、美少女完全予約制。 上原瑞穂", 1319241600.0, "javbus.com", "javbus.com")),
             ("120618_394", ("120618_394", "尾上若葉の全て", 1544054400.0, "javbus.com", "product id")),
             ("120313_001 人 3", ("120313-001", "麻倉憂未公開映像 尻コキ編", 1386028800.0, "javbus.com", "product id")),
         )

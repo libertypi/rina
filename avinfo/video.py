@@ -132,11 +132,10 @@ def _strip_title(s: str):
     return re_sub(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$", "", s)
 
 
-def _trim_title(s: str):
+def _trim_title(string: str):
     return (
-        re_search(r"^.*?\w.*(?:(?=[【「『｛（《\[(])|[】」』｝）》\])](?=.))", s)
-        or re_search(r"^.*?\w.*[？！!…。.\s](?=.)", s)
-        or re_search(r"^.*?\w.*[〜～●・,、_](?=.)", s)
+        re_search(r"^.*?\w.*(?:(?=[【「『｛（《\[(])|[】」』｝）》\])？！!…。.](?=.))", string)
+        or re_search(r"^.*?\w.*[\s〜～●・,、_](?=.)", string)
     )[0]
 
 
