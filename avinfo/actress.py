@@ -171,6 +171,7 @@ class AVRevolution(Wiki):
 
         title_seen = result = None
         namemask = _get_namemask(keyword)
+        xpath = xp_compile('div[3]/div[not(contains(text(), "別名無"))]/text()')
 
         for row in tree.iterfind('.//div[@class="container"]/div[@style]'):
             try:
@@ -185,7 +186,7 @@ class AVRevolution(Wiki):
                     return
                 continue
 
-            alias = xp_compile('div[3]/div[not(contains(text(), "別名無"))]/text()')(row)
+            alias = xpath(row)
             alias.append(title)
             if any(namemask(_clean_name(i)) for i in alias):
                 title_seen = title
