@@ -47,7 +47,6 @@ def parse_args():
         const="dir",
         help="modify directories' mtime to the newest file inside",
     )
-    group.set_defaults(mode="video")
 
     parser.add_argument(
         "-q",
@@ -71,7 +70,15 @@ def parse_args():
     else:
         target_type = "file"
 
-    if args.mode == "actress" and target_type == "file":
+    if not args.mode:
+        if target_type == "str":
+            from avinfo.actress import all_cjk
+
+            args.mode = "actress" if all_cjk(args.target) else "video"
+        else:
+            args.mode = "video"
+
+    elif args.mode == "actress" and target_type == "file":
         parser.error(f"When mode is '{args.mode}', the target must be a directory or a keyword.")
 
     elif args.mode == "dir" and target_type != "dir":

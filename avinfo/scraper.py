@@ -141,8 +141,10 @@ class Scraper:
 
     def _process_product_id(self, productId: str):
 
-        string = re_sub(r"[\s()\[\].-]+", " ", self.string[self.match.end() :])
-        m = re_search(r"^\s?((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<sfx>[0-9]{1,2}|[a-d])\b", string)
+        m = re_search(
+            r"^\s?((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<sfx>[0-9]{1,2}|[a-d])\b",
+            re_sub(r"[\s()\[\].-]+", " ", self.string[self.match.end() :]),
+        )
         if m:
             suffix = m["sfx"]
             if suffix in "abcd":
@@ -164,17 +166,17 @@ class StudioMatcher(Scraper):
     )
     studio_list = re_compile(
         r"""\b(?:
-        (carib(?:bean|com)*)|   # 112220-001-carib
-        (carib(?:bean|com)*pr)| # 101515_391-caribpr
-        (1pon(?:do)?)|          # 110411_209-1pon
-        (paco(?:pacomama)?)|    # 120618_394-paco
-        (10mu(?:sume)?)|        # 122812_01-10mu
-        (mura(?:mura)?)|        # 010216_333-mura
+        (carib)(?:bean|com)*    # 112220-001-carib
+        (pr)?|                  # 101515_391-caribpr
+        (1pon)(?:do)?|          # 110411_209-1pon
+        (10mu)(?:sume)?|        # 122812_01-10mu
+        (paco)(?:pacomama)?|    # 120618_394-paco
+        (mura)(?:mura)?|        # 010216_333-mura
         (mesubuta)              # 160122_1020_01-mesubuta
         )\b""",
         flags=re.VERBOSE,
     ).search
-    studio_list = (studio_list, "carib", "caribpr", "1pon", "paco", "10mu", "mura", "mesubuta")
+    studio_list = (studio_list, "carib", "caribpr", "1pon", "10mu", "paco", "mura", "mesubuta")
     datefmt = "%m%d%y"
 
     def __init__(self, string: str, match: re.Match) -> None:
@@ -196,6 +198,14 @@ class StudioMatcher(Scraper):
                 self._query = self._carib
                 self.source = "caribbeancompr.com"
                 self.url = "https://www.caribbeancompr.com"
+            elif s == "1pon":
+                self._query = self._1pon_10mu
+                self.source = "1pondo.tv"
+                self.url = "https://www.1pondo.tv"
+            elif s == "10mu":
+                self._query = self._1pon_10mu
+                self.source = "10musume.com"
+                self.url = "https://www.10musume.com"
             elif s == "paco":
                 self._query = self._paco
                 self.source = "pacopacomama.com"
@@ -252,6 +262,19 @@ class StudioMatcher(Scraper):
                 publishDate=text_to_epoch(date[0]) if date else None,
             )
 
+    def _1pon_10mu(self):
+        try:
+            json = session.get(f"{self.url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
+            if json.ok:
+                json = json.json()
+                return ScrapeResult(
+                    productId=json["MovieID"],
+                    title=json["Title"],
+                    publishDate=text_to_epoch(json["Release"]),
+                )
+        except (common.RequestException, ValueError, KeyError):
+            pass
+
     def _paco(self):
 
         tree = get_response_tree(f"https://www.pacopacomama.com/moviepages/{self.keyword}/")[1]
@@ -277,8 +300,10 @@ class StudioMatcher(Scraper):
         result = f"{self.keyword}-{self.studio}"
 
         i = max(self.match.end(), self.studio_match.end())
-        string = re_sub(r"[\s()\[\].-]+", " ", self.string[i:])
-        other = re_search(r"^\s?(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+", string)
+        other = re_search(
+            r"^\s?(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+",
+            re_sub(r"[\s()\[\].-]+", " ", self.string[i:]),
+        )
         if other:
             other = other[0].split()
             other.insert(0, result)
@@ -592,8 +617,7 @@ _search_map = {
 _search_re = _combine_scraper_regex(*_search_map.values()).search
 _iter_re = _combine_scraper_regex(PatternSearcher).finditer
 _date_re = _combine_scraper_regex(DateSearcher).search
-
-_clean_str = re_compile(
+_clean_re = re_compile(
     r"""
     \s*\[(?:[a-z0-9.-]+\.[a-z]{2,4}|f?hd)\]\s*|
     (?:[\s\[_-]+|\b)(?:    
@@ -611,7 +635,7 @@ _clean_str = re_compile(
 
 def from_string(string: str):
 
-    string = _clean_str(" ", string.lower()).replace("_", "-")
+    string = _clean_re(" ", string.lower()).replace("_", "-")
 
     match = _search_re(string)
     if match:

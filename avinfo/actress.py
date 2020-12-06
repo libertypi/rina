@@ -1,7 +1,7 @@
 import os
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import astuple, dataclass
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import quote as urlquote
@@ -29,41 +29,48 @@ class SearchResult:
     birth: str = None
     alias: set = None
 
-    def __post_init__(self):
-        if self.alias:
-            self.alias = set(_clean_name_list(self.alias))
-        else:
-            self.alias = set()
 
-        name = self.name
+class Wiki:
+    @classmethod
+    def search(cls, keyword: str):
+
+        result = cls._query(keyword)
+        if not result:
+            return
+
+        alias = result.alias
+        if alias:
+            result.alias = set(filter(None, map(_clean_name, alias)))
+        else:
+            result.alias = set()
+
+        name = result.name
         if name:
             name = _clean_name(name)
             if name:
-                self.alias.add(name)
-            self.name = name
+                result.alias.add(name)
+            result.name = name
 
-        birth = self.birth
+        birth = result.birth
         if birth:
-            self.birth = f'{birth["y"]}-{birth["m"].zfill(2)}-{birth["d"].zfill(2)}'
+            result.birth = f'{birth["y"]}-{birth["m"].zfill(2)}-{birth["d"].zfill(2)}'
 
-
-class Wiki:
-
-    __slots__ = "baseurl"
+        if name or birth or result.alias:
+            return result
 
     @classmethod
-    def search(cls, keyword: str):
-        raise NotImplemented
+    def _query(cls, keyword: str) -> SearchResult:
+        pass
 
 
 class Wikipedia(Wiki):
 
-    baseurl = "https://ja.wikipedia.org/wiki"
+    baseurl = "https://ja.wikipedia.org/wiki/"
 
     @classmethod
-    def search(cls, keyword: str):
+    def _query(cls, keyword: str):
 
-        tree = get_response_tree(f"{cls.baseurl}/{keyword}", decoder="lxml")[1]
+        tree = get_response_tree(cls.baseurl + keyword, decoder="lxml")[1]
         try:
             if not xp_compile('//a[@title="AV女優" and contains(text(),"AV女優")]')(tree):
                 return
@@ -94,17 +101,17 @@ class MinnanoAV(Wiki):
     baseurl = "http://www.minnano-av.com"
 
     @classmethod
-    def search(cls, keyword: str):
+    def _query(cls, keyword: str):
 
         response, tree = get_response_tree(
-            f"{cls.baseurl}/search_result.php",
+            cls.baseurl + "/search_result.php",
             params={"search_scope": "actress", "search_word": keyword},
             decoder="lxml",
         )
         if tree is None:
             return
 
-        if "/search_result.php?" in response.url or response.url == cls.baseurl:
+        if "/search_result.php" in response.url:
             tree = cls._scan_search_page(keyword, tree)
 
         try:
@@ -133,7 +140,7 @@ class MinnanoAV(Wiki):
         tree = xp_compile('//section[@id="main-area"]//table[contains(@class,"actress")]/tr/td[h2/a[@href]]')(tree)
         if not tree:
             return
-        nameMask = _get_re_nameMask(keyword).fullmatch
+        nameMask = _get_namemask(keyword)
 
         result = None
         for td in tree:
@@ -151,56 +158,55 @@ class MinnanoAV(Wiki):
             return get_response_tree(urljoin(cls.baseurl, result))[1]
 
 
-# class AVRevolution(Wiki):
+class AVRevolution(Wiki):
 
-#     baseurl = "http://adultmovie-revolution.com/movies/jyoyuu_kensaku.php"
+    baseurl = "http://neo-adultmovie-revolution.com/db/jyoyuu_betumei_db/"
 
-#     @classmethod
-#     def search(cls, keyword: str):
-#         tree = get_response_tree(cls.baseurl, params={"mode": 1, "search": keyword}, decoder="lxml")[1]
-#         if tree is None:
-#             return
+    @classmethod
+    def _query(cls, keyword: str):
 
-#         nameMask = _get_re_nameMask(keyword).fullmatch
-#         tree = xp_compile('//*[@id="entry-01"]//center/table[@summary="AV女優検索結果"]/tbody//td/a[text() and @href]')(tree)
-#         url = None
-#         for a in tree:
-#             if nameMask(_clean_name(a.text)):
-#                 href = a.get("href")
-#                 if not url:
-#                     url = href
-#                 elif url != href:
-#                     return
-#         if not url:
-#             return
+        tree = get_response_tree(cls.baseurl, params={"q": keyword}, decoder="lxml")[1]
+        if tree is None:
+            return
 
-#         tree = get_response_tree(url)[1]
-#         try:
-#             tree = tree.find('.//*[@id="entry-47"][@class="entry-asset"]')
-#             name = xp_compile('h2[contains(text(),"「")]/text()')(tree)
-#             name = re_search(r"「(.+?)」", name[0]).group(1)
-#             if not name:
-#                 return
-#             alias = xp_compile('div/center/table[contains(@summary,"別名")]/tbody//td/text()')(tree)
-#         except (AttributeError, TypeError, IndexError):
-#             pass
-#         else:
-#             return SearchResult(name=name, alias=alias)
+        seen = result = None
+        namemask = _get_namemask(keyword)
+
+        for row in tree.iterfind('.//div[@class="container"]/div[@style]'):
+            try:
+                span = row.find("div[1]/a[@href]/span")
+                title = _clean_name(span.text_content())
+            except AttributeError:
+                continue
+
+            if result:
+                if title == seen:
+                    return
+                continue
+
+            alias = xp_compile('div[3]/div[not(contains(text(), "別名無"))]/text()')(row)
+            alias.append(title)
+            if any(namemask(_clean_name(i)) for i in alias):
+                name = re_search(r"/([^/]+)/?$", span.getparent().get("href"))
+                if name:
+                    seen = title
+                    result = SearchResult(name=name[1], alias=alias)
+
+        return result
 
 
 class Seesaawiki(Wiki):
 
-    baseurl = "https://seesaawiki.jp/av_neme/d"
+    baseurl = "https://seesaawiki.jp/av_neme/d/"
 
     @classmethod
-    def search(cls, keyword: str, url: str = None):
+    def _query(cls, keyword: str, url: str = None):
 
         if not url:
             try:
-                encodeName = urlquote(keyword, encoding="euc-jp")
+                url = cls.baseurl + urlquote(keyword, encoding="euc-jp")
             except UnicodeEncodeError:
                 return
-            url = f"{cls.baseurl}/{encodeName}"
 
         tree = get_response_tree(url, decoder="euc-jp")[1]
         if tree is None:
@@ -210,7 +216,7 @@ class Seesaawiki(Wiki):
             if re_search(r"(\W*(女優名|名前)\W*)+変更", tree.findtext('.//*[@id="content_1"]')):
                 a = tree.find('.//*[@id="content_block_1-body"]/span/a[@href]')
                 if a is not None and "移動" in a.getparent().text_content():
-                    return cls.search(a.text, urljoin(cls.baseurl, a.get("href")))
+                    return cls._query(a.text, urljoin(cls.baseurl, a.get("href")))
                 return
         except TypeError:
             pass
@@ -243,7 +249,7 @@ class Msin(Wiki):
     baseurl = "https://db.msin.jp/search/actress"
 
     @classmethod
-    def search(cls, keyword: str):
+    def _query(cls, keyword: str):
 
         tree = get_response_tree(cls.baseurl, params={"str": keyword})[1]
         try:
@@ -260,8 +266,8 @@ class Msin(Wiki):
         except IndexError:
             alias = ()
 
-        nameMask = _get_re_nameMask(keyword).fullmatch
-        if nameMask(name) or any(nameMask(_clean_name(i)) for i in alias):
+        namemask = _get_namemask(keyword)
+        if namemask(name) or any(namemask(_clean_name(i)) for i in alias):
             try:
                 birth = date_searcher(xpath(tree, title="生年月日")[0].text_content())
             except IndexError:
@@ -274,14 +280,14 @@ class Manko(Wiki):
     baseurl = "http://mankowomiseruavzyoyu.blog.fc2.com"
 
     @classmethod
-    def search(cls, keyword: str):
+    def _query(cls, keyword: str):
 
         tree = get_response_tree(cls.baseurl, params={"q": keyword}, decoder="lxml")[1]
         if tree is None:
             return
 
         result = None
-        nameMask = _get_re_nameMask(keyword).fullmatch
+        nameMask = _get_namemask(keyword)
         xpath_1 = xp_compile('(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())[1]')
         xpath_2 = xp_compile("tr[td[1][contains(text(), $title)]]/td[2]")
 
@@ -313,12 +319,12 @@ class Etigoya(Wiki):
     baseurl = "http://etigoya955.blog49.fc2.com"
 
     @classmethod
-    def search(cls, keyword: str):
+    def _query(cls, keyword: str):
 
         tree = get_response_tree(cls.baseurl, params={"q": keyword})[1]
         if tree is None:
             return
-        nameMask = _get_re_nameMask(keyword).fullmatch
+        nameMask = _get_namemask(keyword)
 
         result = None
         for a in xp_compile('.//div[@id="main"]/div[@class="content"]/ul/li/a[contains(text(), "＝")]')(tree):
@@ -330,7 +336,7 @@ class Etigoya(Wiki):
         return result
 
 
-_WIKI_LIST = (Wikipedia, MinnanoAV, Seesaawiki, Msin, Manko, Etigoya)
+_WIKI_LIST = (Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Msin, Manko, Etigoya)
 
 
 class Actress:
@@ -352,7 +358,7 @@ class Actress:
         }
 
         keyword = re_sub(r"\([0-9\s._-]+\)|\s+", "", keyword)
-        if not (re_search(r"^\w+$", keyword) and contains_cjk(keyword)):
+        if not is_cjk_name(keyword):
             self._report["Error"] = "Not valid actress name."
             return
 
@@ -386,7 +392,7 @@ class Actress:
             for ft in as_completed(ft_to_weight):
 
                 result = ft.result()
-                if not (result and any(astuple(result))):
+                if not result:
                     continue
                 weight = ft_to_weight[ft]
 
@@ -490,32 +496,27 @@ class ActressFolder(Actress):
         return self._status == 0b111
 
 
-def _split_name(string: str):
-    return re_split(r"\s*[\n、/／・,＝]+\s*", string)
-
-
 @lru_cache(128)
-def _get_re_nameMask(keyword: str):
-    return re_compile(r"\b\s*{}\s*\b".format(r"\s*".join(keyword)))
+def _get_namemask(keyword: str):
+    return re_compile(r"\b\s*{}\s*\b".format(r"\s*".join(keyword))).fullmatch
+
+
+def _split_name(string: str):
+    return re_split(r"\s*[\n、/／●・,＝=]\s*", string)
 
 
 @lru_cache(512)
 def _clean_name(string: str) -> str:
-    for string in re_split(r"[【「『｛（《\[(].*?[】」』｝）》\])]", re_sub(r"[\s 　]+", "", string)):
+    for string in re_split(r"[【「『｛（《\[(].*?[】」』｝）》\])]", re_sub(r"\d+歳|[\s 　]+", "", string)):
         string = re_sub(r"[【「『｛（《\[(].*|.*?[】」』｝）》\])]", "", string)
-        if string:
+        if is_cjk_name(string):
             return string
     return ""
 
 
-def _clean_name_list(nameList):
-    for i in nameList:
-        name = _clean_name(i)
-        if len(name) > 1 and contains_cjk(name):
-            yield name
+def is_cjk_name():
 
-
-def contains_cjk():
+    is_word = re_compile(r"\w{2,20}").fullmatch
     mask = 0
     for i, j in (
         (4352, 4607),
@@ -529,13 +530,16 @@ def contains_cjk():
     ):
         mask |= (1 << j + 1) - (1 << i)
 
-    def _contains_cjk(string: str) -> bool:
-        return any(1 << ord(c) & mask for c in string)
+    def _is_cjk_name(string: str) -> bool:
+        return is_word(string) and any(1 << ord(c) & mask for c in string)
 
-    return _contains_cjk
+    def _all_cjk(string: str):
+        return all(1 << ord(c) & mask for c in string)
+
+    return _is_cjk_name, _all_cjk
 
 
-contains_cjk = contains_cjk()
+is_cjk_name, all_cjk = is_cjk_name()
 
 
 def scan_path(target: Path):
