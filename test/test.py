@@ -20,31 +20,22 @@ class Scraper(unittest.TestCase):
                 result = astuple(result)
             self.assertEqual(result, answer, msg=result)
 
-    def test_product_id(self):
-        values = (
-            ("[carib]022716_253 (high) 3 haha 5 放課後のリフレクソロジー 5", "022716-253-carib-high-3"),
-            ("[HD](carib)022716-253 1080p haha 5 ", "022716-253-carib-1080p"),
-            ("sdmt-775 2 まさかのav出演", "SDMT-775-2"),
-            ("heydouga 4017-261-3", "heydouga-4017-261-3"),
-            ("SMbd-110 s 2 model 3", "SMBD-110"),
-            ("Fc2-ppv-1395289_3", "FC2-1395289-3"),
-            ("LAFBD_23[cd2]", "LAFBD-23-2"),
-            ("kbi-042 (5)", "KBI-042-5"),
-            ("tki-069 人 3", "TKI-069"),
-            ("heyzo-1888-c 青山はな", "HEYZO-1888-C"),
-            ("151127 kurumi vol.3", "151127-KURUMI-3"),
-        )
-        for string, answer in values:
-            result = scraper.from_string(string)
-            result = result.productId if result else None
-            self.assertEqual(result, answer, msg=result)
-
     def test_javbus(self):
         values = (
-            ("CZ016", ("CZ016", "出合い頭4秒ファック！ : Part-2", 1504569600.0, "javbus.com", "javbus.com")),
-            ("abs-047", ("ABS-047", "一泊二日、美少女完全予約制。 上原瑞穂", 1319241600.0, "javbus.com", "javbus.com")),
+            ("CZ016 vol.3", ("CZ016-3", "出合い頭4秒ファック！ : Part-2", 1504569600.0, "javbus.com", "javbus.com")),
+            (
+                "SMbd-110 s 2 model 3",
+                (
+                    "SMBD-110",
+                    "S Model 110 オーバーサイズBlack Fuck 激カワアナルメイド : 小西まりえ (ブルーレイディスク版)",
+                    1412985600.0,
+                    "javbus.com",
+                    "javbus.com",
+                ),
+            ),
+            ("abs-047 [cd2]", ("ABS-047-2", "一泊二日、美少女完全予約制。 上原瑞穂", 1319241600.0, "javbus.com", "javbus.com")),
             ("120618_394", ("120618_394", "尾上若葉の全て", 1544054400.0, "javbus.com", "product id")),
-            ("081020_001", ("081020_001", "朝ゴミ出しする近所の遊び好きノーブラ奥さん 青山未来", 1597017600.0, "javbus.com", "product id")),
+            ("120313_001 人 3", ("120313-001", "麻倉憂未公開映像 尻コキ編", 1386028800.0, "javbus.com", "product id")),
         )
         self._run_test(values)
 
@@ -64,9 +55,9 @@ class Scraper(unittest.TestCase):
     def test_carib(self):
         values = (
             (
-                "082920_001-carib-1080p",
+                "[CARIB] 082920_001   (high) 3 haha 5",
                 (
-                    "082920-001-carib-1080p",
+                    "082920-001-carib-high-3",
                     "未来のきもち 〜衰えた性欲が一気に取り戻せる乳首ンビンセラピー〜",
                     1598659200.0,
                     "caribbeancom.com",
@@ -74,17 +65,7 @@ class Scraper(unittest.TestCase):
                 ),
             ),
             (
-                "062317_001-caribpr",
-                (
-                    "062317_001-caribpr",
-                    "S Model 172 オフィスレディーの社内交尾",
-                    1498176000.0,
-                    "caribbeancompr.com",
-                    "caribbeancompr.com",
-                ),
-            ),
-            (
-                "022114_777-caribpr-mid",
+                "[HD]022114_777-caribpr-mid haha 5",
                 (
                     "022114_777-caribpr-mid",
                     "レッドホットフェティッシュコレクション 108",
@@ -93,57 +74,62 @@ class Scraper(unittest.TestCase):
                     "caribbeancompr.com",
                 ),
             ),
+        )
+        self._run_test(values)
+
+    def test_1pon(self):
+        values = (
             (
-                "072816_001-caribpr-high",
-                (
-                    "072816_001-caribpr-high",
-                    "続々生中〜ロリ美少女をハメまくる〜",
-                    1469664000,
-                    "caribbeancompr.com",
-                    "caribbeancompr.com",
-                ),
+                "010617-460 1pon [1080p]",
+                ("010617_460-1pon-1080p", "鈴木さとみ 〜ファン感謝祭素人宅訪問〜", 1483660800.0, "1pondo.tv", "1pondo.tv"),
+            ),
+        )
+        self._run_test(values)
+
+    def test_10mu(self):
+        values = (
+            (
+                "083014_01-10mu-whole1-psp",
+                ("083014_01-10mu-whole1-psp", "気持ちイイですかご主人様♪", 1409356800.0, "10musume.com", "10musume.com"),
+            ),
+        )
+        self._run_test(values)
+
+    def test_paco(self):
+        values = (
+            (
+                "(pacopacomama) 071219-130",
+                ("071219_130-paco", "鈴木さとみの全て", 1562889600.0, "pacopacomama.com", "pacopacomama.com"),
             ),
         )
         self._run_test(values)
 
     def test_heyzo(self):
         values = (
-            ("heyzo-1888", ("HEYZO-1888", "Z～元芸能人の美エロボディ～ - 青山はな", 1545436800, "heyzo.com", "heyzo.com")),
-            ("heyzo-1234", ("HEYZO-1234", "都盛星空の足コキでイケ！ - 都盛星空", 1471305600.0, "heyzo.com", "heyzo.com")),
-            ("heyzo-0755", ("HEYZO-0755", "クリスマスは二人で～ロリカワ彼女と彼氏目線でSEX～ - 小司あん", 1419465600.0, "heyzo.com", "heyzo.com")),
+            ("(heyzo) 1888", ("HEYZO-1888", "Z～元芸能人の美エロボディ～ - 青山はな", 1545436800, "heyzo.com", "heyzo.com")),
+            (
+                "heyzo-0755-c",
+                ("HEYZO-0755-C", "クリスマスは二人で～ロリカワ彼女と彼氏目線でSEX～ - 小司あん", 1419465600.0, "heyzo.com", "heyzo.com"),
+            ),
         )
         self._run_test(values)
 
     def test_heydouga(self):
         values = (
             (
-                "heydouga 4017-257",
+                "heydouga 4017-257-3",
                 (
-                    "heydouga-4017-257",
+                    "heydouga-4017-257-3",
                     "ヤバっ！超気持ちいい〜!!お乳とおマ○コがズラリ…全裸でおっぱい姫が抜きまくり！夢の中出しハーレム - 素人りんか 素人かなみ 素人てぃな",
                     1519862400,
                     "heydouga.com",
                     "heydouga.com",
                 ),
             ),
-            ("honnamatv-216", ("honnamatv-216", "じゅんこ 激ヤセ！M顔娘", 1380585600, "heydouga.com", "heydouga.com")),
+            ("honnamatv-216 (5)", ("honnamatv-216-5", "じゅんこ 激ヤセ！M顔娘", 1380585600, "heydouga.com", "heydouga.com")),
             (
                 "heydouga-4197-001",
                 ("heydouga-4197-001", "刺激を求めて応募の梨香さん、おじさんの3Ｐと中出し - 梨香", 1542931200.0, "heydouga.com", "heydouga.com"),
-            ),
-            (
-                "heydouga-4017-233",
-                (
-                    "heydouga-4017-233",
-                    "ハメ屋旅館でアナル処女まで奪われる！うら若き女子と行く一泊二日の中出し・酒池肉林温泉旅行 - 素人もも 素人かなみ 素人しおん",
-                    1489536000.0,
-                    "heydouga.com",
-                    "heydouga.com",
-                ),
-            ),
-            (
-                "heydouga-4117-050",
-                ("heydouga-4117-050", "スク水DE素股フェラ2 - 河西あみ 渡辺結衣", 1416528000.0, "heydouga.com", "heydouga.com"),
             ),
         )
         self._run_test(values)
@@ -176,9 +162,9 @@ class Scraper(unittest.TestCase):
                 ("FC2-340671", "【激シコ美人】かわいくてエロくてマン汁たっぷりのゆうこ18歳にたっぷり中出し", 1542585600.0, "fc2.com", "fc2.com"),
             ),
             (
-                "FC2-1380738",
+                "FC2-PPV-1380738_3",
                 (
-                    "FC2-1380738",
+                    "FC2-1380738-3",
                     "【個人撮影】消費者金融で借りた50万を旦那に内緒で返済する円光人妻！・旦那にバレるのが怖くて...他人の肉棒をぶち込まれ中出し",
                     1590192000,
                     "fc2.com",
@@ -199,77 +185,8 @@ class Scraper(unittest.TestCase):
         )
         self._run_test(values)
 
-    def test_scrape(self):
-        values = (
-            (
-                "022418_01-10mu-1080p",
-                ("022418_01-10mu-1080p", "制服時代 〜スカートが短くて恥かしい〜", 1519430400, "javbus.com", "product id"),
-            ),
-            ("112118_772-1pon", ("112118_772-1pon", "パンツを脱いでもメガネは外しません〜家庭教師〜", 1542758400, "javbus.com", "product id")),
-            (
-                "160122_1020_01-mesubuta",
-                ("160122_1020_01-mesubuta", "【惨虐】狙われた女子校生", 1453420800, "javbus.com", "product id"),
-            ),
-            (
-                "1000Giri-151127 kurumi-HD",
-                ("151127-KURUMI", "純コス☆ 清楚なホテルコンセルジュが制服脱いでエッチなサービス", 1448582400, "javbus.com", "javbus.com"),
-            ),
-            (
-                "th101-000-110888",
-                ("th101-000-110888", "サンタクロースは篠めぐみ！？ ～お宅訪問3軒～", 1514073600, "javbus.com", "javbus.com"),
-            ),
-            (
-                "mkbd-s117 kirari 117",
-                (
-                    "MKBD-S117",
-                    "KIRARI 117 極選！中出しイカセ~大物女優15名3時間メガ盛りMAX~ : 有賀ゆあ, 水樹りさ, 宮下華奈, 総勢15名 (ブルーレイ版)",
-                    1449100800,
-                    "javbus.com",
-                    "javbus.com",
-                ),
-            ),
-            ("n0584 絶品餌食過剰中出し重篤汁", ("n0584", "絶品餌食過剰中出し重篤汁", 1288310400, "javbus.com", "javbus.com")),
-            (
-                "club00379hhb",
-                (
-                    "CLUB-379",
-                    "完全盗撮 同じアパートに住む美人妻2人と仲良くなって部屋に連れ込んでめちゃくちゃセックスした件。其の九",
-                    1493251200,
-                    "javbus.com",
-                    "javbus.com",
-                ),
-            ),
-            (
-                "smbd-94 s ",
-                (
-                    "SMBD-94",
-                    "S Model 94 ベストセレクトヒッツ 3時間12本中出し : 上原結衣 (ブルーレイディスク版)",
-                    1386979200,
-                    "javbus.com",
-                    "javbus.com",
-                ),
-            ),
-            ("081018-724", ("081018-724", "女熱大陸 File.063", 1533859200.0, "javbus.com", "product id")),
-            (
-                "110614_729-carib-1080p",
-                ("110614-729-carib-1080p", "尾上若葉にどっきり即ハメ！パート2", 1415232000.0, "caribbeancom.com", "caribbeancom.com"),
-            ),
-        )
-        self._run_test(values)
-
 
 class Actress(unittest.TestCase):
-    # def test_avrevolution(self):
-    #     wiki = actress.AVRevolution
-    #     values = (
-    #         ("真央", ("知念真桜", None, {"井原のえる", "まお", "佐藤夏美", "羽田まなみ", "知念真央", "真央", "知念真桜"})),
-    #         ("池田美和子", ("篠田あゆみ", None, {"池田美和子", "菊池紀子", "篠田あゆみ"})),
-    #         ("蓮美", ("鈴木ありさ", None, {"鈴木ありさ", "藤槻ありさ", "大高頼子", "蓮美"})),
-    #     )
-    #     for searchName, answer in values:
-    #         result = astuple(wiki.search(searchName))
-    #         self.assertEqual(result, answer)
-
     def _do_test(self, wiki, values):
         for searchName, answer in values:
             result = wiki.search(searchName)
@@ -296,6 +213,16 @@ class Actress(unittest.TestCase):
             ("蓮美", None),
             ("佐伯史華", ("佐々木愛美", "1992-07-14", {"佐伯史華", "クルミ", "佐々木愛美"})),
             ("上原志織", ("上原志織", "1990-05-01", {"上原結衣", "上原志織", "しおり", "斉藤美穂"})),
+        )
+        self._do_test(wiki, values)
+
+    def test_avrevolution(self):
+        wiki = actress.AVRevolution
+        values = (
+            ("真央", ("知念真桜", None, {"井原のえる", "まお", "佐藤夏美", "羽田まなみ", "知念真央", "真央", "知念真桜"})),
+            ("池田美和子", ("篠田あゆみ", None, {"池田美和子", "菊池紀子", "篠田あゆみ"})),
+            ("蓮美", ("鈴木ありさ", None, {"鈴木ありさ", "藤槻ありさ", "大高頼子", "蓮美"})),
+            ("伊藤ゆう", None),
         )
         self._do_test(wiki, values)
 
@@ -349,6 +276,18 @@ class Actress(unittest.TestCase):
             ("佐々木愛美", (None, None, {"佐々木愛美", "佐伯史華", "クルミ"})),
         )
         self._do_test(wiki, values)
+
+    def test_clean_name(self):
+        values = (
+            " 木内亜美菜[xxx] abc",
+            "xxx) 木内亜美菜 [abc",
+            "[xxx] 木内亜美菜 (abc)",
+            "    木内亜美菜   　 (abc ~",
+            "xxx]木内亜美菜27歳",
+        )
+        for string in values:
+            result = actress._clean_name(string)
+            self.assertEqual(result, "木内亜美菜", msg=string)
 
 
 class Files(unittest.TestCase):

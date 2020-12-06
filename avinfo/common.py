@@ -82,7 +82,7 @@ def list_dir(topDir: Path):
 def get_response_tree(url, *, decoder: str = None, **kwargs):
     """Input args to requests, output (response, tree)
 
-    :params: decoder: bs4, lxml, or any encoding code.
+    :params: decoder: None, lxml, or any encoding code.
     :params: bs4_hint: code for bs4 to try
     """
     for retry in range(3):

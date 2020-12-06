@@ -169,28 +169,27 @@ class AVRevolution(Wiki):
         if tree is None:
             return
 
-        seen = result = None
+        title_seen = result = None
         namemask = _get_namemask(keyword)
 
         for row in tree.iterfind('.//div[@class="container"]/div[@style]'):
             try:
-                span = row.find("div[1]/a[@href]/span")
-                title = _clean_name(span.text_content())
-            except AttributeError:
+                a = row.find("div[1]/a[@href]")
+                title = _clean_name(a.text_content())
+                name = re_search(r"/([^/]+)/?$", a.get("href"))[1]
+            except (AttributeError, TypeError):
                 continue
 
             if result:
-                if title == seen:
+                if title == title_seen and name != result.name:
                     return
                 continue
 
             alias = xp_compile('div[3]/div[not(contains(text(), "別名無"))]/text()')(row)
             alias.append(title)
             if any(namemask(_clean_name(i)) for i in alias):
-                name = re_search(r"/([^/]+)/?$", span.getparent().get("href"))
-                if name:
-                    seen = title
-                    result = SearchResult(name=name[1], alias=alias)
+                title_seen = title
+                result = SearchResult(name=name, alias=alias)
 
         return result
 
