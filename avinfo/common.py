@@ -1,8 +1,8 @@
+import re
 from datetime import datetime, timezone
 from functools import lru_cache
 from os import scandir
 from pathlib import Path
-import re
 from re import compile as re_compile
 from re import search as re_search
 from re import split as re_split

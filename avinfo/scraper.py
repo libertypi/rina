@@ -4,7 +4,16 @@ from random import choice as random_choice
 from urllib.parse import urljoin
 
 from avinfo import common
-from avinfo.common import get_response_tree, re_compile, re_search, re_sub, str_to_epoch, text_to_epoch, xp_compile
+from avinfo.common import (
+    get_response_tree,
+    re_compile,
+    re_search,
+    re_sub,
+    session,
+    str_to_epoch,
+    text_to_epoch,
+    xp_compile,
+)
 
 __all__ = "from_string"
 
@@ -63,6 +72,7 @@ class Scraper:
     def _javbus(self):
 
         mask = self._get_keyword_mask()
+
         for base in ("uncensored/",) if self.uncensored_only else ("uncensored/", ""):
             tree = get_response_tree(f"https://www.javbus.com/{base}search/{self.keyword}", decoder="lxml")[1]
             if tree is None:
@@ -86,30 +96,28 @@ class Scraper:
     def _javdb(self):
 
         try:
-            url = random_choice(Scraper._javdb_url)
+            base = random_choice(Scraper._javdb_url)
         except AttributeError:
-            url = "https://javdb.com/search"
-            tree = get_response_tree(url, params={"q": self.keyword})[1]
+            base = "https://javdb.com/search"
+            response, tree = get_response_tree(base, params={"q": self.keyword})
             if tree is None:
                 return
 
-            pool = {url}
+            pool = {base}
             pool.update(
-                urljoin(i, "search")
-                for i in tree.xpath('//nav[@class="sub-header"]/div[contains(text(), "最新域名")]//a/@href')
+                urljoin(s, "search")
+                for s in tree.xpath('//nav[@class="sub-header"]/div[contains(text(), "最新域名")]//a/@href')
             )
             Scraper._javdb_url = tuple(pool)
         else:
-            tree = get_response_tree(url, params={"q": self.keyword})[1]
-            if tree is None:
+            response, tree = get_response_tree(base, params={"q": self.keyword})
+            if "/search" not in response.url or tree is None:
                 return
 
         mask = self._get_keyword_mask()
-
         for a in tree.iterfind('.//div[@id="videos"]//a[@class="box"]'):
             productId = a.findtext('div[@class="uid"]')
             if productId and mask(productId):
-
                 title = a.findtext('div[@class="video-title"]')
                 if not title:
                     continue
@@ -200,6 +208,7 @@ class StudioMatcher(Scraper):
 
     def search(self):
         result = super().search()
+
         if result and (not result.publishDate or result.dateSource.startswith("jav")):
             try:
                 result.publishDate = str_to_epoch(self.match["s1"], self.datefmt, regex=None)
@@ -207,6 +216,19 @@ class StudioMatcher(Scraper):
                 pass
             else:
                 result.dateSource = "product id"
+        return result
+
+    def _javbus(self):
+        result = super()._javbus()
+
+        if not result and not self.studio_match:
+            keyword = self.keyword
+            self.keyword = keyword.replace("_", "-")
+
+            result = super()._javbus()
+            if not result:
+                self.keyword = keyword
+
         return result
 
     def _carib(self):
@@ -219,18 +241,22 @@ class StudioMatcher(Scraper):
             return
 
         if title:
-            date = tree.findtext('.//*[@class="movie-spec"]/span[@itemprop="uploadDate"]')
+            date = xp_compile(
+                '//li[@class="movie-spec"]'
+                '/span[contains(text(), "配信日") or contains(text(), "販売日")]'
+                "/following-sibling::span/text()"
+            )(tree)
             return ScrapeResult(
                 productId=self.keyword,
                 title=title,
-                publishDate=text_to_epoch(date),
+                publishDate=text_to_epoch(date[0]) if date else None,
             )
 
     def _paco(self):
 
         tree = get_response_tree(f"https://www.pacopacomama.com/moviepages/{self.keyword}/")[1]
         try:
-            tree = tree.get_element_by_id("main")
+            tree = tree.find('.//div[@id="main"]')
             title = tree.findtext("h1")
         except (AttributeError, KeyError):
             return
@@ -279,7 +305,7 @@ class Heyzo(Scraper):
         except AttributeError:
             return
 
-        date = tree.find('.//*[@id="movie"]//table[@class="movieInfo"]//*[@class="table-release-day"]')
+        date = tree.find('.//div[@id="movie"]//table[@class="movieInfo"]//*[@class="table-release-day"]')
         if date is not None:
             date = text_to_epoch(date.text_content())
 
@@ -304,7 +330,7 @@ class FC2(Scraper):
 
         tree = get_response_tree(f"https://adult.contents.fc2.com/article/{uid}/")[1]
         try:
-            tree = tree.find('.//*[@id="top"]//section[@class="items_article_header"]')
+            tree = tree.find('.//section[@id="top"]//section[@class="items_article_header"]')
             title = tree.findtext('.//div[@class="items_article_headerInfo"]/h3')
         except AttributeError:
             pass
@@ -316,7 +342,7 @@ class FC2(Scraper):
         else:
             tree = get_response_tree(f"http://video.fc2.com/a/search/video/?keyword={uid}")[1]
             try:
-                tree = tree.find('.//*[@id="pjx-search"]//ul/li[1]//a[@title]')
+                tree = tree.find('.//div[@id="pjx-search"]//ul/li[1]//a[@title]')
                 title = tree.text
             except AttributeError:
                 return
@@ -338,7 +364,7 @@ class Heydouga(Scraper):
     uncensored_only = True
     source = "heydouga.com"
     regex = (
-        r"hey(?:douga)?(?a:\W*)(?P<h1>[0-9]{4})(?a:\W+)(?P<heydouga>[0-9]{3,6})",
+        r"hey(?:douga)?(?a:\W*)(?P<h1>4[0-9]{3})[^0-9]+(?P<heydouga>[0-9]{3,6})",
         r"honnamatv[^0-9]*(?P<honnamatv>[0-9]{3,})",
     )
 
@@ -358,7 +384,7 @@ class Heydouga(Scraper):
         except AttributeError:
             return
 
-        date = xp_compile('//*[@id="movie-info"]//span[contains(text(),"配信日")]/following-sibling::span/text()')(tree)
+        date = xp_compile('//div[@id="movie-info"]//span[contains(text(),"配信日")]/following-sibling::span/text()')(tree)
         return ScrapeResult(
             productId=self.keyword,
             title=title,
@@ -379,19 +405,20 @@ class X1X(Scraper):
 
         tree = get_response_tree(f"http://www.x1x.com/title/{uid}")[1]
         try:
-            title = tree.find(".//title").text
+            title = tree.findtext(".//title")
         except AttributeError:
             return
 
-        date = xp_compile(
-            '//div[@id="main_content"]//div[@class="movie_data_rt"]'
-            '//dt[contains(text(), "配信日")]/following-sibling::dd[1]/text()'
-        )(tree)
-        return ScrapeResult(
-            productId=self.keyword,
-            title=title,
-            publishDate=text_to_epoch(date[0]) if date else None,
-        )
+        if title:
+            date = xp_compile(
+                '//div[@id="main_content"]//div[@class="movie_data_rt"]'
+                '//dt[contains(text(), "配信日")]/following-sibling::dd[1]/text()'
+            )(tree)
+            return ScrapeResult(
+                productId=self.keyword,
+                title=title,
+                publishDate=text_to_epoch(date[0]) if date else None,
+            )
 
 
 class SM_Miracle(Scraper):
@@ -404,7 +431,7 @@ class SM_Miracle(Scraper):
 
         self.keyword = "e" + self.match["sm"]
         try:
-            response = common.session.get(f"http://sm-miracle.com/movie/{self.keyword}.dat")
+            response = session.get(f"http://sm-miracle.com/movie/{self.keyword}.dat")
             response.raise_for_status()
         except common.RequestException:
             return
@@ -422,7 +449,7 @@ class SM_Miracle(Scraper):
 class H4610(Scraper):
 
     uncensored_only = True
-    regex = r"(?P<h41>h4610|[ch]0930)(?a:\W+)(?P<h4610>[a-z]+[0-9]+)"
+    regex = r"(?P<h41>h4610|[ch]0930)\W+(?P<h4610>[a-z]+[0-9]+)"
 
     def _query(self):
 
@@ -432,13 +459,13 @@ class H4610(Scraper):
 
         tree = get_response_tree(f"https://www.{m1}.com/moviepages/{m2}/")[1]
         try:
-            title = tree.findtext('.//*[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
+            title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
             if not title:
                 return
         except AttributeError:
             return
 
-        date = xp_compile('//*[@id="movieInfo"]//section//dt[contains(text(),"公開日")]/following-sibling::dd[1]/text()')(
+        date = xp_compile('//div[@id="movieInfo"]//section//dt[contains(text(),"公開日")]/following-sibling::dd/text()')(
             tree
         )
         return ScrapeResult(
@@ -474,8 +501,10 @@ class PatternSearcher(Scraper):
         super().__init__(string, match)
         if match["p1"]:
             self.keyword = match.expand(r"\g<p1>-\g<p2>")
-        else:
+        elif match["kg3"]:
             self.keyword = match.expand(r"\g<kg1>-\g<kg2>_\g<kg3>")
+        else:
+            self.keyword = match.expand(r"\g<kg1>-\g<kg2>")
 
 
 class DateSearcher:
@@ -565,15 +594,17 @@ _iter_re = _combine_scraper_regex(PatternSearcher).finditer
 _date_re = _combine_scraper_regex(DateSearcher).search
 
 _clean_str = re_compile(
-    r"""\s+|
-    \[(?:[a-z0-9.-]+\.[a-z]{2,5}|f?hd)\]|
-    \b(?:
+    r"""
+    \s*\[(?:[a-z0-9.-]+\.[a-z]{2,4}|f?hd)\]\s*|
+    (?:[\s\[_-]+|\b)(?:    
     [a-z0-9.-]+\.[a-z]{2,5}@|
-    168x|44x|3xplanet|
-    sis001|sexinsex|thz|
+    168x|44x|3xplanet|hotavxxx.com|
+    sis001|sexinsex|thz|dioguitar23|
     uncensored|nodrm|fhd|
     tokyo[\s_-]?hot|1000[\s_-]?girl
-    )\b""",
+    )(?:[\s\]_-]+|\b)|
+    \s+
+    """,
     flags=re.VERBOSE,
 ).sub
 

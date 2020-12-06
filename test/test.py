@@ -15,86 +15,93 @@ else:
 class Scraper(unittest.TestCase):
     def _run_test(self, values):
         for string, answer in values:
-            result = next(filter(None, (s(string.lower()) for s in scraper.SCRAPERS)), None)
+            result = scraper.from_string(string)
             if result:
                 result = astuple(result)
             self.assertEqual(result, answer, msg=result)
 
-    def test_standardize_id(self):
+    def test_product_id(self):
         values = (
-            ("[carib]022716_253 (high) 3 haha 5 放課後のリフレクソロジー 5", "022716_253-carib-high-3"),
-            ("[HD](carib)022716-253 1080p haha 5 ", "022716_253-carib-1080p"),
+            ("[carib]022716_253 (high) 3 haha 5 放課後のリフレクソロジー 5", "022716-253-carib-high-3"),
+            ("[HD](carib)022716-253 1080p haha 5 ", "022716-253-carib-1080p"),
+            ("sdmt-775 2 まさかのav出演", "SDMT-775-2"),
+            ("heydouga 4017-261-3", "heydouga-4017-261-3"),
+            ("SMbd-110 s 2 model 3", "SMBD-110"),
+            ("Fc2-ppv-1395289_3", "FC2-1395289-3"),
+            ("LAFBD_23[cd2]", "LAFBD-23-2"),
+            ("kbi-042 (5)", "KBI-042-5"),
+            ("tki-069 人 3", "TKI-069"),
+            ("heyzo-1888-c 青山はな", "HEYZO-1888-C"),
+            ("151127 kurumi vol.3", "151127-KURUMI-3"),
         )
-        s = scraper.Scraper
         for string, answer in values:
-            result = s(string, keyword=None)._standardize_id()
-            self.assertEqual(result, answer)
-
-    def test_get_video_suffix(self):
-        values = (
-            ("sdmt-775 2 まさかのav出演", "SDMT-775", "2"),
-            ("heydouga 4017-261-3", "heydouga-4017-261", "3"),
-            ("smbd-110 s 2 model 3", "SMBD-110", None),
-            ("fc2-ppv-1395289_3", "FC2-1395289", "3"),
-            ("h0930-ki200705[cd2]", "ki200705", "2"),
-            ("kbi-042 (5)", "kbi-042", "5"),
-            ("tki-069 人 3", "tki-069", None),
-            ("heyzo-1888-c 青山はな", "heyzo-1888", "C"),
-            ("151127 kurumi vol.3", "151127-KURUMI", "3"),
-        )
-        s = scraper.Scraper
-        for string, keyword, answer in values:
-            result = s(string, keyword=keyword)._get_video_suffix()
-            self.assertEqual(result, answer)
+            result = scraper.from_string(string)
+            result = result.productId if result else None
+            self.assertEqual(result, answer, msg=result)
 
     def test_javbus(self):
         values = (
-            ("CZ016", False, ("CZ016", "出合い頭4秒ファック！ : Part-2", 1504569600.0, None, None)),
-            ("abs-047", False, ("ABS-047", "一泊二日、美少女完全予約制。 上原瑞穂", 1319241600.0, None, None)),
-            ("120618_394", True, ("120618_394", "尾上若葉の全て", 1544054400.0, None, None)),
-            ("081020_001", False, ("081020_001", "朝ゴミ出しする近所の遊び好きノーブラ奥さん 青山未来", 1597017600.0, None, None)),
+            ("CZ016", ("CZ016", "出合い頭4秒ファック！ : Part-2", 1504569600.0, "javbus.com", "javbus.com")),
+            ("abs-047", ("ABS-047", "一泊二日、美少女完全予約制。 上原瑞穂", 1319241600.0, "javbus.com", "javbus.com")),
+            ("120618_394", ("120618_394", "尾上若葉の全て", 1544054400.0, "javbus.com", "product id")),
+            ("081020_001", ("081020_001", "朝ゴミ出しする近所の遊び好きノーブラ奥さん 青山未来", 1597017600.0, "javbus.com", "product id")),
         )
-        s = scraper.Scraper
-        for keyword, uncensored_only, answer in values:
-            keyword = keyword.lower()
-            result = s(keyword, keyword=keyword, uncensored_only=uncensored_only)._javbus()
-            result = astuple(result) if result else None
-            self.assertEqual(result, answer, msg=result)
+        self._run_test(values)
 
     def test_javdb(self):
         values = (
-            ("abs-047", ("ABS-047", "一泊二日、美少女完全予約制。 9", 1316649600.0, None, None)),
-            ("120618_394", ("120618_394", "尾上若葉の全てシリーズ特設", 1544054400.0, None, None)),
+            (
+                "XXX-AV-20761",
+                ("XXX-AV-20761", "朝倉ことみ 中野ありさ 救マン病棟でハーレム大乱交！フルハイビジョン vol.03", 1579219200.0, "javdb.com", "javdb.com"),
+            ),
+            (
+                "XXX-AV-20879",
+                ("XXX-AV-20879", "朝倉ことみ 発情歯科衛生士～僕だけのいいなり天使 フルハイビジョン ｖｏｌ.０１", 1565654400.0, "javdb.com", "javdb.com"),
+            ),
         )
-        s = scraper.Scraper
-        for keyword, answer in values:
-            result = s(keyword, keyword=keyword)._javdb()
-            result = astuple(result) if result else None
-            self.assertEqual(result, answer, msg=result)
+        self._run_test(values)
 
     def test_carib(self):
         values = (
             (
                 "082920_001-carib-1080p",
                 (
-                    "082920_001-carib-1080p",
+                    "082920-001-carib-1080p",
                     "未来のきもち 〜衰えた性欲が一気に取り戻せる乳首ンビンセラピー〜",
                     1598659200.0,
                     "caribbeancom.com",
-                    "product id",
+                    "caribbeancom.com",
                 ),
             ),
             (
                 "062317_001-caribpr",
-                ("062317_001-caribpr", "S Model 172 オフィスレディーの社内交尾", 1498176000.0, "caribbeancompr.com", "product id"),
+                (
+                    "062317_001-caribpr",
+                    "S Model 172 オフィスレディーの社内交尾",
+                    1498176000.0,
+                    "caribbeancompr.com",
+                    "caribbeancompr.com",
+                ),
             ),
             (
                 "022114_777-caribpr-mid",
-                ("022114_777-caribpr-mid", "レッドホットフェティッシュコレクション 108", 1392940800, "caribbeancompr.com", "product id"),
+                (
+                    "022114_777-caribpr-mid",
+                    "レッドホットフェティッシュコレクション 108",
+                    1392940800,
+                    "caribbeancompr.com",
+                    "caribbeancompr.com",
+                ),
             ),
             (
                 "072816_001-caribpr-high",
-                ("072816_001-caribpr-high", "続々生中〜ロリ美少女をハメまくる〜", 1469664000, "caribbeancompr.com", "product id"),
+                (
+                    "072816_001-caribpr-high",
+                    "続々生中〜ロリ美少女をハメまくる〜",
+                    1469664000,
+                    "caribbeancompr.com",
+                    "caribbeancompr.com",
+                ),
             ),
         )
         self._run_test(values)
@@ -245,7 +252,7 @@ class Scraper(unittest.TestCase):
             ("081018-724", ("081018-724", "女熱大陸 File.063", 1533859200.0, "javbus.com", "product id")),
             (
                 "110614_729-carib-1080p",
-                ("110614_729-carib-1080p", "尾上若葉にどっきり即ハメ！パート2", 1415232000, "caribbeancom.com", "product id"),
+                ("110614-729-carib-1080p", "尾上若葉にどっきり即ハメ！パート2", 1415232000.0, "caribbeancom.com", "caribbeancom.com"),
             ),
         )
         self._run_test(values)

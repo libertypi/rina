@@ -71,7 +71,7 @@ class Wikipedia(Wiki):
             return
 
         name = tree.findtext('.//*[@id="firstHeading"]')
-        box = tree.find('.//*[@id="mw-content-text"]//table[@class="infobox"]')
+        box = tree.find('.//div[@id="mw-content-text"]//table[@class="infobox"]')
         if not name or box is None:
             return
 
@@ -108,11 +108,11 @@ class MinnanoAV(Wiki):
             tree = cls._scan_search_page(keyword, tree)
 
         try:
-            tree = tree.find('.//*[@id="main-area"]')
+            tree = tree.find('.//section[@id="main-area"]')
             name = tree.findtext("section/h1")
             if name is None:
                 return
-        except AttributeError:
+        except (AttributeError, KeyError):
             return
 
         birth = None
@@ -130,7 +130,7 @@ class MinnanoAV(Wiki):
     def _scan_search_page(cls, keyword: str, tree):
         """Return if there's only one match."""
 
-        tree = xp_compile('//*[@id="main-area"]//table[contains(@class,"actress")]/tr/td[h2/a[@href]]')(tree)
+        tree = xp_compile('//section[@id="main-area"]//table[contains(@class,"actress")]/tr/td[h2/a[@href]]')(tree)
         if not tree:
             return
         nameMask = _get_re_nameMask(keyword).fullmatch
@@ -151,41 +151,41 @@ class MinnanoAV(Wiki):
             return get_response_tree(urljoin(cls.baseurl, result))[1]
 
 
-class AVRevolution(Wiki):
+# class AVRevolution(Wiki):
 
-    baseurl = "http://adultmovie-revolution.com/movies/jyoyuu_kensaku.php"
+#     baseurl = "http://adultmovie-revolution.com/movies/jyoyuu_kensaku.php"
 
-    @classmethod
-    def search(cls, keyword: str):
-        tree = get_response_tree(cls.baseurl, params={"mode": 1, "search": keyword}, decoder="lxml")[1]
-        if tree is None:
-            return
+#     @classmethod
+#     def search(cls, keyword: str):
+#         tree = get_response_tree(cls.baseurl, params={"mode": 1, "search": keyword}, decoder="lxml")[1]
+#         if tree is None:
+#             return
 
-        nameMask = _get_re_nameMask(keyword).fullmatch
-        tree = xp_compile('//*[@id="entry-01"]//center/table[@summary="AV女優検索結果"]/tbody//td/a[text() and @href]')(tree)
-        url = None
-        for a in tree:
-            if nameMask(_clean_name(a.text)):
-                href = a.get("href")
-                if not url:
-                    url = href
-                elif url != href:
-                    return
-        if not url:
-            return
+#         nameMask = _get_re_nameMask(keyword).fullmatch
+#         tree = xp_compile('//*[@id="entry-01"]//center/table[@summary="AV女優検索結果"]/tbody//td/a[text() and @href]')(tree)
+#         url = None
+#         for a in tree:
+#             if nameMask(_clean_name(a.text)):
+#                 href = a.get("href")
+#                 if not url:
+#                     url = href
+#                 elif url != href:
+#                     return
+#         if not url:
+#             return
 
-        tree = get_response_tree(url)[1]
-        try:
-            tree = tree.find('.//*[@id="entry-47"][@class="entry-asset"]')
-            name = xp_compile('h2[contains(text(),"「")]/text()')(tree)
-            name = re_search(r"「(.+?)」", name[0]).group(1)
-            if not name:
-                return
-            alias = xp_compile('div/center/table[contains(@summary,"別名")]/tbody//td/text()')(tree)
-        except (AttributeError, TypeError, IndexError):
-            pass
-        else:
-            return SearchResult(name=name, alias=alias)
+#         tree = get_response_tree(url)[1]
+#         try:
+#             tree = tree.find('.//*[@id="entry-47"][@class="entry-asset"]')
+#             name = xp_compile('h2[contains(text(),"「")]/text()')(tree)
+#             name = re_search(r"「(.+?)」", name[0]).group(1)
+#             if not name:
+#                 return
+#             alias = xp_compile('div/center/table[contains(@summary,"別名")]/tbody//td/text()')(tree)
+#         except (AttributeError, TypeError, IndexError):
+#             pass
+#         else:
+#             return SearchResult(name=name, alias=alias)
 
 
 class Seesaawiki(Wiki):
@@ -215,7 +215,7 @@ class Seesaawiki(Wiki):
         except TypeError:
             pass
 
-        name = tree.findtext('.//*[@id="page-header-inner"]/div[@class="title"]//h2')
+        name = tree.findtext('.//div[@id="page-header-inner"]/div[@class="title"]//h2')
         if not name:
             return
 
@@ -247,14 +247,14 @@ class Msin(Wiki):
 
         tree = get_response_tree(cls.baseurl, params={"str": keyword})[1]
         try:
-            tree = tree.find('.//*[@id="content"]/*[@id="actress_view"]//*[@class="act_ditail"]')
-            name = _clean_name(tree.findtext('.//*[@class="mv_name"]'))
+            tree = tree.find('.//div[@id="content"]/div[@id="actress_view"]//div[@class="act_ditail"]')
+            name = _clean_name(tree.findtext('.//span[@class="mv_name"]'))
             if not name:
                 return
         except (AttributeError, TypeError):
             return
 
-        xpath = xp_compile("*[contains(text(), $title)]/following-sibling::*[//text()][1]")
+        xpath = xp_compile("div[contains(text(), $title)]/following-sibling::span[//text()][1]")
         try:
             alias = _split_name(xpath(tree, title="別名")[0].text_content())
         except IndexError:
@@ -285,7 +285,7 @@ class Manko(Wiki):
         xpath_1 = xp_compile('(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())[1]')
         xpath_2 = xp_compile("tr[td[1][contains(text(), $title)]]/td[2]")
 
-        for tbody in tree.iterfind('.//*[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'):
+        for tbody in tree.iterfind('.//div[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'):
             try:
                 name = xpath_1(tbody)
                 name = _clean_name(name[0])
@@ -321,7 +321,7 @@ class Etigoya(Wiki):
         nameMask = _get_re_nameMask(keyword).fullmatch
 
         result = None
-        for a in xp_compile('.//*[@id="main"]/div[@class="content"]/ul/li/a[contains(text(), "＝")]')(tree):
+        for a in xp_compile('.//div[@id="main"]/div[@class="content"]/ul/li/a[contains(text(), "＝")]')(tree):
             alias = _split_name(a.text)
             if any(nameMask(_clean_name(i)) for i in alias):
                 if result:
