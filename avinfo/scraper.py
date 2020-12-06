@@ -86,6 +86,9 @@ class Scraper:
 
                 if productId and mask(productId):
                     title = span.text
+                    if title.startswith("【"):
+                        title = re_sub(r"^【(お得|特価)】\s*", "", title)
+
                     self.source = "javbus.com"
                     return ScrapeResult(
                         productId=productId,
@@ -515,7 +518,7 @@ class UncensoredMatcher(Scraper):
 class PatternSearcher(Scraper):
 
     regex = (
-        r"[0-9]{,3}(?P<p1>[a-z]{2,8})[\s-]*(?P<z>0)*(?P<p2>(?(z)[0-9]{3,6}|[0-9]{2,6}))(?:hhb[0-9]?)?",
+        r"[0-9]{,3}(?P<p1>[a-z]{2,8})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,6}|[0-9]{2,6}))(?:hhb[0-9]?)?",
         r"(?P<kg1>[12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))[\s-]?(?P<kg2>[a-z]{3,8})(?:-(?P<kg3>[a-z]{3,6}))?",
     )
 
