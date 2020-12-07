@@ -98,13 +98,13 @@ class Wikipedia(Wiki):
 
 class MinnanoAV(Wiki):
 
-    baseurl = "http://www.minnano-av.com"
+    baseurl = "http://www.minnano-av.com/"
 
     @classmethod
     def _query(cls, keyword: str):
 
         response, tree = get_response_tree(
-            cls.baseurl + "/search_result.php",
+            cls.baseurl + "search_result.php",
             params={"search_scope": "actress", "search_word": keyword},
             decoder="lxml",
         )
@@ -137,18 +137,16 @@ class MinnanoAV(Wiki):
     def _scan_search_page(cls, keyword: str, tree):
         """Return if there's only one match."""
 
-        tree = xpath(
-            '//section[@id="main-area"]//table[contains(@class,"actress")]'
-            '//td[h2/a[@href] and not(contains(., "重複"))]'
+        links = xpath(
+            '//section[@id="main-area"]//table[contains(@class,"actress")]//td[not(contains(., "重複"))]/h2/a[@href]'
         )(tree)
-        if not tree:
+        if not links:
             return
 
         nameMask = _get_namemask(keyword)
 
         result = None
-        for td in tree:
-            a = td.find("h2/a[@href]")
+        for a in links:
             if nameMask(_clean_name(a.text)):
                 href = a.get("href").partition("?")[0]
                 if not result:
@@ -175,7 +173,7 @@ class AVRevolution(Wiki):
 
         title_seen = result = None
         namemask = _get_namemask(keyword)
-        xp = xpath('div[3]/div[not(contains(text(), "別名無"))]/text()')
+        xp = xpath('div[3]/div/text()[not(contains(., "別名無"))]')
 
         for row in tree:
             try:
@@ -330,8 +328,8 @@ class Etigoya(Wiki):
         nameMask = _get_namemask(keyword)
 
         result = None
-        for a in xpath('.//div[@id="main"]/div[@class="content"]/ul/li/a[contains(text(), "＝")]')(tree):
-            alias = _split_name(a.text)
+        for text in xpath('//div[@id="main"]/div[@class="content"]//li/a/text()[contains(., "＝")]')(tree):
+            alias = text.split("＝")
             if any(nameMask(_clean_name(i)) for i in alias):
                 if result:
                     return
