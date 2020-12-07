@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 
+if __name__ != "__main__":
+    raise ImportError("Test file should not be imported.")
+
 import sys
 import unittest
 from dataclasses import astuple
 from pathlib import Path
 
-if __name__ == "__main__":
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from avinfo import actress, scraper, video
-else:
-    raise ImportError("Test file should not be imported.")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from avinfo import actress, scraper, video
 
 
 class Scraper(unittest.TestCase):
