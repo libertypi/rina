@@ -9,7 +9,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from avinfo import actress, scraper, video
 else:
-    raise ImportError("Test file should only be launch directly.")
+    raise ImportError("Test file should not be imported.")
 
 
 class Scraper(unittest.TestCase):
