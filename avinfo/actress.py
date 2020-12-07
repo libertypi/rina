@@ -381,10 +381,16 @@ class Actress:
 
         weight_to_func = {i: wiki.search for i, wiki in enumerate(_WIKI_LIST)}
         unvisited[keyword] = 0
+        all_visited = unvisited.keys().isdisjoint
 
         while unvisited and weight_to_func:
 
-            keyword = max(unvisited, key=unvisited.get)
+            if all_visited(nameDict):
+                pool = unvisited
+            else:
+                pool = filter(nameDict.get, unvisited)
+
+            keyword = max(pool, key=unvisited.get)
             visited[keyword] = unvisited.pop(keyword)
 
             ft_to_weight = {ex.submit(f, keyword): i for i, f in weight_to_func.items()}
