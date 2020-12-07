@@ -14,7 +14,7 @@ from avinfo.common import (
     session,
     str_to_epoch,
     text_to_epoch,
-    xp_compile,
+    xpath,
 )
 
 __all__ = "from_string"
@@ -251,7 +251,7 @@ class StudioMatcher(Scraper):
             return
 
         if title:
-            date = xp_compile(
+            date = xpath(
                 '//li[@class="movie-spec"]'
                 '/span[contains(text(), "配信日") or contains(text(), "販売日")]'
                 "/following-sibling::span/text()"
@@ -409,7 +409,7 @@ class Heydouga(Scraper):
         except AttributeError:
             return
 
-        date = xp_compile('//div[@id="movie-info"]//span[contains(text(),"配信日")]/following-sibling::span/text()')(tree)
+        date = xpath('//div[@id="movie-info"]//span[contains(text(),"配信日")]/following-sibling::span/text()')(tree)
         return ScrapeResult(
             productId=self.keyword,
             title=title,
@@ -435,7 +435,7 @@ class X1X(Scraper):
             return
 
         if title:
-            date = xp_compile(
+            date = xpath(
                 '//div[@id="main_content"]//div[@class="movie_data_rt"]'
                 '//dt[contains(text(), "配信日")]/following-sibling::dd[1]/text()'
             )(tree)
@@ -490,9 +490,7 @@ class H4610(Scraper):
         except AttributeError:
             return
 
-        date = xp_compile('//div[@id="movieInfo"]//section//dt[contains(text(),"公開日")]/following-sibling::dd/text()')(
-            tree
-        )
+        date = xpath('//div[@id="movieInfo"]//section//dt[contains(text(),"公開日")]/following-sibling::dd/text()')(tree)
         return ScrapeResult(
             productId=self.keyword,
             title=title,

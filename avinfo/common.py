@@ -140,6 +140,6 @@ def now(fmt: str = "%F %T"):
     return datetime.now().strftime(fmt)
 
 
-@lru_cache(maxsize=128)
-def xp_compile(xpath: str):
+@lru_cache(maxsize=None)
+def xpath(xpath: str):
     return XPath(xpath)
