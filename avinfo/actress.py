@@ -256,9 +256,9 @@ class Msin(Wiki):
         try:
             tree = tree.find('.//div[@id="content"]/div[@id="actress_view"]//div[@class="act_ditail"]')
             name = _clean_name(tree.findtext('.//span[@class="mv_name"]'))
-            if not name:
-                return
         except (AttributeError, TypeError):
+            return
+        if not name:
             return
 
         xp = xpath("div[contains(text(), $title)]/following-sibling::span[//text()][1]")
