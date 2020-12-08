@@ -161,7 +161,7 @@ class StudioMatcher(Scraper):
             "y": r"[0-2][0-9]",
             "m": r"(?:1[0-2]|0[1-9])",
             "d": r"(?:3[01]|[12][0-9]|0[1-9])",
-            "tail": r"-(?P<s2>[0-9]{2,4})(?:-(?P<s3>[0-9]{1,3}))?",
+            "tail": r"-(?P<s2>[0-9]{2,4})(?:-(?P<s3>0[0-9]))?",
         }
     )
     studio_re = re_compile(
@@ -618,8 +618,9 @@ _clean_re = re_compile(
     r"""
     \s*\[(?:[a-z0-9.-]+\.[a-z]{2,4}|f?hd)\]\s*|
     (?:[\s\[_-]+|\b)(?:    
-    [a-z0-9.-]+\.[a-z]{2,5}@|
-    168x|44x|3xplanet|hotavxxx.com|
+    [a-z0-9.-]+\.[a-z]{2,4}@|
+    (?:[a-z]+2048|hotavxxx|nyap2p)\.com|
+    168x|44x|3xplanet|
     sis001|sexinsex|thz|dioguitar23|
     uncensored|nodrm|fhd|
     tokyo[\s_-]?hot|1000[\s_-]?girl

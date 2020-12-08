@@ -12,7 +12,7 @@ def parse_args():
         if path.exists():
             return path
 
-        if target == path.name == path.stem:
+        if target == path.name:
             return target
 
         raise argparse.ArgumentTypeError(f'"{target}" is unreachable')
