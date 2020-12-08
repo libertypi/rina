@@ -110,13 +110,15 @@ class MinnanoAV(Wiki):
 
         if "/search_result.php" in response.url:
             tree = cls._scan_search_page(keyword, tree)
-
-        try:
-            tree = tree.find('.//section[@id="main-area"]')
-            name = tree.findtext("section/h1")
-            if name is None:
+            if tree is None:
                 return
-        except AttributeError:
+
+        tree = tree.find('.//section[@id="main-area"]')
+        try:
+            name = _clean_name(tree.findtext("section/h1"))
+            if not name:
+                return
+        except (AttributeError, TypeError):
             return
 
         birth = None
@@ -255,10 +257,12 @@ class Msin(Wiki):
         tree = get_response_tree(cls.baseurl, params={"str": keyword})[1]
         try:
             tree = tree.find('.//div[@id="content"]/div[@id="actress_view"]//div[@class="act_ditail"]')
+            if tree is None:
+                return
             name = _clean_name(tree.findtext('.//span[@class="mv_name"]'))
+            if not name:
+                return
         except (AttributeError, TypeError):
-            return
-        if not name:
             return
 
         xp = xpath("div[contains(text(), $title)]/following-sibling::span[//text()][1]")
