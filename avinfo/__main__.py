@@ -103,9 +103,21 @@ def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", len
         print()
 
 
-def process_scan_results(total: int, changed: list, failed: list, mode: str, quiet: bool):
+def process_scan(scan, mode: str, quiet: bool):
 
+    changed = []
+    failed = []
+    total = 0
     mode = mode.title()
+
+    for obj in scan:
+        total += 1
+        obj.print()
+        if obj.has_new_info:
+            changed.append(obj)
+        elif not obj.ok:
+            failed.append(obj)
+
     total_changed = len(changed)
     print(common.sepBold)
     print(f"{mode} scan finished.")
@@ -182,8 +194,8 @@ def main():
         if target_type == "str":
             actress.Actress(target).print()
         else:
-            process_scan_results(
-                *actress.scan_path(target),
+            process_scan(
+                actress.scan_path(target),
                 mode=mode,
                 quiet=args.quiet,
             )
@@ -193,8 +205,8 @@ def main():
         if target_type == "str":
             video.AVString(target).print()
         elif mode == "video":
-            process_scan_results(
-                *video.scan_path(target, target_type == "dir"),
+            process_scan(
+                video.scan_path(target, target_type == "dir"),
                 mode=mode,
                 quiet=args.quiet,
             )

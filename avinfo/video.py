@@ -1,6 +1,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Iterator
 
 from avinfo import common
 from avinfo.common import color_printer, epoch_to_str, re_search, re_sub, sepChanged, sepFailed, sepSuccess
@@ -13,8 +14,8 @@ class AVString:
 
     def __init__(self, string: str):
 
-        # status: || dateDiff | filenameDiff | success ||
-        self._status = 0b000
+        # status: || dateDiff | filenameDiff | ok ||
+        self._status = 0
         self.productId = self.title = self.publishDate = self.titleSource = self.dateSource = None
         self._report = report = {
             "Target": string,
@@ -46,9 +47,13 @@ class AVString:
         report["PubDate"] = epoch_to_str(self.publishDate)
         report["Source"] = f'{self.titleSource or "---"} / {self.dateSource or "---"}'
 
-    @property
-    def success(self):
-        return self._status != 0b000
+    def print(self):
+        if self._status == 0b001:
+            print(sepSuccess, self.report, sep="", end="")
+        elif self._status & 0b110:
+            color_printer(sepChanged, self.report, color="yellow", sep="", end="")
+        else:
+            color_printer(sepFailed, self.report, color="red", sep="", end="")
 
     @property
     def report(self):
@@ -57,13 +62,9 @@ class AVString:
             self._report = report = "".join(f'{k + ":":>10} {v}\n' for k, v in report.items() if v)
         return report
 
-    def print(self):
-        if self._status == 0b001:
-            print(sepSuccess, self.report, sep="", end="")
-        elif self._status & 0b110:
-            color_printer(sepChanged, self.report, color="yellow", sep="", end="")
-        else:
-            color_printer(sepFailed, self.report, color="red", sep="", end="")
+    @property
+    def ok(self):
+        return not not self._status & 0b001
 
 
 class AVFile(AVString):
@@ -77,7 +78,7 @@ class AVFile(AVString):
         self.path = self._report["Target"] = path
         self.newfilename = None
 
-        if self._status != 0b001:
+        if not self._status & 0b001:
             return
 
         if self.productId and self.title:
@@ -112,10 +113,6 @@ class AVFile(AVString):
 
         return f"{self.productId} {title}{suffix}"
 
-    @property
-    def has_new_info(self):
-        return self._status == 0b111
-
     def apply(self):
         path = self.path
 
@@ -126,6 +123,10 @@ class AVFile(AVString):
 
         if self._status & 0b101 == 0b101:
             os.utime(path, (self._atime, self.publishDate))
+
+    @property
+    def has_new_info(self):
+        return not not self._status & 0b110
 
 
 def _strip_title(s: str):
@@ -146,45 +147,51 @@ def _get_namemax(path: Path):
         return 255
 
 
-def scan_path(target: Path, is_dir: bool = None):
-
-    changed = []
-    failed = []
+def scan_path(target: Path, is_dir: bool = None) -> Iterator[AVFile]:
 
     if is_dir is None:
         is_dir = target.is_dir()
 
     if not is_dir:
-        avfile = AVFile(target)
-        avfile.print()
-        if avfile.has_new_info:
-            changed.append(avfile)
-        elif not avfile.success:
-            failed.append(avfile)
-        return 1, changed, failed
+        yield AVFile(target)
+        return
 
-    total = 0
     namemax = _get_namemax(target)
-    video_ext = "3gp asf avi bdmv flv iso m2ts m2v m4p m4v mkv mov mp2 mp4 mpeg mpg mpv mts mxf rm rmvb ts vob webm wmv"
-    video_ext = frozenset("." + e for e in video_ext.split())
+    video_ext = {
+        ".3gp",
+        ".asf",
+        ".avi",
+        ".bdmv",
+        ".flv",
+        ".iso",
+        ".m2ts",
+        ".m2v",
+        ".m4p",
+        ".m4v",
+        ".mkv",
+        ".mov",
+        ".mp2",
+        ".mp4",
+        ".mpeg",
+        ".mpg",
+        ".mpv",
+        ".mts",
+        ".mxf",
+        ".rm",
+        ".rmvb",
+        ".ts",
+        ".vob",
+        ".webm",
+        ".wmv",
+    }
 
     with ThreadPoolExecutor(max_workers=None) as ex:
-
         for ft in as_completed(
             ex.submit(AVFile, path, stat, namemax)
             for path, stat, _ in common.walk_dir(target, filesOnly=True)
             if path.suffix.lower() in video_ext
         ):
-            total += 1
-            avfile = ft.result()
-            avfile.print()
-            status = avfile._status
-            if status & 0b110:  # has_new_info
-                changed.append(avfile)
-            elif status == 0b000:
-                failed.append(avfile)
-
-    return total, changed, failed
+            yield ft.result()
 
 
 def update_dir_mtime(target: Path):

@@ -536,21 +536,23 @@ class DateSearcher:
 
     def _init_regex():
         fmt = {
-            "sep1": r"[\s,.-]*",
-            "sep2": r"[\s,.-]+",
+            "sep": r"[\s,.-]*",
+            "sepF": r"[\s,.-]+",
             "year": r"(?:20)?([12][0-9])",
+            "yearF": r"(20[12][0-9])",
             "mon": r"(1[0-2]|0[1-9])",
-            "day1": r"(3[01]|[12][0-9]|0?[1-9])",
-            "day2": r"(3[01]|[12][0-9]|0[1-9])",
+            "day": r"(3[01]|[12][0-9]|0?[1-9])",
+            "dayF": r"(3[01]|[12][0-9]|0[1-9])",
             "b": r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
         }
         regex = tuple(
             p.format_map(fmt)
             for p in (
-                r"(?P<dby>{day1}{sep1}{b}{sep1}{year})",  # 23.Jun.(20)14
-                r"(?P<bdy>{b}{sep1}{day1}{sep1}{year})",  # Dec.23.(20)14
-                r"(?P<ymd>{year}{sep2}{mon}{sep2}{day2})",  # (20)19.03.15
-                r"(?P<dmy>{day2}{sep2}{mon}{sep2}{year})",  # 23.02.(20)19
+                r"(?P<dby>{day}(?P<s1>{sep}){b}(?P=s1){year})",  # 23.Jun.(20)14
+                r"(?P<bdy>{b}(?P<s2>{sep}){day}(?P=s2){year})",  # Dec.23.(20)14
+                r"(?P<ymd>{year}(?P<s3>{sepF}){mon}(?P=s3){dayF})",  # (20)19.03.15
+                r"(?P<dmy>{dayF}(?P<s4>{sepF}){mon}(?P=s4){year})",  # 23.02.(20)19
+                r"(?P<Ymd>{yearF}(?P<s5>{sep}){mon}(?P=s5){dayF})",  # 20170102
             )
         )
         fmt.clear()
@@ -570,7 +572,7 @@ class DateSearcher:
 
         return ScrapeResult(
             publishDate=str_to_epoch(
-                string=" ".join(match.group(i, i + 1, i + 2)),
+                string=" ".join(match.group(i, i + 2, i + 3)),
                 fmt=fmt,
                 regex=None,
             ),

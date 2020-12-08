@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import Iterator
 from urllib.parse import quote as urlquote
 from urllib.parse import urljoin
 
@@ -329,9 +330,11 @@ class Manko(Wiki):
                 if result:
                     return
                 birth = xp2(tbody, title="生年月日")
-                if birth:
-                    birth = date_searcher(birth[0].text_content())
-                result = SearchResult(name=name, birth=birth, alias=alias)
+                result = SearchResult(
+                    name=name,
+                    birth=date_searcher(birth[0].text_content()) if birth else None,
+                    alias=alias,
+                )
 
         return result
 
@@ -362,11 +365,11 @@ _WIKI_LIST = (Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Msin, Manko, Etigo
 
 class Actress:
 
-    __slots__ = ("name", "birth", "result", "_report", "_status")
+    __slots__ = ("name", "birth", "result", "_status", "_report")
 
     def __init__(self, keyword: str, executor: ThreadPoolExecutor = None):
 
-        # status: || filenameDiff | success | started ||
+        # status: || filenameDiff | ok ||
         self._status = 0
         self.name = self.birth = self.result = None
         self._report = {
@@ -383,7 +386,6 @@ class Actress:
             self._report["Error"] = "Not valid actress name."
             return
 
-        self._status |= 0b001
         try:
             if executor:
                 self._bfs_search(keyword, executor)
@@ -445,7 +447,7 @@ class Actress:
         birth, report["Birth"] = self._sort_search_result(birthDict)
 
         if name and birth:
-            self._status |= 0b010
+            self._status |= 0b01
             self.result = report["Result"] = f"{name}({birth})"
             self.name = name
             self.birth = birth
@@ -467,13 +469,13 @@ class Actress:
             tuple(f'{k} ({", ".join(_WIKI_LIST[i].__name__ for i in v)})' for k, v in result),
         )
 
-    @property
-    def success(self):
-        return self._status & 0b011 == 0b011
-
-    @property
-    def scrape_failed(self):
-        return self._status & 0b011 == 0b001
+    def print(self):
+        if self._status == 0b01:
+            print(sepSuccess, self.report, sep="", end="")
+        elif self._status & 0b10:
+            color_printer(sepChanged, self.report, color="yellow", sep="", end="")
+        else:
+            color_printer(sepFailed, self.report, color="red", sep="", end="")
 
     @property
     def report(self):
@@ -494,13 +496,9 @@ class Actress:
         report = self._report = "".join(log)
         return report
 
-    def print(self):
-        if self._status == 0b011:
-            print(sepSuccess, self.report, sep="", end="")
-        elif self._status == 0b111:
-            color_printer(sepChanged, self.report, color="yellow", sep="", end="")
-        else:
-            color_printer(sepFailed, self.report, color="red", sep="", end="")
+    @property
+    def ok(self):
+        return not not self._status & 0b01
 
 
 class ActressFolder(Actress):
@@ -511,16 +509,16 @@ class ActressFolder(Actress):
         super().__init__(path.name, executor)
         self.path = self._report["Target"] = path
 
-        if self._status & 0b010 and self.result != path.name:
-            self._status |= 0b100
+        if self._status & 0b01 and self.result != path.name:
+            self._status |= 0b10
 
     def apply(self):
-        if self._status == 0b111:
+        if self._status == 0b11:
             os.rename(self.path, self.path.with_name(self.result))
 
     @property
     def has_new_info(self):
-        return self._status == 0b111
+        return self._status == 0b11
 
 
 def _split_name(string: str):
@@ -568,21 +566,9 @@ def is_cjk_name():
 is_cjk_name, all_cjk = is_cjk_name()
 
 
-def scan_path(target: Path):
+def scan_path(target: Path) -> Iterator[ActressFolder]:
 
-    changed = []
-    failed = []
-    total = 0
     w = min(32, os.cpu_count() + 4) / 2
-
     with ThreadPoolExecutor(max_workers=w) as ex, ThreadPoolExecutor(max_workers=None) as exe:
         for ft in as_completed(ex.submit(ActressFolder, p, exe) for p in common.list_dir(target)):
-            total += 1
-            actress = ft.result()
-            actress.print()
-            if actress.has_new_info:
-                changed.append(actress)
-            elif actress.scrape_failed:
-                failed.append(actress)
-
-    return total, changed, failed
+            yield ft.result()
