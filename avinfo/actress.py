@@ -297,9 +297,9 @@ class Manko(Wiki):
         for tbody in tree.iterfind('.//div[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'):
             try:
                 name = _clean_name(xp1(tbody)[0])
-                if not name:
-                    continue
             except IndexError:
+                continue
+            if not name:
                 continue
 
             alias = tuple(j for i in xp2(tbody, title="別名") for j in _split_name(i.text_content()))
