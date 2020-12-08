@@ -156,12 +156,12 @@ class Scraper:
 class StudioMatcher(Scraper):
 
     uncensored_only = True
-    regex = r"(?P<studio>(?P<s1>{m}{d}{y}|{y}{m}{d}){tail})".format_map(
+    regex = r"(?P<studio>(?P<s1>{m}{d}{y}|(?P<symd>{y}{m}{d})){tail})".format_map(
         {
             "y": r"[0-2][0-9]",
             "m": r"(?:1[0-2]|0[1-9])",
             "d": r"(?:3[01]|[12][0-9]|0[1-9])",
-            "tail": r"-(?P<s2>[0-9]{2,5})(?:-(?P<s3>[0-9]{1,3}))?",
+            "tail": r"-(?P<s2>[0-9]{2,4})(?:-(?P<s3>[0-9]{1,3}))?",
         }
     )
     studio_re = re_compile(
@@ -213,6 +213,10 @@ class StudioMatcher(Scraper):
                 if match["s3"]:
                     keyword = match.group("s1", "s2", "s3")
                 self.datefmt = "%y%m%d"
+
+        elif match["s3"] and match["symd"]:
+            keyword = match.group("s1", "s2", "s3")
+            self.datefmt = "%y%m%d"
 
         self.keyword = c.join(keyword)
 
