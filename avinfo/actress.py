@@ -409,7 +409,7 @@ class Actress:
             if all_visited(nameDict):
                 pool = unvisited
             else:
-                pool = filter(nameDict.get, unvisited)
+                pool = filter(unvisited.get, nameDict)
 
             keyword = max(pool, key=unvisited.get)
             visited[keyword] = unvisited.pop(keyword)
