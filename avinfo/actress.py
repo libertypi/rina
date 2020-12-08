@@ -71,10 +71,7 @@ class Wikipedia(Wiki):
     def _query(cls, keyword: str):
 
         tree = get_response_tree(cls.baseurl + keyword, decoder="lxml")[1]
-        try:
-            if not xpath('//a[@title="AV女優" and contains(text(),"AV女優")]')(tree):
-                return
-        except TypeError:
+        if tree is None or not xpath('//a[@title="AV女優" and contains(text(),"AV女優")]')(tree):
             return
 
         name = tree.findtext('.//*[@id="firstHeading"]')
@@ -138,16 +135,15 @@ class MinnanoAV(Wiki):
         """Return if there's only one match."""
 
         links = xpath(
-            '//section[@id="main-area"]//table[contains(@class,"actress")]//td[not(contains(., "重複"))]/h2/a[@href]'
+            '//section[@id = "main-area"]//table[contains(@class, "actress")]'
+            '//td[not(contains(., "重複"))]/h2/a[@href]'
         )(tree)
         if not links:
             return
 
-        nameMask = _get_namemask(keyword)
-
         result = None
         for a in links:
-            if nameMask(_clean_name(a.text)):
+            if _match_name(keyword, a.text):
                 href = a.get("href").partition("?")[0]
                 if not result:
                     result = href
@@ -172,7 +168,6 @@ class AVRevolution(Wiki):
             return
 
         title_seen = result = None
-        namemask = _get_namemask(keyword)
         xp = xpath('div[3]/div/text()[not(contains(., "別名無"))]')
 
         for row in tree:
@@ -190,7 +185,7 @@ class AVRevolution(Wiki):
 
             alias = xp(row)
             alias.append(title)
-            if any(namemask(_clean_name(i)) for i in alias):
+            if _match_name(keyword, *alias):
                 title_seen = title
                 result = SearchResult(name=name, alias=alias)
 
@@ -202,26 +197,28 @@ class Seesaawiki(Wiki):
     baseurl = "https://seesaawiki.jp/av_neme/d/"
 
     @classmethod
-    def _query(cls, keyword: str, urls: list = None):
+    def _query(cls, keyword: str):
 
-        if not urls:
-            try:
-                urls = [cls.baseurl + urlquote(keyword, encoding="euc-jp")]
-            except UnicodeEncodeError:
-                return
-
-        tree = get_response_tree(urls[-1], decoder="euc-jp")[1]
-        if tree is None:
+        try:
+            urls = [cls.baseurl + urlquote(keyword, encoding="euc-jp")]
+        except UnicodeEncodeError:
             return
 
-        text = tree.findtext('.//*[@id="content_1"]')
-        if text and re_search(r"((女優名|名前).*?)+変更", text):
+        while True:
+            tree = get_response_tree(urls[-1], decoder="euc-jp")[1]
+            if tree is None:
+                return
+
+            text = tree.findtext('.//*[@id="content_1"]')
+            if not (text and re_search(r"((女優名|名前).*?)+変更", text)):
+                break
+
             a = tree.find('.//div[@id="content_block_1-body"]/span/a[@href]')
             if a is not None and "移動" in a.getparent().text_content():
                 url = urljoin(cls.baseurl, a.get("href"))
                 if url not in urls:
                     urls.append(url)
-                    return cls._query(keyword, urls)
+                    continue
             return
 
         name = tree.findtext('.//div[@id="page-header-inner"]/div[@class="title"]//h2')
@@ -270,8 +267,7 @@ class Msin(Wiki):
         except IndexError:
             alias = ()
 
-        namemask = _get_namemask(keyword)
-        if namemask(name) or any(namemask(_clean_name(i)) for i in alias):
+        if _match_name(keyword, name, *alias):
             try:
                 birth = date_searcher(xp(tree, title="生年月日")[0].text_content())
             except IndexError:
@@ -291,7 +287,6 @@ class Manko(Wiki):
             return
 
         result = None
-        nameMask = _get_namemask(keyword)
         xp1 = xpath('(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())[1]')
         xp2 = xpath("tr[td[1][contains(text(), $title)]]/td[2]")
 
@@ -304,7 +299,7 @@ class Manko(Wiki):
                 continue
 
             alias = tuple(j for i in xp2(tbody, title="別名") for j in _split_name(i.text_content()))
-            if nameMask(name) or any(nameMask(_clean_name(i)) for i in alias):
+            if _match_name(keyword, name, *alias):
                 if result:
                     return
                 birth = xp2(tbody, title="生年月日")
@@ -325,12 +320,11 @@ class Etigoya(Wiki):
         tree = get_response_tree(cls.baseurl, params={"q": keyword})[1]
         if tree is None:
             return
-        nameMask = _get_namemask(keyword)
 
         result = None
         for text in xpath('//div[@id="main"]/div[@class="content"]//li/a/text()[contains(., "＝")]')(tree):
             alias = text.split("＝")
-            if any(nameMask(_clean_name(i)) for i in alias):
+            if _match_name(keyword, *alias):
                 if result:
                     return
                 result = SearchResult(alias=alias)
@@ -503,18 +497,17 @@ class ActressFolder(Actress):
         return self._status == 0b111
 
 
-@lru_cache(128)
-def _get_namemask(keyword: str):
-    return re_compile(r"\b\s*{}\s*\b".format(r"\s*".join(keyword))).fullmatch
-
-
 def _split_name(string: str):
     return re_split(r"\s*[\n、/／●・,＝=]\s*", string)
 
 
+def _match_name(keyword: str, *names: str):
+    return any(_clean_name(s) == keyword for s in names)
+
+
 @lru_cache(512)
 def _clean_name(string: str) -> str:
-    for string in re_split(r"[【「『｛（《\[(].*?[】」』｝）》\])]", re_sub(r"\d+歳|[\s 　]+", "", string)):
+    for string in re_split(r"[【「『｛（《\[(].*?[】」』｝）》\])]", re_sub(r"\d+歳|[\s 　]+", "", string)):
         string = re_sub(r"[【「『｛（《\[(].*|.*?[】」』｝）》\])]", "", string)
         if is_cjk_name(string):
             return string
