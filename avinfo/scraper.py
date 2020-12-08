@@ -506,6 +506,7 @@ class UncensoredMatcher(Scraper):
         r"(kin8(?:tengoku)?|xxx[\s-]?av|[a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s-]*([0-9]{2,6})",
         r"(mkbd|bd)[\s-]?([sm]?[0-9]{2,4})",
         r"(th101)[\s-]([0-9]{3})[\s-]([0-9]{6})",
+        r"([12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))[\s-]?([a-z]{3,8})(?:-([a-z]{3,6}))?",
     )
 
     def __init__(self, string: str, match: re.Match) -> None:
@@ -515,19 +516,11 @@ class UncensoredMatcher(Scraper):
 
 class PatternSearcher(Scraper):
 
-    regex = (
-        r"[0-9]{,3}(?P<p1>[a-z]{2,8})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,6}|[0-9]{2,6}))(?:hhb[0-9]?)?",
-        r"(?P<kg1>[12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))[\s-]?(?P<kg2>[a-z]{3,8})(?:-(?P<kg3>[a-z]{3,6}))?",
-    )
+    regex = r"[0-9]{,3}(?P<p1>[a-z]{2,8})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,6}|[0-9]{2,6}))(?:hhb[0-9]?)?"
 
     def __init__(self, string: str, match: re.Match) -> None:
         super().__init__(string, match)
-        if match["p1"]:
-            self.keyword = match.expand(r"\g<p1>-\g<p2>")
-        elif match["kg3"]:
-            self.keyword = match.expand(r"\g<kg1>-\g<kg2>_\g<kg3>")
-        else:
-            self.keyword = match.expand(r"\g<kg1>-\g<kg2>")
+        self.keyword = match.expand(r"\g<p1>-\g<p2>")
 
 
 class DateSearcher:

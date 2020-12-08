@@ -36,6 +36,10 @@ class Scraper(unittest.TestCase):
             ("bouga012 [cd2]", ("bouga012-2", "忘我素人パイパンおさな妻浣腸2穴依頼調教", 1496275200.0, "javbus.com", "javbus.com")),
             ("120618_394", ("120618_394", "尾上若葉の全て", 1544054400.0, "javbus.com", "product id")),
             ("120313_001 人 3", ("120313-001", "麻倉憂未公開映像 尻コキ編", 1386028800.0, "javbus.com", "product id")),
+            (
+                "150605-KURUMI_KUMI",
+                ("150605-KURUMI_KUMI", "レズフェティシズム 〜ドレス姿の美麗レズカップルがイチャイチャ〜", 1433462400.0, "javbus.com", "javbus.com"),
+            ),
         )
         self._run_test(values)
 
