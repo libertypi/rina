@@ -116,8 +116,6 @@ class MinnanoAV(Wiki):
         tree = tree.find('.//section[@id="main-area"]')
         try:
             name = _clean_name(tree.findtext("section/h1"))
-            if not name:
-                return
         except (AttributeError, TypeError):
             return
 
@@ -140,8 +138,6 @@ class MinnanoAV(Wiki):
             '//section[@id = "main-area"]//table[contains(@class, "actress")]'
             '//td[not(contains(., "重複"))]/h2/a[@href]'
         )(tree)
-        if not links:
-            return
 
         result = None
         for a in links:
@@ -254,34 +250,60 @@ class Msin(Wiki):
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_response_tree(cls.baseurl, params={"str": keyword})[1]
+        response, tree = get_response_tree(cls.baseurl, params={"str": keyword})
+        if tree is None:
+            return
+
+        if "/actress?str=" in response.url:
+            return cls._scan_search_page(keyword, tree)
+
+        tree = tree.find('.//div[@id="content"]/div[@id="actress_view"]//div[@class="act_ditail"]')
         try:
-            tree = tree.find('.//div[@id="content"]/div[@id="actress_view"]//div[@class="act_ditail"]')
-            if tree is None:
-                return
             name = _clean_name(tree.findtext('.//span[@class="mv_name"]'))
-            if not name:
-                return
         except (AttributeError, TypeError):
             return
 
         xp = xpath("div[contains(text(), $title)]/following-sibling::span[//text()][1]")
-        try:
-            alias = _split_name(xp(tree, title="別名")[0].text_content())
-        except IndexError:
-            alias = ()
+        alias = xp(tree, title="別名")
+        if alias:
+            alias = _split_name(alias[0].text_content())
 
         if _match_name(keyword, name, *alias):
-            try:
-                birth = date_searcher(xp(tree, title="生年月日")[0].text_content())
-            except IndexError:
-                birth = None
-            return SearchResult(name=name, birth=birth, alias=alias)
+            birth = xp(tree, title="生年月日")
+            return SearchResult(
+                name=name,
+                birth=date_searcher(birth[0].text_content()) if birth else None,
+                alias=alias,
+            )
+
+    @staticmethod
+    def _scan_search_page(keyword: str, tree):
+
+        result = None
+        for div in tree.iterfind('.//div[@id="content"]//div[@class="actress_info_find"]/div[@class="act_ditail"]'):
+            name = div.findtext('div[@class="act_name"]/a')
+            if not name:
+                continue
+
+            alias = div.findtext('div[@class="act_anotherName"]')
+            alias = _split_name(alias) if alias else ()
+
+            if _match_name(keyword, name, *alias):
+                if result:
+                    return
+
+                birth = div.findtext('div[@class="act_barth"]')
+                result = SearchResult(
+                    name=name,
+                    birth=date_searcher(birth) if birth else None,
+                    alias=alias,
+                )
+        return result
 
 
 class Manko(Wiki):
 
-    baseurl = "http://mankowomiseruavzyoyu.blog.fc2.com"
+    baseurl = "http://mankowomiseruavzyoyu.blog.fc2.com/"
 
     @classmethod
     def _query(cls, keyword: str):
@@ -316,7 +338,7 @@ class Manko(Wiki):
 
 class Etigoya(Wiki):
 
-    baseurl = "http://etigoya955.blog49.fc2.com"
+    baseurl = "http://etigoya955.blog49.fc2.com/"
 
     @classmethod
     def _query(cls, keyword: str):
