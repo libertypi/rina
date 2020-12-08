@@ -164,7 +164,7 @@ class StudioMatcher(Scraper):
             "tail": r"-(?P<s2>[0-9]{2,5})(?:-(?P<s3>[0-9]{1,3}))?",
         }
     )
-    studio_list = re_compile(
+    studio_re = re_compile(
         r"""\b(?:
         (carib)(?:bean|com)*    # 112220-001-carib
         (pr)?|                  # 101515_391-caribpr
@@ -176,7 +176,6 @@ class StudioMatcher(Scraper):
         )\b""",
         flags=re.VERBOSE,
     ).search
-    studio_list = (studio_list, "carib", "caribpr", "1pon", "10mu", "paco", "mura", "mesubuta")
     datefmt = "%m%d%y"
 
     def __init__(self, string: str, match: re.Match) -> None:
@@ -186,15 +185,16 @@ class StudioMatcher(Scraper):
         c = "_"
         keyword = match.group("s1", "s2")
 
-        m = self.studio_match = self.studio_list[0](string)
+        m = self.studio_match = self.studio_re(string)
         if m:
-            s = self.studio = self.studio_list[m.lastindex]
+            s = self.studio = m[m.lastindex]
             if s == "carib":
                 c = "-"
                 self._query = self._carib
                 self.source = "caribbeancom.com"
                 self.url = "https://www.caribbeancom.com"
-            elif s == "caribpr":
+            elif s == "pr":
+                self.studio = "caribpr"
                 self._query = self._carib
                 self.source = "caribbeancompr.com"
                 self.url = "https://www.caribbeancompr.com"

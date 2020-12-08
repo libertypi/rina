@@ -179,8 +179,8 @@ class Scraper(unittest.TestCase):
         values = (
             ("Devon Ray Milf Teen Cum Swap 28Jul2015 1080p", (None, None, 1438041600.0, None, "file name")),
             ("welivetogether.15.08.20.abigail.mac.and.daisy.summers", (None, None, 1440028800, None, "file name")),
-            ("welivetogether 23-jun 2014 test", (None, None, 1403481600, None, "file name")),
-            ("welivetogether dec 23.2014 test", (None, None, 1419292800, None, "file name")),
+            ("welivetogether 23-jun 2014 test", None),
+            ("welivetogether dec.23.2014 test", (None, None, 1419292800, None, "file name")),
             ("deeper.20.03.14.rae.lil.black", (None, None, 1584144000, None, "file name")),
         )
         self._run_test(values)
