@@ -25,6 +25,7 @@ _subspace = re_compile(r"\s+").sub
 
 @dataclass
 class ScrapeResult:
+    source: str
     productId: str = None
     title: str = None
     publishDate: float = None
@@ -35,14 +36,15 @@ class ScrapeResult:
 class Scraper:
     """Base class for scrapers."""
 
+    __slots__ = ("string", "match", "keyword", "_mask")
+    regex: str
     keyword: str
-    source: str
     uncensored_only: bool = False
-    _mask = None
 
     def __init__(self, string: str, match: re.Match) -> None:
         self.string = string
         self.match = match
+        self._mask = None
 
     def search(self):
 
@@ -57,14 +59,14 @@ class Scraper:
             return
         if productId and title:
             result.title = title
-            result.titleSource = self.source
+            result.titleSource = result.source
         else:
             return
 
         result.productId = self._process_product_id(productId)
 
         if result.publishDate:
-            result.dateSource = self.source
+            result.dateSource = result.source
 
         return result
 
@@ -89,11 +91,11 @@ class Scraper:
                     if title.startswith("【"):
                         title = re_sub(r"^【(お得|特価)】\s*", "", title)
 
-                    self.source = "javbus.com"
                     return ScrapeResult(
                         productId=productId,
                         title=title,
                         publishDate=text_to_epoch(span.findtext("date[2]")),
+                        source="javbus.com",
                     )
 
     def _javdb(self):
@@ -122,11 +124,12 @@ class Scraper:
             productId = a.findtext('div[@class="uid"]')
             if productId and mask(productId):
                 title = a.findtext('div[@class="video-title"]')
-                self.source = "javdb.com"
+
                 return ScrapeResult(
                     productId=productId,
                     title=title,
                     publishDate=text_to_epoch(a.findtext('div[@class="meta"]')),
+                    source="javdb.com",
                 )
 
     def _get_keyword_mask(self):
@@ -154,7 +157,7 @@ class Scraper:
 class StudioMatcher(Scraper):
 
     uncensored_only = True
-    regex = r"(?P<studio>(?P<s1>{m}{d}{y}|(?P<symd>{y}{m}{d})){tail})".format_map(
+    regex = r"(?P<studio>(?P<s1>{m}{d}{y}|(?P<s4>{y}{m}{d})){tail})".format_map(
         {
             "y": r"[0-2][0-9]",
             "m": r"(?:1[0-2]|0[1-9])",
@@ -174,49 +177,28 @@ class StudioMatcher(Scraper):
         )\b""",
         flags=re.VERBOSE,
     ).search
-    datefmt = "%m%d%y"
+    javbus_studio = {
+        "カリビアンコム": "_carib",
+        "一本道": "_1pon",
+        "天然むすめ": "_10mu",
+        "パコパコママ": "_paco",
+        "muramura": "_mura",
+        "メス豚": "_mesubuta",
+    }
+
+    datefmt: str = "%m%d%y"
+    studio: str = None
 
     def __init__(self, string: str, match: re.Match) -> None:
 
         super().__init__(string, match)
-
-        c = "_"
-        keyword = match.group("s1", "s2")
+        self.keyword = "_".join(match.group("s1", "s2"))
 
         m = self.studio_match = self.studio_re(string)
         if m:
-            s = self.studio = m[m.lastindex]
-            if s == "carib":
-                c = "-"
-                self._query = self._carib
-                self.source = "caribbeancom.com"
-                self.url = "https://www.caribbeancom.com"
-            elif s == "pr":
-                self.studio = "caribpr"
-                self._query = self._carib
-                self.source = "caribbeancompr.com"
-                self.url = "https://www.caribbeancompr.com"
-            elif s == "1pon":
-                self._query = self._1pon_10mu
-                self.source = "1pondo.tv"
-                self.url = "https://www.1pondo.tv"
-            elif s == "10mu":
-                self._query = self._1pon_10mu
-                self.source = "10musume.com"
-                self.url = "https://www.10musume.com"
-            elif s == "paco":
-                self._query = self._paco
-                self.source = "pacopacomama.com"
-            elif s == "mesubuta":
-                if match["s3"]:
-                    keyword = match.group("s1", "s2", "s3")
-                self.datefmt = "%y%m%d"
-
-        elif match["s3"] and match["symd"]:
-            keyword = match.group("s1", "s2", "s3")
-            self.datefmt = "%y%m%d"
-
-        self.keyword = c.join(keyword)
+            self._query = getattr(self, "_" + m[m.lastindex])
+        elif match["s3"] and match["s4"]:
+            self._query = self._mesubuta
 
     def search(self):
         result = super().search()
@@ -230,22 +212,60 @@ class StudioMatcher(Scraper):
                 result.dateSource = "product id"
         return result
 
-    def _javbus(self):
-        result = super()._javbus()
+    def _query(self):
 
-        if not result and not self.studio_match:
-            keyword = self.keyword
-            self.keyword = keyword.replace("_", "-")
+        tree = get_tree(f"https://www.javbus.com/{self.keyword}", decoder="lxml")
 
-            result = super()._javbus()
-            if not result:
-                self.keyword = keyword
+        if tree is None:
+            keyword = self.keyword.replace("_", "-")
+            tree = get_tree(f"https://www.javbus.com/{keyword}", decoder="lxml")
+            if tree is None:
+                return
+            self.keyword = keyword
 
-        return result
+        tree = tree.find('.//div[@class="container"]')
+        try:
+            title = tree.findtext("h3").strip()
+        except AttributeError:
+            return
 
-    def _carib(self):
+        productId = date = studio = None
+        func = lambda p: _subspace("", p.text_content().partition(":")[2])
+        for p in xpath('//div[contains(@class,"movie")]/div[contains(@class,"info")]/p[span/text()]')(tree):
+            k = p.findtext("span")
+            if "識別碼" in k:
+                productId = func(p)
+            elif "日期" in k:
+                date = func(p)
+            elif "製作商" in k:
+                studio = func(p)
+                break
 
-        tree = get_tree(f"{self.url}/moviepages/{self.keyword}/", decoder="euc-jp")
+        if studio in self.javbus_studio:
+            result = getattr(self, self.javbus_studio[studio])()
+            if result:
+                return result
+
+        if title and productId:
+            if title.startswith(productId):
+                title = title[len(productId) :]
+
+            return ScrapeResult(
+                productId=productId,
+                title=title,
+                publishDate=text_to_epoch(date),
+                source="javbus.com",
+            )
+
+    def _carib(self, url: str = None, source: str = None):
+
+        if not url:
+            self.studio = "carib"
+            self.keyword = self.keyword.replace("_", "-")
+            source = "caribbeancom.com"
+            url = "https://www.caribbeancom.com"
+
+        tree = get_tree(f"{url}/moviepages/{self.keyword}/", decoder="euc-jp")
         try:
             tree = tree.find('.//div[@id="moviepages"]')
             title = tree.findtext('.//div[@class="heading"]/h1')
@@ -258,26 +278,50 @@ class StudioMatcher(Scraper):
                 '/span[contains(text(), "配信日") or contains(text(), "販売日")]'
                 "/following-sibling::span/text()"
             )(tree)
+
             return ScrapeResult(
                 productId=self.keyword,
                 title=title,
                 publishDate=text_to_epoch(date[0]) if date else None,
+                source=source,
             )
 
-    def _1pon_10mu(self):
+    def _pr(self):
+        self.studio = "caribpr"
+        return self._carib(
+            url="https://www.caribbeancompr.com",
+            source="caribbeancompr.com",
+        )
+
+    def _1pon(self, url: str = None, source: str = None):
+
+        if not url:
+            self.studio = "1pon"
+            url = "https://www.1pondo.tv"
+            source = "1pondo.tv"
+
         try:
-            json = session.get(f"{self.url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
+            json = session.get(f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
             if json.ok:
                 json = json.json()
                 return ScrapeResult(
                     productId=json["MovieID"],
                     title=json["Title"],
                     publishDate=text_to_epoch(json["Release"]),
+                    source=source,
                 )
         except (common.RequestException, ValueError, KeyError):
             pass
 
+    def _10mu(self):
+        self.studio = "10mu"
+        return self._1pon(
+            url="https://www.10musume.com",
+            source="10musume.com",
+        )
+
     def _paco(self):
+        self.studio = "paco"
 
         tree = get_tree(f"https://www.pacopacomama.com/moviepages/{self.keyword}/")
         try:
@@ -292,16 +336,31 @@ class StudioMatcher(Scraper):
                 productId=self.keyword,
                 title=title,
                 publishDate=text_to_epoch(date),
+                source="pacopacomama.com",
             )
+
+    def _mura(self):
+        self.studio = "mura"
+
+    def _mesubuta(self):
+        self.studio = "mesubuta"
+        self.datefmt = "%y%m%d"
+        if self.match["s3"]:
+            self.keyword = "_".join(self.match.group("s1", "s2", "s3"))
 
     def _process_product_id(self, productId: str):
 
-        if not self.studio_match:
+        if not self.studio:
             return productId
 
         result = f"{self.keyword}-{self.studio}"
 
-        i = max(self.match.end(), self.studio_match.end())
+        i = self.match.end()
+        if self.studio_match:
+            j = self.studio_match.end()
+            if j > i:
+                i = j
+
         other = re_search(
             r"^\s?(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+",
             re_sub(r"[\s()\[\].-]+", " ", self.string[i:]),
@@ -316,6 +375,7 @@ class StudioMatcher(Scraper):
 
 class Heyzo(Scraper):
 
+    __slots__ = Scraper.__slots__
     uncensored_only = True
     source = "heyzo.com"
     regex = r"heyzo[^0-9]*(?P<heyzo>[0-9]{4})"
@@ -340,11 +400,13 @@ class Heyzo(Scraper):
             productId=self.keyword,
             title=title,
             publishDate=date,
+            source=self.source,
         )
 
 
 class FC2(Scraper):
 
+    __slots__ = Scraper.__slots__
     source = "fc2.com"
     regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{2,10})"
 
@@ -383,11 +445,13 @@ class FC2(Scraper):
             productId=self.keyword,
             title=title,
             publishDate=date,
+            source=self.source,
         )
 
 
 class Heydouga(Scraper):
 
+    __slots__ = Scraper.__slots__
     uncensored_only = True
     source = "heydouga.com"
     regex = (
@@ -416,11 +480,13 @@ class Heydouga(Scraper):
             productId=self.keyword,
             title=title,
             publishDate=text_to_epoch(date[0]) if date else None,
+            source=self.source,
         )
 
 
 class X1X(Scraper):
 
+    __slots__ = Scraper.__slots__
     uncensored_only = True
     source = "x1x.com"
     regex = r"x1x[\s-]+(?P<x1x>[0-9]{6})"
@@ -445,11 +511,13 @@ class X1X(Scraper):
                 productId=self.keyword,
                 title=title,
                 publishDate=text_to_epoch(date[0]) if date else None,
+                source=self.source,
             )
 
 
 class SM_Miracle(Scraper):
 
+    __slots__ = Scraper.__slots__
     uncensored_only = True
     source = "sm-miracle.com"
     regex = r"sm[\s-]*miracle(?:[\s-]+no)?[\s.-]+e?(?P<sm>[0-9]{4})"
@@ -468,6 +536,7 @@ class SM_Miracle(Scraper):
             return ScrapeResult(
                 productId=f"sm-miracle-{self.keyword}",
                 title=re_search(r'(?<=[\n,])\s*title:\W*([^\n\'"]+)', response.text)[1],
+                source=self.source,
             )
         except TypeError:
             pass
@@ -475,6 +544,7 @@ class SM_Miracle(Scraper):
 
 class H4610(Scraper):
 
+    __slots__ = Scraper.__slots__
     uncensored_only = True
     regex = r"(?P<h41>h4610|[ch]0930)\W+(?P<h4610>[a-z]+[0-9]+)"
 
@@ -482,10 +552,9 @@ class H4610(Scraper):
 
         m1, m2 = self.match.group("h41", "h4610")
         self.keyword = f"{m1}-{m2}"
-        self.source = f"{m1}.com"
 
         tree = get_tree(f"https://www.{m1}.com/moviepages/{m2}/")
-        if not tree:
+        if tree is None:
             return
 
         title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
@@ -497,11 +566,13 @@ class H4610(Scraper):
             productId=self.keyword,
             title=title,
             publishDate=text_to_epoch(date[0]) if date else None,
+            source=f"{m1}.com",
         )
 
 
 class UncensoredMatcher(Scraper):
 
+    __slots__ = Scraper.__slots__
     uncensored_only = True
     regex = (
         r"((?:n|k|kb|jpgc|shiroutozanmai|hamesamurai)[0-2][0-9]{3}|(?:bouga|ka|sr|tr|sky)[0-9]{3,4})",
@@ -510,31 +581,30 @@ class UncensoredMatcher(Scraper):
         r"(th101)[\s-]([0-9]{3})[\s-]([0-9]{6})",
     )
 
-    def __init__(self, string: str, match: re.Match) -> None:
-        super().__init__(string, match)
-        self.keyword = "-".join(filter(None, match.groups()))
+    def _query(self):
+        self.keyword = "-".join(filter(None, self.match.groups()))
 
 
 class ThousandGirl(Scraper):
 
+    __slots__ = Scraper.__slots__
     uncensored_only = True
     regex = r"(?P<kg>(?P<kg1>[12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))[\s-]?(?P<kg2>[a-z]{3,8})(?:-(?P<kg3>[a-z]{3,6}))?)"
 
-    def __init__(self, string: str, match: re.Match) -> None:
-        super().__init__(string, match)
-        if match["kg3"]:
-            self.keyword = match.expand(r"\g<kg1>-\g<kg2>_\g<kg3>")
+    def _query(self):
+        if self.match["kg3"]:
+            self.keyword = self.match.expand(r"\g<kg1>-\g<kg2>_\g<kg3>")
         else:
-            self.keyword = match.expand(r"\g<kg1>-\g<kg2>")
+            self.keyword = self.match.expand(r"\g<kg1>-\g<kg2>")
 
 
 class PatternSearcher(Scraper):
 
+    __slots__ = Scraper.__slots__
     regex = r"[0-9]{,3}(?P<p1>[a-z]{2,8})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,6}|[0-9]{2,6}))(?:hhb[0-9]?)?"
 
-    def __init__(self, string: str, match: re.Match) -> None:
-        super().__init__(string, match)
-        self.keyword = match.expand(r"\g<p1>-\g<p2>")
+    def _query(self):
+        self.keyword = self.match.expand(r"\g<p1>-\g<p2>")
 
 
 class DateSearcher:
@@ -584,6 +654,7 @@ class DateSearcher:
                 regex=None,
             ),
             dateSource=cls.source,
+            source=None,
         )
 
 
@@ -642,6 +713,10 @@ _clean_re = re_compile(
 
 
 def from_string(string: str):
+    """Scrape information from a string.
+
+    Returns: ScrapeResult.
+    """
 
     string = _clean_re(" ", string.lower()).replace("_", "-")
 
