@@ -12,7 +12,7 @@ from avinfo import common
 from avinfo.common import (
     color_printer,
     date_searcher,
-    get_response_tree,
+    get_tree,
     re_compile,
     re_search,
     re_split,
@@ -71,7 +71,7 @@ class Wikipedia(Wiki):
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_response_tree(cls.baseurl + keyword, decoder="lxml")[1]
+        tree = get_tree(cls.baseurl + keyword, decoder="lxml")
         if tree is None or not xpath('//a[@title="AV女優" and contains(text(),"AV女優")]')(tree):
             return
 
@@ -96,20 +96,20 @@ class Wikipedia(Wiki):
 
 class MinnanoAV(Wiki):
 
-    baseurl = "http://www.minnano-av.com/"
+    baseurl = "http://www.minnano-av.com/search_result.php"
 
     @classmethod
     def _query(cls, keyword: str):
 
-        response, tree = get_response_tree(
-            cls.baseurl + "search_result.php",
+        tree = get_tree(
+            cls.baseurl,
             params={"search_scope": "actress", "search_word": keyword},
             decoder="lxml",
         )
         if tree is None:
             return
 
-        if "/search_result.php" in response.url:
+        if "/search_result.php" in tree.base_url:
             tree = cls._scan_search_page(keyword, tree)
             if tree is None:
                 return
@@ -131,8 +131,8 @@ class MinnanoAV(Wiki):
 
         return SearchResult(name=name, birth=birth, alias=alias)
 
-    @classmethod
-    def _scan_search_page(cls, keyword: str, tree):
+    @staticmethod
+    def _scan_search_page(keyword: str, tree):
         """Return if there's only one match."""
 
         links = xpath(
@@ -150,7 +150,7 @@ class MinnanoAV(Wiki):
                     return
 
         if result:
-            return get_response_tree(urljoin(cls.baseurl, result))[1]
+            return get_tree(urljoin(tree.base_url, result))
 
 
 class AVRevolution(Wiki):
@@ -160,7 +160,7 @@ class AVRevolution(Wiki):
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_response_tree(cls.baseurl, params={"q": keyword}, decoder="lxml")[1]
+        tree = get_tree(cls.baseurl, params={"q": keyword}, decoder="lxml")
         try:
             tree = xpath('//div[@class="container"]/div[contains(@class, "row") and @style and div[1]/a]')(tree)
         except TypeError:
@@ -204,7 +204,7 @@ class Seesaawiki(Wiki):
             return
 
         while True:
-            tree = get_response_tree(urls[-1], decoder="euc-jp")[1]
+            tree = get_tree(urls[-1], decoder="euc-jp")
             if tree is None:
                 return
 
@@ -214,7 +214,7 @@ class Seesaawiki(Wiki):
 
             a = tree.find('.//div[@id="content_block_1-body"]/span/a[@href]')
             if a is not None and "移動" in a.getparent().text_content():
-                url = urljoin(cls.baseurl, a.get("href"))
+                url = urljoin(tree.base_url, a.get("href"))
                 if url not in urls:
                     urls.append(url)
                     continue
@@ -251,11 +251,11 @@ class Msin(Wiki):
     @classmethod
     def _query(cls, keyword: str):
 
-        response, tree = get_response_tree(cls.baseurl, params={"str": keyword})
+        tree = get_tree(cls.baseurl, params={"str": keyword})
         if tree is None:
             return
 
-        if "/actress?str=" in response.url:
+        if "/actress?str=" in tree.base_url:
             return cls._scan_search_page(keyword, tree)
 
         tree = tree.find('.//div[@id="content"]/div[@id="actress_view"]//div[@class="act_ditail"]')
@@ -309,7 +309,7 @@ class Manko(Wiki):
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_response_tree(cls.baseurl, params={"q": keyword}, decoder="lxml")[1]
+        tree = get_tree(cls.baseurl, params={"q": keyword}, decoder="lxml")
         if tree is None:
             return
 
@@ -346,7 +346,7 @@ class Etigoya(Wiki):
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_response_tree(cls.baseurl, params={"q": keyword})[1]
+        tree = get_tree(cls.baseurl, params={"q": keyword})
         if tree is None:
             return
 

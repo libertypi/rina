@@ -1,18 +1,19 @@
 import re
 from datetime import datetime, timezone
 from functools import lru_cache
-from os import scandir
+from os import scandir, stat_result
 from pathlib import Path
 from re import compile as re_compile
 from re import search as re_search
 from re import split as re_split
 from re import sub as re_sub
 from time import sleep
+from typing import Iterator, Optional, Tuple
 
 from bs4 import UnicodeDammit
 from lxml.etree import XPath
 from lxml.html import HtmlElement, fromstring
-from requests import RequestException, Session
+from requests import RequestException, Response, Session
 
 log_file = "logfile.log"
 sepWidth = 50
@@ -47,7 +48,7 @@ def _path_filter(name: str):
     return name.startswith(("#", "@", "."))
 
 
-def walk_dir(topDir: Path, filesOnly: bool = False):
+def walk_dir(topDir: Path, filesOnly: bool = False) -> Iterator[Tuple[Path, stat_result, bool]]:
     """Recursively yield 3-tuples of (path, stat, is_dir) in a bottom-top order."""
 
     with scandir(topDir) as it:
@@ -66,7 +67,7 @@ def walk_dir(topDir: Path, filesOnly: bool = False):
                 color_printer(f"Error occurred scanning {entry.path}: {e}", color="red")
 
 
-def list_dir(topDir: Path):
+def list_dir(topDir: Path) -> Iterator[Path]:
     """List dir paths under top."""
 
     with scandir(topDir) as it:
@@ -80,43 +81,39 @@ def list_dir(topDir: Path):
         yield Path(topDir)
 
 
-def get_response_tree(url, *, decoder: str = None, **kwargs):
-    """Input args to requests, output (response, tree)
+def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
+    """Downloads a page and returns lxml.html element tree.
 
-    :params: decoder: None, lxml, or any encoding code.
-    :params: bs4_hint: code for bs4 to try
+    :param url, **kwargs: url and optional arguments `requests` take
+    :param decoder: None (auto detect), lxml, or any encoding as string.
     """
     for retry in range(3):
         try:
-            response = session.get(url, **kwargs, timeout=(7, 28))
+            res = session.get(url, **kwargs, timeout=(7, 28))
+            break
         except RequestException:
             if retry == 2:
                 raise
             sleep(1)
-        else:
-            break
     else:
         raise RequestException(url)
 
-    if response.ok:
+    if res.ok:
         if not decoder:
             content = UnicodeDammit(
-                response.content,
+                res.content,
                 override_encodings=("utf-8", "euc-jp"),
                 is_html=True,
             ).unicode_markup
         elif decoder == "lxml":
-            content = response.content
+            content = res.content
         else:
-            response.encoding = decoder
-            content = response.text
-        tree: HtmlElement = fromstring(content)
-    else:
-        tree = None
-    return response, tree
+            res.encoding = decoder
+            content = res.text
+        return fromstring(content, base_url=res.url)
 
 
-def text_to_epoch(string: str):
+def text_to_epoch(string: str) -> Optional[float]:
     try:
         return str_to_epoch(date_searcher(string).expand(r"\g<y> \g<m> \g<d>"), regex=None)
     except (TypeError, AttributeError):
@@ -129,17 +126,17 @@ def str_to_epoch(string: str, fmt: str = "%Y %m %d", regex=re_compile(r"[^0-9]+"
     return datetime.strptime(string, fmt).replace(tzinfo=timezone.utc).timestamp()
 
 
-def epoch_to_str(epoch: float, fmt: str = "%F %T"):
+def epoch_to_str(epoch: float, fmt: str = "%F %T") -> Optional[str]:
     try:
         return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime(fmt)
     except TypeError:
         pass
 
 
-def now(fmt: str = "%F %T"):
+def now(fmt: str = "%F %T") -> str:
     return datetime.now().strftime(fmt)
 
 
 @lru_cache(maxsize=None)
-def xpath(xpath: str):
+def xpath(xpath: str) -> XPath:
     return XPath(xpath)

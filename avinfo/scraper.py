@@ -7,7 +7,7 @@ from requests.cookies import create_cookie
 
 from avinfo import common
 from avinfo.common import (
-    get_response_tree,
+    get_tree,
     re_compile,
     re_search,
     re_sub,
@@ -77,7 +77,7 @@ class Scraper:
         mask = self._get_keyword_mask()
 
         for base in ("uncensored/",) if self.uncensored_only else ("uncensored/", ""):
-            tree = get_response_tree(f"https://www.javbus.com/{base}search/{self.keyword}", decoder="lxml")[1]
+            tree = get_tree(f"https://www.javbus.com/{base}search/{self.keyword}", decoder="lxml")
             if tree is None:
                 continue
 
@@ -102,7 +102,7 @@ class Scraper:
             base = random_choice(Scraper._javdb_url)
         except AttributeError:
             base = "https://javdb.com/search"
-            response, tree = get_response_tree(base, params={"q": self.keyword})
+            tree = get_tree(base, params={"q": self.keyword})
             if tree is None:
                 return
 
@@ -113,8 +113,8 @@ class Scraper:
             )
             Scraper._javdb_url = tuple(pool)
         else:
-            response, tree = get_response_tree(base, params={"q": self.keyword})
-            if "/search" not in response.url or tree is None:
+            tree = get_tree(base, params={"q": self.keyword})
+            if tree is None or "/search" not in tree.base_url:
                 return
 
         mask = self._get_keyword_mask()
@@ -130,14 +130,12 @@ class Scraper:
                 )
 
     def _get_keyword_mask(self):
-
-        mask = self._mask
-        if not mask:
-            mask = self._mask = re_compile(
+        if not self._mask:
+            self._mask = re_compile(
                 r"\s*{}\s*".format(re_sub(r"[\s_-]", r"[\\s_-]?", self.keyword)),
                 flags=re.IGNORECASE,
             ).fullmatch
-        return mask
+        return self._mask
 
     def _process_product_id(self, productId: str):
 
@@ -247,7 +245,7 @@ class StudioMatcher(Scraper):
 
     def _carib(self):
 
-        tree = get_response_tree(f"{self.url}/moviepages/{self.keyword}/", decoder="euc-jp")[1]
+        tree = get_tree(f"{self.url}/moviepages/{self.keyword}/", decoder="euc-jp")
         try:
             tree = tree.find('.//div[@id="moviepages"]')
             title = tree.findtext('.//div[@class="heading"]/h1')
@@ -281,7 +279,7 @@ class StudioMatcher(Scraper):
 
     def _paco(self):
 
-        tree = get_response_tree(f"https://www.pacopacomama.com/moviepages/{self.keyword}/")[1]
+        tree = get_tree(f"https://www.pacopacomama.com/moviepages/{self.keyword}/")
         try:
             tree = tree.find('.//div[@id="main"]')
             title = tree.findtext("h1")
@@ -326,7 +324,7 @@ class Heyzo(Scraper):
         uid = self.match["heyzo"]
         self.keyword = f"HEYZO-{uid}"
 
-        tree = get_response_tree(f"https://www.heyzo.com/moviepages/{uid}/", decoder="lxml")[1]
+        tree = get_tree(f"https://www.heyzo.com/moviepages/{uid}/", decoder="lxml")
         try:
             title = tree.findtext('.//div[@id="wrapper"]//div[@id="movie"]/h1')
             if not title:
@@ -357,7 +355,7 @@ class FC2(Scraper):
 
         title = date = None
 
-        tree = get_response_tree(f"https://adult.contents.fc2.com/article/{uid}/")[1]
+        tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
         try:
             tree = tree.find('.//section[@id="top"]//section[@class="items_article_header"]')
             title = tree.findtext('.//div[@class="items_article_headerInfo"]/h3')
@@ -369,7 +367,7 @@ class FC2(Scraper):
             date = text_to_epoch(date)
 
         else:
-            tree = get_response_tree(f"http://video.fc2.com/a/search/video/?keyword={uid}")[1]
+            tree = get_tree(f"http://video.fc2.com/a/search/video/?keyword={uid}")
             try:
                 tree = tree.find('.//div[@id="pjx-search"]//ul/li[1]//a[@title]')
                 title = tree.text
@@ -407,7 +405,7 @@ class Heydouga(Scraper):
             self.keyword = f"honnamatv-{m['honnamatv']}"
             url = f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{m['honnamatv']}/"
 
-        tree = get_response_tree(url, decoder="utf-8")[1]
+        tree = get_tree(url, decoder="utf-8")
         try:
             title = tree.findtext(".//title").rpartition(" - ")[0]
         except AttributeError:
@@ -432,7 +430,7 @@ class X1X(Scraper):
         uid = self.match["x1x"]
         self.keyword = f"x1x-{uid}"
 
-        tree = get_response_tree(f"http://www.x1x.com/title/{uid}")[1]
+        tree = get_tree(f"http://www.x1x.com/title/{uid}")
         try:
             title = tree.findtext(".//title")
         except AttributeError:
@@ -486,12 +484,12 @@ class H4610(Scraper):
         self.keyword = f"{m1}-{m2}"
         self.source = f"{m1}.com"
 
-        tree = get_response_tree(f"https://www.{m1}.com/moviepages/{m2}/")[1]
-        try:
-            title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
-            if not title:
-                return
-        except AttributeError:
+        tree = get_tree(f"https://www.{m1}.com/moviepages/{m2}/")
+        if not tree:
+            return
+
+        title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
+        if not title:
             return
 
         date = xpath('//div[@id="movieInfo"]//section//dt[contains(text(),"公開日")]/following-sibling::dd/text()')(tree)
@@ -510,12 +508,24 @@ class UncensoredMatcher(Scraper):
         r"(kin8(?:tengoku)?|xxx[\s-]?av|[a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s-]*([0-9]{2,6})",
         r"(mkbd|bd)[\s-]?([sm]?[0-9]{2,4})",
         r"(th101)[\s-]([0-9]{3})[\s-]([0-9]{6})",
-        r"([12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))[\s-]?([a-z]{3,8})(?:-([a-z]{3,6}))?",
     )
 
     def __init__(self, string: str, match: re.Match) -> None:
         super().__init__(string, match)
         self.keyword = "-".join(filter(None, match.groups()))
+
+
+class ThousandGirl(Scraper):
+
+    uncensored_only = True
+    regex = r"(?P<kg>(?P<kg1>[12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))[\s-]?(?P<kg2>[a-z]{3,8})(?:-(?P<kg3>[a-z]{3,6}))?)"
+
+    def __init__(self, string: str, match: re.Match) -> None:
+        super().__init__(string, match)
+        if match["kg3"]:
+            self.keyword = match.expand(r"\g<kg1>-\g<kg2>_\g<kg3>")
+        else:
+            self.keyword = match.expand(r"\g<kg1>-\g<kg2>")
 
 
 class PatternSearcher(Scraper):
@@ -578,25 +588,24 @@ class DateSearcher:
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
-    """Combine multiple scraper regexes to a single pattern."""
+    """Combine multiple scraper regexes to a single pattern, without duplicates."""
 
-    result = []
-    visited = set()
+    item = {}
     for scraper in args:
-        if scraper in visited:
-            continue
-        visited.add(scraper)
         if isinstance(scraper.regex, str):
-            result.append(scraper.regex)
+            item[scraper.regex] = None
         else:
-            result.extend(scraper.regex)
+            for k in scraper.regex:
+                item[k] = None
 
-    if len(result) == 1:
-        result = f"{b}{result[0]}{b}"
-    else:
-        result = f'{b}(?:{"|".join(result)}){b}'
-
+    result = "|".join(item)
     assert "_" not in result, f'"_" in regex: {result}'
+
+    if len(item) == 1:
+        result = f"{b}{result}{b}"
+    else:
+        result = f"{b}(?:{result}){b}"
+
     return re_compile(result)
 
 
@@ -610,6 +619,7 @@ _search_map = {
     "sm": SM_Miracle,
     "h4610": H4610,
     None: UncensoredMatcher,
+    "kg": ThousandGirl,
 }
 _search_re = _combine_scraper_regex(*_search_map.values()).search
 _iter_re = _combine_scraper_regex(PatternSearcher).finditer
