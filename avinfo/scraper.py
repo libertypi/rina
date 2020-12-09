@@ -185,7 +185,6 @@ class StudioMatcher(Scraper):
         "muramura": "_mura",
         "メス豚": "_mesubuta",
     }
-
     datefmt: str = "%m%d%y"
     studio: str = None
 
@@ -231,7 +230,7 @@ class StudioMatcher(Scraper):
 
         productId = date = studio = None
         func = lambda p: _subspace("", p.text_content().partition(":")[2])
-        for p in xpath('//div[contains(@class,"movie")]/div[contains(@class,"info")]/p[span/text()]')(tree):
+        for p in xpath('//div[contains(@class,"movie")]/div[contains(@class,"info")]/p[contains(span/text(),":")]')(tree):
             k = p.findtext("span")
             if "識別碼" in k:
                 productId = func(p)
