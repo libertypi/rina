@@ -1,21 +1,13 @@
 import re
 from dataclasses import dataclass
+from json import loads as json_loads
 from random import choice as random_choice
 from urllib.parse import urljoin
 
 from requests.cookies import create_cookie
 
 from avinfo import common
-from avinfo.common import (
-    get_tree,
-    re_compile,
-    re_search,
-    re_sub,
-    session,
-    str_to_epoch,
-    text_to_epoch,
-    xpath,
-)
+from avinfo.common import get_tree, re_compile, re_search, re_sub, session, str_to_epoch, text_to_epoch, xpath
 
 __all__ = "from_string"
 
@@ -111,7 +103,7 @@ class Scraper:
             pool = {base}
             pool.update(
                 urljoin(s, "search")
-                for s in tree.xpath('//nav[@class="sub-header"]/div[contains(text(), "最新域名")]//a/@href')
+                for s in tree.xpath('//nav[@class="sub-header"]/div[contains(text(),"最新域名")]//a/@href')
             )
             Scraper._javdb_url = tuple(pool)
         else:
@@ -165,26 +157,18 @@ class StudioMatcher(Scraper):
             "tail": r"-(?P<s2>[0-9]{2,4})(?:-(?P<s3>0[0-9]))?",
         }
     )
-    studio_re = re_compile(
+    studio_search = re_compile(
         r"""\b(?:
-        (carib)(?:bean|com)*    # 112220-001-carib
-        (pr)?|                  # 101515_391-caribpr
-        (1pon)(?:do)?|          # 110411_209-1pon
-        (10mu)(?:sume)?|        # 122812_01-10mu
-        (paco)(?:pacomama)?|    # 120618_394-paco
-        (mura)(?:mura)?|        # 010216_333-mura
-        (mesubuta)              # 160122_1020_01-mesubuta
+        (?P<_carib>carib(?:bean|com)*|カリビアンコム)|  # 112220-001-carib
+        (?P<_caribpr>carib(?:bean|com)*pr)|            # 101515_391-caribpr
+        (?P<_1pon>1pon(?:do)?|一本道)|                  # 110411_209-1pon
+        (?P<_10mu>10mu(?:sume)?|天然むすめ)|            # 122812_01-10mu
+        (?P<_paco>paco(?:pacomama)?|パコパコママ)|      # 120618_394-paco
+        (?P<_mura>mura)(?:mura)?|                       # 010216_333-mura
+        (?P<_mesubuta>mesubuta|メス豚)                  # 160122_1020_01-mesubuta
         )\b""",
         flags=re.VERBOSE,
     ).search
-    javbus_studio = {
-        "カリビアンコム": "_carib",
-        "一本道": "_1pon",
-        "天然むすめ": "_10mu",
-        "パコパコママ": "_paco",
-        "muramura": "_mura",
-        "メス豚": "_mesubuta",
-    }
     datefmt: str = "%m%d%y"
     studio: str = None
 
@@ -193,9 +177,9 @@ class StudioMatcher(Scraper):
         super().__init__(string, match)
         self.keyword = "_".join(match.group("s1", "s2"))
 
-        m = self.studio_match = self.studio_re(string)
+        m = self.studio_match = self.studio_search(string)
         if m:
-            self._query = getattr(self, "_" + m[m.lastindex])
+            self._query = getattr(self, m.lastgroup)
         elif match["s3"] and match["s4"]:
             self._query = self._mesubuta
 
@@ -230,18 +214,20 @@ class StudioMatcher(Scraper):
 
         productId = date = studio = None
         func = lambda p: _subspace("", p.text_content().partition(":")[2])
-        for p in xpath('//div[contains(@class,"movie")]/div[contains(@class,"info")]/p[contains(span/text(),":")]')(tree):
+        for p in xpath('//div[contains(@class,"movie")]/div[contains(@class,"info")]/p[contains(span/text(),":")]')(
+            tree
+        ):
             k = p.findtext("span")
             if "識別碼" in k:
                 productId = func(p)
             elif "日期" in k:
                 date = func(p)
             elif "製作商" in k:
-                studio = func(p)
+                studio = self.studio_search(func(p))
                 break
 
-        if studio in self.javbus_studio:
-            result = getattr(self, self.javbus_studio[studio])()
+        if studio:
+            result = getattr(self, studio.lastgroup)()
             if result:
                 return result
 
@@ -275,7 +261,7 @@ class StudioMatcher(Scraper):
             date = xpath(
                 '//li[@class="movie-spec"]'
                 '/span[contains(text(), "配信日") or contains(text(), "販売日")]'
-                "/following-sibling::span/text()"
+                '/following-sibling::span/text()[contains(., "20")]'
             )(tree)
 
             return ScrapeResult(
@@ -285,7 +271,7 @@ class StudioMatcher(Scraper):
                 source=source,
             )
 
-    def _pr(self):
+    def _caribpr(self):
         self.studio = "caribpr"
         return self._carib(
             url="https://www.caribbeancompr.com",
@@ -341,6 +327,25 @@ class StudioMatcher(Scraper):
     def _mura(self):
         self.studio = "mura"
 
+        tree = get_tree(f"https://www.muramura.tv/moviepages/{self.keyword}/")
+        if tree is None:
+            return
+
+        tree = tree.find('.//div[@id="detail-main"]')
+        try:
+            title = "".join(xpath("h1/text()")(tree))
+        except TypeError:
+            return
+
+        if title:
+            date = xpath('ul[@class="info"]/li[contains(*/text(),"更新日")]/text()[contains(.,"20")]')(tree)
+            return ScrapeResult(
+                productId=self.keyword,
+                title=title,
+                publishDate=text_to_epoch(date[0]) if date else None,
+                source="muramura.tv",
+            )
+
     def _mesubuta(self):
         self.studio = "mesubuta"
         self.datefmt = "%y%m%d"
@@ -384,23 +389,35 @@ class Heyzo(Scraper):
         self.keyword = f"HEYZO-{uid}"
 
         tree = get_tree(f"https://www.heyzo.com/moviepages/{uid}/", decoder="lxml")
+        if tree is None:
+            return
+
         try:
-            title = tree.findtext('.//div[@id="wrapper"]//div[@id="movie"]/h1')
-            if not title:
-                return
+            json = json_loads(tree.findtext('.//script[@type="application/ld+json"]'))
+            return ScrapeResult(
+                productId=self.keyword,
+                title=json["name"],
+                publishDate=text_to_epoch(json["dateCreated"]),
+                source=self.source,
+            )
+        except (TypeError, ValueError, KeyError):
+            pass
+
+        try:
+            title = tree.findtext('.//div[@id="wrapper"]//div[@id="movie"]/h1').rpartition("\t-")[0]
         except AttributeError:
             return
 
-        date = tree.find('.//div[@id="movie"]//table[@class="movieInfo"]//*[@class="table-release-day"]')
-        if date is not None:
-            date = text_to_epoch(date.text_content())
-
-        return ScrapeResult(
-            productId=self.keyword,
-            title=title,
-            publishDate=date,
-            source=self.source,
-        )
+        if title:
+            date = tree.find('.//div[@id="movie"]//table[@class="movieInfo"]//*[@class="table-release-day"]')
+            if date is not None:
+                date = text_to_epoch(date.text_content())
+            return ScrapeResult(
+                productId=self.keyword,
+                title=title,
+                publishDate=date,
+                source=self.source,
+            )
 
 
 class FC2(Scraper):
@@ -474,7 +491,10 @@ class Heydouga(Scraper):
         except AttributeError:
             return
 
-        date = xpath('//div[@id="movie-info"]//span[contains(text(),"配信日")]/following-sibling::span/text()')(tree)
+        date = xpath(
+            '//div[@id="movie-info"]//span[contains(text(), "配信日")]'
+            '/following-sibling::span/text()[contains(., "20")]'
+        )(tree)
         return ScrapeResult(
             productId=self.keyword,
             title=title,
@@ -504,7 +524,8 @@ class X1X(Scraper):
         if title:
             date = xpath(
                 '//div[@id="main_content"]//div[@class="movie_data_rt"]'
-                '//dt[contains(text(), "配信日")]/following-sibling::dd[1]/text()'
+                '//dt[contains(text(), "配信日")]'
+                '/following-sibling::dd[1]/text()[contains(., "20")]'
             )(tree)
             return ScrapeResult(
                 productId=self.keyword,
@@ -560,7 +581,10 @@ class H4610(Scraper):
         if not title:
             return
 
-        date = xpath('//div[@id="movieInfo"]//section//dt[contains(text(),"公開日")]/following-sibling::dd/text()')(tree)
+        date = xpath(
+            '//div[@id="movieInfo"]//section//dt[contains(text(), "公開日")]'
+            '/following-sibling::dd/text()[contains(., "20")]'
+        )(tree)
         return ScrapeResult(
             productId=self.keyword,
             title=title,

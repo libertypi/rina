@@ -17,7 +17,7 @@ class Scraper(unittest.TestCase):
         for string, answer in values:
             result = scraper.from_string(string)
             if result:
-                result = astuple(result)
+                result = astuple(result)[1:]
             self.assertEqual(result, answer, msg=result)
 
     def test_javbus(self):
@@ -34,8 +34,6 @@ class Scraper(unittest.TestCase):
                 ),
             ),
             ("bouga012 [cd2]", ("bouga012-2", "忘我素人パイパンおさな妻浣腸2穴依頼調教", 1496275200.0, "javbus.com", "javbus.com")),
-            ("120618_394", ("120618_394", "尾上若葉の全て", 1544054400.0, "javbus.com", "product id")),
-            ("120313_001 人 3", ("120313-001", "麻倉憂未公開映像 尻コキ編", 1386028800.0, "javbus.com", "product id")),
             (
                 "150605-KURUMI_KUMI",
                 ("150605-KURUMI_KUMI", "レズフェティシズム 〜ドレス姿の美麗レズカップルがイチャイチャ〜", 1433462400.0, "javbus.com", "javbus.com"),
@@ -78,6 +76,10 @@ class Scraper(unittest.TestCase):
                     "caribbeancompr.com",
                 ),
             ),
+            (
+                "120313_001 人 3",
+                ("120313-001-carib", "麻倉憂未公開映像 尻コキ編", 1385683200.0, "caribbeancom.com", "caribbeancom.com"),
+            ),
         )
         self._run_test(values)
 
@@ -105,15 +107,31 @@ class Scraper(unittest.TestCase):
                 "(pacopacomama) 071219-130",
                 ("071219_130-paco", "鈴木さとみの全て", 1562889600.0, "pacopacomama.com", "pacopacomama.com"),
             ),
+            ("120618_394", ("120618_394-paco", "尾上若葉の全て", 1544054400.0, "pacopacomama.com", "pacopacomama.com")),
+        )
+        self._run_test(values)
+
+    def test_mura(self):
+        values = (
+            (
+                "010216_333-mura",
+                (
+                    "010216_333-mura",
+                    "ラッキーホール新装開店!スレンダー美巨乳女優の初体験 壁の穴から突き出される顔も知らない男のイチモツをしゃぶり尽くす",
+                    1451692800.0,
+                    "muramura.tv",
+                    "muramura.tv",
+                ),
+            ),
         )
         self._run_test(values)
 
     def test_heyzo(self):
         values = (
-            ("(heyzo) 1888", ("HEYZO-1888", "Z～元芸能人の美エロボディ～ - 青山はな", 1545436800, "heyzo.com", "heyzo.com")),
+            ("(heyzo) 1888", ("HEYZO-1888", "Z～元芸能人の美エロボディ～", 1545436800.0, "heyzo.com", "heyzo.com")),
             (
                 "heyzo-0755-c",
-                ("HEYZO-0755-C", "クリスマスは二人で～ロリカワ彼女と彼氏目線でSEX～ - 小司あん", 1419465600.0, "heyzo.com", "heyzo.com"),
+                ("HEYZO-0755-C", "クリスマスは二人で～ロリカワ彼女と彼氏目線でSEX～", 1419465600.0, "heyzo.com", "heyzo.com"),
             ),
         )
         self._run_test(values)
