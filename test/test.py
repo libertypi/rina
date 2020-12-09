@@ -108,6 +108,10 @@ class Scraper(unittest.TestCase):
                 ("071219_130-paco", "鈴木さとみの全て", 1562889600.0, "pacopacomama.com", "pacopacomama.com"),
             ),
             ("120618_394", ("120618_394-paco", "尾上若葉の全て", 1544054400.0, "pacopacomama.com", "pacopacomama.com")),
+            (
+                "030417_040-paco",
+                ("030417_040-paco", "スッピン熟女 〜素顔美人の黒マンコ〜", 1488585600.0, "pacopacomama.com", "pacopacomama.com"),
+            ),
         )
         self._run_test(values)
 

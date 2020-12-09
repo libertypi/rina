@@ -150,7 +150,7 @@ class MinnanoAV(Wiki):
                     return
 
         if result:
-            return get_tree(urljoin(tree.base_url, result))
+            return get_tree(urljoin(tree.base_url, result), decoder="lxml")
 
 
 class AVRevolution(Wiki):
@@ -228,7 +228,9 @@ class Seesaawiki(Wiki):
         if box is None:
             return SearchResult(name=name)
         if box.tag == "table":
-            box = ((tr.find("th").text_content(), tr.find("td").text_content()) for tr in box.iterfind(".//tr[th][td]"))
+            box = (
+                (tr.find("th").text_content(), tr.find("td").text_content()) for tr in box.iterfind(".//tr[th][td]")
+            )
         else:
             box = (i.split("：", 1) for i in box.text.splitlines() if "：" in i)
 
@@ -346,7 +348,7 @@ class Etigoya(Wiki):
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_tree(cls.baseurl, params={"q": keyword})
+        tree = get_tree(cls.baseurl, params={"q": keyword}, decoder="lxml")
         if tree is None:
             return
 

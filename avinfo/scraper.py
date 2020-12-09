@@ -96,7 +96,7 @@ class Scraper:
             base = random_choice(Scraper._javdb_url)
         except AttributeError:
             base = "https://javdb.com/search"
-            tree = get_tree(base, params={"q": self.keyword})
+            tree = get_tree(base, params={"q": self.keyword}, decoder="utf-8")
             if tree is None:
                 return
 
@@ -107,7 +107,7 @@ class Scraper:
             )
             Scraper._javdb_url = tuple(pool)
         else:
-            tree = get_tree(base, params={"q": self.keyword})
+            tree = get_tree(base, params={"q": self.keyword}, decoder="utf-8")
             if tree is None or "/search" not in tree.base_url:
                 return
 
@@ -308,7 +308,7 @@ class StudioMatcher(Scraper):
     def _paco(self):
         self.studio = "paco"
 
-        tree = get_tree(f"https://www.pacopacomama.com/moviepages/{self.keyword}/")
+        tree = get_tree(f"https://www.pacopacomama.com/moviepages/{self.keyword}/", decoder="euc-jp")
         try:
             tree = tree.find('.//div[@id="main"]')
             title = tree.findtext("h1")
@@ -327,7 +327,7 @@ class StudioMatcher(Scraper):
     def _mura(self):
         self.studio = "mura"
 
-        tree = get_tree(f"https://www.muramura.tv/moviepages/{self.keyword}/")
+        tree = get_tree(f"https://www.muramura.tv/moviepages/{self.keyword}/", decoder="euc-jp")
         if tree is None:
             return
 
@@ -433,7 +433,7 @@ class FC2(Scraper):
 
         title = date = None
 
-        tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
+        tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/", decoder="lxml")
         try:
             tree = tree.find('.//section[@id="top"]//section[@class="items_article_header"]')
             title = tree.findtext('.//div[@class="items_article_headerInfo"]/h3')
@@ -445,7 +445,7 @@ class FC2(Scraper):
             date = text_to_epoch(date)
 
         else:
-            tree = get_tree(f"http://video.fc2.com/a/search/video/?keyword={uid}")
+            tree = get_tree(f"http://video.fc2.com/a/search/video/?keyword={uid}", decoder="lxml")
             try:
                 tree = tree.find('.//div[@id="pjx-search"]//ul/li[1]//a[@title]')
                 title = tree.text
@@ -551,11 +551,13 @@ class SM_Miracle(Scraper):
         except common.RequestException:
             return
 
-        response.encoding = "utf-8"
         try:
             return ScrapeResult(
                 productId=f"sm-miracle-{self.keyword}",
-                title=re_search(r'(?<=[\n,])\s*title:\W*([^\n\'"]+)', response.text)[1],
+                title=re_search(
+                    r'(?<=[\n,])\s*title:\W*([^\n\'"]+)',
+                    response.content.decode("utf-8"),
+                )[1],
                 source=self.source,
             )
         except TypeError:
@@ -682,7 +684,8 @@ class DateSearcher:
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
-    """Combine multiple scraper regexes to a single pattern, without duplicates."""
+    """Combine one or more scraper regexes to a single pattern, in strict order,
+    without duplicates."""
 
     item = {}
     for scraper in args:

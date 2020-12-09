@@ -25,7 +25,9 @@ sepChanged = "CHANGED".center(sepWidth, "-") + "\n"
 _colors = {"red": "\033[31m", "yellow": "\033[33m"}
 
 session = Session()
-session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"})
+session.headers.update(
+    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"}
+)
 
 date_searcher = re_compile(
     r"""(?P<y>(?:19|20)[0-9]{2})\s*
@@ -99,17 +101,17 @@ def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
         raise RequestException(url)
 
     if res.ok:
-        if not decoder:
+        if decoder == "lxml":
+            content = res.content
+        elif decoder:
+            res.encoding = decoder
+            content = res.text
+        else:
             content = UnicodeDammit(
                 res.content,
                 override_encodings=("utf-8", "euc-jp"),
                 is_html=True,
             ).unicode_markup
-        elif decoder == "lxml":
-            content = res.content
-        else:
-            res.encoding = decoder
-            content = res.text
         return fromstring(content, base_url=res.url)
 
 
