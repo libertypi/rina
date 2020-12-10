@@ -364,11 +364,10 @@ class StudioMatcher(Scraper):
 
         result = f"{self.keyword}-{self.studio}"
 
-        i = self.match.end()
-        if self.studio_match:
-            j = self.studio_match.end()
-            if j > i:
-                i = j
+        try:
+            i = max(self.studio_match.end(), self.match.end())
+        except AttributeError:
+            i = self.match.end()
 
         other = re_search(
             r"^\s?(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+",
