@@ -447,7 +447,7 @@ class FC2(Scraper):
                 title = tree.text
             except AttributeError:
                 return
-            date = re_search(r"(?<=/)20[0-9]{6}", tree.get("href"))
+            date = re_search(r"(?<=/)20[12][0-9]{5}", tree.get("href"))
             try:
                 date = str_to_epoch(date[0], "%Y%m%d")
             except (TypeError, ValueError):
