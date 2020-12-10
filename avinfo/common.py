@@ -142,4 +142,5 @@ def now(fmt: str = "%F %T") -> str:
 
 @lru_cache(maxsize=None)
 def xpath(xpath: str) -> XPath:
+    """Returns a compiled XPath."""
     return XPath(xpath)
