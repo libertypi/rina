@@ -16,12 +16,13 @@ from lxml.html import HtmlElement, fromstring
 from requests import HTTPError, RequestException, Session
 
 log_file = "logfile.log"
-sepWidth = 50
-sepBold = "=" * sepWidth
-sepSlim = "-" * sepWidth
-sepSuccess = "SUCCESS".center(sepWidth, "-") + "\n"
-sepFailed = "FAILED".center(sepWidth, "-") + "\n"
-sepChanged = "CHANGED".center(sepWidth, "-") + "\n"
+sep_width = 50
+sep_bold = "=" * sep_width
+sep_slim = "-" * sep_width
+sep_success = "SUCCESS".center(sep_width, "-") + "\n"
+sep_failed = "FAILED".center(sep_width, "-") + "\n"
+sep_changed = "CHANGED".center(sep_width, "-") + "\n"
+_file_filter = ("#", "@", ".")
 _colors = {"red": "\033[31m", "yellow": "\033[33m"}
 
 session = Session()
@@ -46,41 +47,37 @@ def color_printer(*args, color: str, **kwargs):
     print("\033[0m", end="")
 
 
-def _path_filter(name: str):
-    return name.startswith(("#", "@", "."))
-
-
-def walk_dir(topDir: Path, filesOnly: bool = False) -> Iterator[Tuple[Path, stat_result, bool]]:
+def walk_dir(top_dir: Path, files_only: bool = False) -> Iterator[Tuple[Path, stat_result, bool]]:
     """Recursively yield 3-tuples of (path, stat, is_dir) in a bottom-top order."""
 
-    with scandir(topDir) as it:
+    with scandir(top_dir) as it:
         for entry in it:
-            if _path_filter(entry.name):
+            if entry.name.startswith(_file_filter):
                 continue
             path = Path(entry.path)
             try:
                 is_dir = entry.is_dir()
                 if is_dir:
-                    yield from walk_dir(path, filesOnly)
-                    if filesOnly:
+                    yield from walk_dir(path, files_only)
+                    if files_only:
                         continue
                 yield path, entry.stat(), is_dir
             except OSError as e:
                 color_printer(f"Error occurred scanning {entry.path}: {e}", color="red")
 
 
-def list_dir(topDir: Path) -> Iterator[Path]:
+def list_dir(top_dir: Path) -> Iterator[Path]:
     """List dir paths under top."""
 
-    with scandir(topDir) as it:
+    with scandir(top_dir) as it:
         for entry in it:
             try:
-                if entry.is_dir() and not _path_filter(entry.name):
+                if not entry.name.startswith(_file_filter) and entry.is_dir():
                     yield Path(entry.path)
             except OSError as e:
                 color_printer(f"Error occurred scanning {entry.path}: {e}", color="red")
-    if not _path_filter(topDir.name):
-        yield Path(topDir)
+    if not top_dir.name.startswith(_file_filter):
+        yield Path(top_dir)
 
 
 def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:

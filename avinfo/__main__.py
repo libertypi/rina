@@ -88,13 +88,13 @@ def parse_args():
 
 
 def print_banner():
-    print(common.sepSlim)
+    print(common.sep_slim)
     for m in ("Adult Video Information Detector", "By David Pi"):
-        print(m.center(common.sepWidth))
-    print(common.sepSlim)
+        print(m.center(common.sep_width))
+    print(common.sep_slim)
 
 
-def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=common.sepWidth, fill="█"):
+def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=common.sep_width, fill="█"):
     percent = f"{100 * (iteration / float(total)):.1f}"
     filledLength = int(length * iteration // total)
     bar = f'{fill * filledLength}{"-" * (length - filledLength)}'
@@ -119,7 +119,7 @@ def process_scan(scan, mode: str, quiet: bool):
             failed.append(obj)
 
     total_changed = len(changed)
-    print(common.sepBold)
+    print(common.sep_bold)
     print(f"{mode} scan finished.")
 
     msg = f"Total: {total}. Changed: {total_changed}. Failed: {len(failed)}."
@@ -144,7 +144,7 @@ Please choose an option:
         elif choice == "4":
             sys.exit()
 
-        print(common.sepBold)
+        print(common.sep_bold)
         if choice == "2":
             for obj in changed:
                 obj.print()
@@ -153,10 +153,10 @@ Please choose an option:
                 obj.print()
         else:
             print("Invalid option.")
-        print(common.sepBold)
+        print(common.sep_bold)
 
     failed.clear()
-    sep = common.sepSlim + "\n"
+    sep = common.sep_slim + "\n"
 
     print("Applying changes...")
     printProgressBar(0, total_changed)

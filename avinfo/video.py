@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterator
 
 from avinfo import common
-from avinfo.common import color_printer, epoch_to_str, re_search, re_sub, sepChanged, sepFailed, sepSuccess
+from avinfo.common import color_printer, epoch_to_str, re_search, re_sub, sep_changed, sep_failed, sep_success
 from avinfo.scraper import from_string
 
 
@@ -47,11 +47,11 @@ class AVString:
 
     def print(self):
         if self._status == 0b001:
-            print(sepSuccess, self.report, sep="", end="")
+            print(sep_success, self.report, sep="", end="")
         elif self._status & 0b110:
-            color_printer(sepChanged, self.report, color="yellow", sep="", end="")
+            color_printer(sep_changed, self.report, color="yellow", sep="", end="")
         else:
-            color_printer(sepFailed, self.report, color="red", sep="", end="")
+            color_printer(sep_failed, self.report, color="red", sep="", end="")
 
     @property
     def report(self):
@@ -186,7 +186,7 @@ def scan_path(target: Path, is_dir: bool = None) -> Iterator[AVFile]:
     with ThreadPoolExecutor(max_workers=None) as ex:
         for ft in as_completed(
             ex.submit(AVFile, path, stat, namemax)
-            for path, stat, _ in common.walk_dir(target, filesOnly=True)
+            for path, stat, _ in common.walk_dir(target, files_only=True)
             if path.suffix.lower() in video_ext
         ):
             yield ft.result()
@@ -211,14 +211,14 @@ def update_dir_mtime(target: Path):
 
         return False
 
-    print(common.sepBold)
+    print(common.sep_bold)
     print("Updating directory timestamps...")
 
     records = {}
     total = 1
     success = 0
 
-    for path, stat, is_dir in common.walk_dir(target, filesOnly=False):
+    for path, stat, is_dir in common.walk_dir(target, files_only=False):
         if is_dir:
             total += 1
             success += _change_mtime(path, stat)

@@ -17,9 +17,9 @@ from avinfo.common import (
     re_search,
     re_split,
     re_sub,
-    sepChanged,
-    sepFailed,
-    sepSuccess,
+    sep_changed,
+    sep_failed,
+    sep_success,
     xpath,
 )
 
@@ -473,11 +473,11 @@ class Actress:
 
     def print(self):
         if self._status == 0b01:
-            print(sepSuccess, self.report, sep="", end="")
+            print(sep_success, self.report, sep="", end="")
         elif self._status & 0b10:
-            color_printer(sepChanged, self.report, color="yellow", sep="", end="")
+            color_printer(sep_changed, self.report, color="yellow", sep="", end="")
         else:
-            color_printer(sepFailed, self.report, color="red", sep="", end="")
+            color_printer(sep_failed, self.report, color="red", sep="", end="")
 
     @property
     def report(self):

@@ -77,7 +77,6 @@ class Scraper:
                     title = span.text
                     if title.startswith("【"):
                         title = re_sub(r"^【(お得|特価)】\s*", "", title)
-
                     return ScrapeResult(
                         productId=productId,
                         title=title,
@@ -109,14 +108,11 @@ class Scraper:
         mask = self._get_keyword_mask()
 
         for a in tree.iterfind('.//div[@id="videos"]//a[@class="box"]'):
-
             productId = a.findtext('div[@class="uid"]')
             if productId and mask(productId):
-                title = a.findtext('div[@class="video-title"]')
-
                 return ScrapeResult(
                     productId=productId,
-                    title=title,
+                    title=a.findtext('div[@class="video-title"]'),
                     publishDate=text_to_epoch(a.findtext('div[@class="meta"]')),
                     source="javdb.com",
                 )
@@ -400,19 +396,19 @@ class Heyzo(Scraper):
         except (TypeError, ValueError, KeyError):
             pass
 
+        tree = tree.find('.//div[@id="wrapper"]//div[@id="movie"]')
         try:
-            title = tree.findtext('.//div[@id="wrapper"]//div[@id="movie"]/h1').rpartition("\t-")
-            title = title[0] or title[2]
+            title = tree.findtext("h1").rpartition("\t-")
         except AttributeError:
             return
 
-        date = tree.find('.//div[@id="movie"]//table[@class="movieInfo"]//*[@class="table-release-day"]')
+        date = tree.find('.//table[@class="movieInfo"]//*[@class="table-release-day"]')
         if date is not None:
             date = text_to_epoch(date.text_content())
 
         return ScrapeResult(
             productId=self.keyword,
-            title=title,
+            title=title[0] or title[2],
             publishDate=date,
             source=self.source,
         )
@@ -487,7 +483,6 @@ class Heydouga(Scraper):
 
         try:
             title = tree.findtext(".//title").rpartition(" - ")
-            title = title[0] or title[2]
         except AttributeError:
             return
 
@@ -498,7 +493,7 @@ class Heydouga(Scraper):
 
         return ScrapeResult(
             productId=self.keyword,
-            title=title,
+            title=title[0] or title[2],
             publishDate=text_to_epoch(date[0]) if date else None,
             source=self.source,
         )
@@ -520,7 +515,6 @@ class X1X(Scraper):
         if tree is None:
             return
 
-        title = tree.findtext(".//title")
         date = xpath(
             '//div[@id="main_content"]//div[@class="movie_data_rt"]'
             '//dt[contains(text(), "配信日")]'
@@ -529,7 +523,7 @@ class X1X(Scraper):
 
         return ScrapeResult(
             productId=self.keyword,
-            title=title,
+            title=tree.findtext(".//title"),
             publishDate=text_to_epoch(date[0]) if date else None,
             source=self.source,
         )
@@ -580,7 +574,6 @@ class H4610(Scraper):
         if tree is None:
             return
 
-        title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
         date = xpath(
             '//div[@id="movieInfo"]//section//dt[contains(text(), "公開日")]'
             '/following-sibling::dd/text()[contains(., "20")]'
@@ -588,7 +581,7 @@ class H4610(Scraper):
 
         return ScrapeResult(
             productId=self.keyword,
-            title=title,
+            title=tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span'),
             publishDate=text_to_epoch(date[0]) if date else None,
             source=f"{m1}.com",
         )
