@@ -467,7 +467,7 @@ class Heydouga(Scraper):
     uncensored_only = True
     source = "heydouga.com"
     regex = (
-        r"hey(?:douga)?(?a:\W*)(?P<h1>4[0-9]{3})[^0-9]+(?P<heydouga>[0-9]{3,6})",
+        r"heydouga[^0-9]*(?P<h1>4[0-9]{3})[^0-9]+(?P<heydouga>[0-9]{3,6})",
         r"honnamatv[^0-9]*(?P<honnamatv>[0-9]{3,})",
     )
 
@@ -609,7 +609,7 @@ class UncensoredMatcher(Scraper):
         self.keyword = "-".join(filter(None, self.match.groups()))
 
 
-class ThousandGirl(Scraper):
+class OneKGirl(Scraper):
 
     __slots__ = Scraper.__slots__
     uncensored_only = True
@@ -714,7 +714,7 @@ _search_map = {
     "sm": SM_Miracle,
     "h4610": H4610,
     None: UncensoredMatcher,
-    "kg": ThousandGirl,
+    "kg": OneKGirl,
 }
 _search_re = _combine_scraper_regex(*_search_map.values()).search
 _iter_re = _combine_scraper_regex(PatternSearcher).finditer
