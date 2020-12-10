@@ -555,7 +555,7 @@ class SM_Miracle(Scraper):
             return ScrapeResult(
                 productId=f"sm-miracle-{self.keyword}",
                 title=re_search(
-                    r'(?:^|[{,])\s*title:\s*(?P<s>[\'"])(?P<title>.+?)(?P=s)',
+                    r"""(?:^|[{,])\s*title:\s*(?P<s>['"])(?P<title>.+?)(?P=s)""",
                     res.content.decode("utf-8"),
                     flags=re.MULTILINE,
                 )["title"],
