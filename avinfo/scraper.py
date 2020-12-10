@@ -657,21 +657,23 @@ class DateSearcher:
     @classmethod
     def search(cls, match: re.Match):
 
-        i = match.lastindex + 1
-
         try:
             fmt = cls.fmt[match.lastgroup]
         except KeyError:
             fmt = cls.fmt[match.lastgroup] = " ".join("%" + f for f in match.lastgroup)
 
-        return ScrapeResult(
-            publishDate=str_to_epoch(
-                string=" ".join(match.group(i, i + 2, i + 3)),
-                fmt=fmt,
-                regex=None,
-            ),
-            source=cls.source,
-        )
+        i = match.lastindex + 1
+        try:
+            return ScrapeResult(
+                publishDate=str_to_epoch(
+                    string=" ".join(match.group(i, i + 2, i + 3)),
+                    fmt=fmt,
+                    regex=None,
+                ),
+                source=cls.source,
+            )
+        except ValueError:
+            pass
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
