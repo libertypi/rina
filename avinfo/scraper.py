@@ -21,8 +21,6 @@ class ScrapeResult:
     productId: str = None
     title: str = None
     publishDate: float = None
-    titleSource: str = None
-    dateSource: str = None
 
 
 class Scraper:
@@ -54,11 +52,8 @@ class Scraper:
             return
 
         result.title = title
-        result.titleSource = result.source
         result.productId = self._process_product_id(productId)
-
-        if result.publishDate:
-            result.dateSource = result.source
+        assert result.publishDate is None or isinstance(result.publishDate, float)
 
         return result
 
@@ -188,13 +183,11 @@ class StudioMatcher(Scraper):
     def search(self):
         result = super().search()
 
-        if result and (not result.publishDate or result.dateSource.startswith("jav")):
+        if result and (result.source.startswith("jav") or not result.publishDate):
             try:
                 result.publishDate = str_to_epoch(self.match["s1"], self.datefmt, regex=None)
             except ValueError:
                 pass
-            else:
-                result.dateSource = "product id"
         return result
 
     def _query(self):
@@ -291,14 +284,14 @@ class StudioMatcher(Scraper):
 
         try:
             json = session.get(f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
-            if json.ok:
-                json = json.json()
-                return ScrapeResult(
-                    productId=json["MovieID"],
-                    title=json["Title"],
-                    publishDate=text_to_epoch(json["Release"]),
-                    source=source,
-                )
+            json.raise_for_status()
+            json = json.json()
+            return ScrapeResult(
+                productId=json["MovieID"],
+                title=json["Title"],
+                publishDate=text_to_epoch(json["Release"]),
+                source=source,
+            )
         except (common.RequestException, ValueError, KeyError):
             pass
 
@@ -408,7 +401,8 @@ class Heyzo(Scraper):
             pass
 
         try:
-            title = tree.findtext('.//div[@id="wrapper"]//div[@id="movie"]/h1').rpartition("\t-")[0]
+            title = tree.findtext('.//div[@id="wrapper"]//div[@id="movie"]/h1').rpartition("\t-")
+            title = title[0] or title[2]
         except AttributeError:
             return
 
@@ -492,7 +486,8 @@ class Heydouga(Scraper):
             return
 
         try:
-            title = tree.findtext(".//title").rpartition(" - ")[0]
+            title = tree.findtext(".//title").rpartition(" - ")
+            title = title[0] or title[2]
         except AttributeError:
             return
 
@@ -559,7 +554,11 @@ class SM_Miracle(Scraper):
         try:
             return ScrapeResult(
                 productId=f"sm-miracle-{self.keyword}",
-                title=re_search(r'(?<=[\n,])\s*title:\W*([^\n\'"]+)', res.content.decode("utf-8"))[1],
+                title=re_search(
+                    r'(?:^|[{,])\s*title:\s*(?P<s>[\'"])(?P<title>.+?)(?P=s)',
+                    res.content.decode("utf-8"),
+                    flags=re.MULTILINE,
+                )["title"],
                 source=self.source,
             )
         except TypeError:
@@ -678,8 +677,7 @@ class DateSearcher:
                 fmt=fmt,
                 regex=None,
             ),
-            dateSource=cls.source,
-            source=None,
+            source=cls.source,
         )
 
 

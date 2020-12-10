@@ -10,13 +10,13 @@ from avinfo.scraper import from_string
 
 class AVString:
 
-    __slots__ = ("productId", "title", "publishDate", "titleSource", "dateSource", "_report", "_status")
+    __slots__ = ("productId", "title", "publishDate", "source", "_report", "_status")
 
     def __init__(self, string: str):
 
         # status: || dateDiff | filenameDiff | ok ||
         self._status = 0
-        self.productId = self.title = self.publishDate = self.titleSource = self.dateSource = None
+        self.productId = self.title = self.publishDate = self.source = None
         self._report = report = {
             "Target": string,
             "ProductId": None,
@@ -42,10 +42,8 @@ class AVString:
         self.productId = report["ProductId"] = result.productId
         self.title = report["Title"] = result.title
         self.publishDate = result.publishDate
-        self.titleSource = result.titleSource
-        self.dateSource = result.dateSource
         report["PubDate"] = epoch_to_str(self.publishDate)
-        report["Source"] = f'{self.titleSource or "---"} / {self.dateSource or "---"}'
+        self.source = report["Source"] = result.source
 
     def print(self):
         if self._status == 0b001:

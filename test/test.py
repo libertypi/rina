@@ -17,26 +17,25 @@ class Scraper(unittest.TestCase):
         for string, answer in values:
             result = scraper.from_string(string)
             if result:
-                result = astuple(result)[1:]
+                result = astuple(result)
             self.assertEqual(result, answer, msg=result)
 
     def test_javbus(self):
         values = (
-            ("CZ016 vol.3", ("CZ016-3", "出合い頭4秒ファック！ : Part-2", 1504569600.0, "javbus.com", "javbus.com")),
+            ("CZ016 vol.3", ("javbus.com", "CZ016-3", "出合い頭4秒ファック！ : Part-2", 1504569600.0)),
             (
                 "SMbd-110 s 2 model 3",
                 (
+                    "javbus.com",
                     "SMBD-110",
                     "S Model 110 オーバーサイズBlack Fuck 激カワアナルメイド : 小西まりえ (ブルーレイディスク版)",
                     1412985600.0,
-                    "javbus.com",
-                    "javbus.com",
                 ),
             ),
-            ("bouga012 [cd2]", ("bouga012-2", "忘我素人パイパンおさな妻浣腸2穴依頼調教", 1496275200.0, "javbus.com", "javbus.com")),
+            ("bouga012 [cd2]", ("javbus.com", "bouga012-2", "忘我素人パイパンおさな妻浣腸2穴依頼調教", 1496275200.0)),
             (
                 "150605-KURUMI_KUMI",
-                ("150605-KURUMI_KUMI", "レズフェティシズム 〜ドレス姿の美麗レズカップルがイチャイチャ〜", 1433462400.0, "javbus.com", "javbus.com"),
+                ("javbus.com", "150605-KURUMI_KUMI", "レズフェティシズム 〜ドレス姿の美麗レズカップルがイチャイチャ〜", 1433462400.0),
             ),
         )
         self._run_test(values)
@@ -45,11 +44,11 @@ class Scraper(unittest.TestCase):
         values = (
             (
                 "XXX-AV-20761",
-                ("XXX-AV-20761", "朝倉ことみ 中野ありさ 救マン病棟でハーレム大乱交！フルハイビジョン vol.03", 1579219200.0, "javdb.com", "javdb.com"),
+                ("javdb.com", "XXX-AV-20761", "朝倉ことみ 中野ありさ 救マン病棟でハーレム大乱交！フルハイビジョン vol.03", 1579219200.0),
             ),
             (
                 "XXX-AV-20879",
-                ("XXX-AV-20879", "朝倉ことみ 発情歯科衛生士～僕だけのいいなり天使 フルハイビジョン ｖｏｌ.０１", 1565654400.0, "javdb.com", "javdb.com"),
+                ("javdb.com", "XXX-AV-20879", "朝倉ことみ 発情歯科衛生士～僕だけのいいなり天使 フルハイビジョン ｖｏｌ.０１", 1565654400.0),
             ),
         )
         self._run_test(values)
@@ -58,27 +57,15 @@ class Scraper(unittest.TestCase):
         values = (
             (
                 "[CARIB] 082920_001   (high) 3 haha 5",
-                (
-                    "082920-001-carib-high-3",
-                    "未来のきもち 〜衰えた性欲が一気に取り戻せる乳首ンビンセラピー〜",
-                    1598659200.0,
-                    "caribbeancom.com",
-                    "caribbeancom.com",
-                ),
+                ("caribbeancom.com", "082920-001-carib-high-3", "未来のきもち 〜衰えた性欲が一気に取り戻せる乳首ンビンセラピー〜", 1598659200.0),
             ),
             (
                 "[HD]022114_777-caribpr-mid haha 5",
-                (
-                    "022114_777-caribpr-mid",
-                    "レッドホットフェティッシュコレクション 108",
-                    1392940800,
-                    "caribbeancompr.com",
-                    "caribbeancompr.com",
-                ),
+                ("caribbeancompr.com", "022114_777-caribpr-mid", "レッドホットフェティッシュコレクション 108", 1392940800),
             ),
             (
                 "120313_001 人 3",
-                ("120313-001-carib", "麻倉憂未公開映像 尻コキ編", 1385683200.0, "caribbeancom.com", "caribbeancom.com"),
+                ("caribbeancom.com", "120313-001-carib", "麻倉憂未公開映像 尻コキ編", 1385683200.0),
             ),
         )
         self._run_test(values)
@@ -87,7 +74,7 @@ class Scraper(unittest.TestCase):
         values = (
             (
                 "010617-460 1pon [1080p]",
-                ("010617_460-1pon-1080p", "鈴木さとみ 〜ファン感謝祭素人宅訪問〜", 1483660800.0, "1pondo.tv", "1pondo.tv"),
+                ("1pondo.tv", "010617_460-1pon-1080p", "鈴木さとみ 〜ファン感謝祭素人宅訪問〜", 1483660800.0),
             ),
         )
         self._run_test(values)
@@ -96,7 +83,7 @@ class Scraper(unittest.TestCase):
         values = (
             (
                 "083014_01-10mu-whole1-psp",
-                ("083014_01-10mu-whole1-psp", "気持ちイイですかご主人様♪", 1409356800.0, "10musume.com", "10musume.com"),
+                ("10musume.com", "083014_01-10mu-whole1-psp", "気持ちイイですかご主人様♪", 1409356800.0),
             ),
         )
         self._run_test(values)
@@ -105,12 +92,12 @@ class Scraper(unittest.TestCase):
         values = (
             (
                 "(pacopacomama) 071219-130",
-                ("071219_130-paco", "鈴木さとみの全て", 1562889600.0, "pacopacomama.com", "pacopacomama.com"),
+                ("pacopacomama.com", "071219_130-paco", "鈴木さとみの全て", 1562889600.0),
             ),
-            ("120618_394", ("120618_394-paco", "尾上若葉の全て", 1544054400.0, "pacopacomama.com", "pacopacomama.com")),
+            ("120618_394", ("pacopacomama.com", "120618_394-paco", "尾上若葉の全て", 1544054400.0)),
             (
                 "030417_040-paco",
-                ("030417_040-paco", "スッピン熟女 〜素顔美人の黒マンコ〜", 1488585600.0, "pacopacomama.com", "pacopacomama.com"),
+                ("pacopacomama.com", "030417_040-paco", "スッピン熟女 〜素顔美人の黒マンコ〜", 1488585600.0),
             ),
         )
         self._run_test(values)
@@ -120,11 +107,10 @@ class Scraper(unittest.TestCase):
             (
                 "010216_333-mura",
                 (
+                    "muramura.tv",
                     "010216_333-mura",
                     "ラッキーホール新装開店!スレンダー美巨乳女優の初体験 壁の穴から突き出される顔も知らない男のイチモツをしゃぶり尽くす",
                     1451692800.0,
-                    "muramura.tv",
-                    "muramura.tv",
                 ),
             ),
         )
@@ -132,10 +118,10 @@ class Scraper(unittest.TestCase):
 
     def test_heyzo(self):
         values = (
-            ("(heyzo) 1888", ("HEYZO-1888", "Z～元芸能人の美エロボディ～", 1545436800.0, "heyzo.com", "heyzo.com")),
+            ("(heyzo) 1888", ("heyzo.com", "HEYZO-1888", "Z～元芸能人の美エロボディ～", 1545436800.0)),
             (
                 "heyzo-0755-c",
-                ("HEYZO-0755-C", "クリスマスは二人で～ロリカワ彼女と彼氏目線でSEX～", 1419465600.0, "heyzo.com", "heyzo.com"),
+                ("heyzo.com", "HEYZO-0755-C", "クリスマスは二人で～ロリカワ彼女と彼氏目線でSEX～", 1419465600.0),
             ),
         )
         self._run_test(values)
@@ -145,26 +131,25 @@ class Scraper(unittest.TestCase):
             (
                 "heydouga 4017-257-3",
                 (
+                    "heydouga.com",
                     "heydouga-4017-257-3",
                     "ヤバっ！超気持ちいい〜!!お乳とおマ○コがズラリ…全裸でおっぱい姫が抜きまくり！夢の中出しハーレム - 素人りんか 素人かなみ 素人てぃな",
                     1519862400,
-                    "heydouga.com",
-                    "heydouga.com",
                 ),
             ),
-            ("honnamatv-216 (5)", ("honnamatv-216-5", "じゅんこ 激ヤセ！M顔娘", 1380585600, "heydouga.com", "heydouga.com")),
+            ("honnamatv-216 (5)", ("heydouga.com", "honnamatv-216-5", "じゅんこ 激ヤセ！M顔娘", 1380585600)),
             (
                 "heydouga-4197-001",
-                ("heydouga-4197-001", "刺激を求めて応募の梨香さん、おじさんの3Ｐと中出し - 梨香", 1542931200.0, "heydouga.com", "heydouga.com"),
+                ("heydouga.com", "heydouga-4197-001", "刺激を求めて応募の梨香さん、おじさんの3Ｐと中出し - 梨香", 1542931200.0),
             ),
         )
         self._run_test(values)
 
     def test_h4610(self):
         values = (
-            ("H4610 gol185", ("h4610-gol185", "葉月 美加子 23歳", 1497052800, "h4610.com", "h4610.com")),
-            ("C0930-gol0136", ("c0930-gol0136", "羽田 まなみ 25歳", 1456358400, "c0930.com", "c0930.com")),
-            ("H0930 (ori1575)", ("h0930-ori1575", "吉間 智保 33歳", 1593216000, "h0930.com", "h0930.com")),
+            ("H4610 gol185", ("h4610.com", "h4610-gol185", "葉月 美加子 23歳", 1497052800)),
+            ("C0930-gol0136", ("c0930.com", "c0930-gol0136", "羽田 まなみ 25歳", 1456358400)),
+            ("H0930 (ori1575)", ("h0930.com", "h0930-ori1575", "吉間 智保 33歳", 1593216000)),
         )
         self._run_test(values)
 
@@ -172,42 +157,41 @@ class Scraper(unittest.TestCase):
         values = (
             (
                 "x1x-111815 一ノ瀬アメリ",
-                ("x1x-111815", "一ノ瀬アメリ - THE一ノ瀬アメリ ぶっかけ50連発！", 1396483200.0, "x1x.com", "x1x.com"),
+                ("x1x.com", "x1x-111815", "一ノ瀬アメリ - THE一ノ瀬アメリ ぶっかけ50連発！", 1396483200.0),
             ),
         )
         self._run_test(values)
 
     def test_smmiracle(self):
-        values = (("sm miracle e0689", ("sm-miracle-e0689", "黒髪の地方令嬢２", None, "sm-miracle.com", None)),)
+        values = (("sm miracle e0689", ("sm-miracle.com", "sm-miracle-e0689", "黒髪の地方令嬢２", None)),)
         self._run_test(values)
 
     def test_fc2(self):
         values = (
             (
                 "fc2-340671",
-                ("FC2-340671", "【激シコ美人】かわいくてエロくてマン汁たっぷりのゆうこ18歳にたっぷり中出し", 1542585600.0, "fc2.com", "fc2.com"),
+                ("fc2.com", "FC2-340671", "【激シコ美人】かわいくてエロくてマン汁たっぷりのゆうこ18歳にたっぷり中出し", 1542585600.0),
             ),
             (
                 "FC2-PPV-1380738_3",
                 (
+                    "fc2.com",
                     "FC2-1380738-3",
                     "【個人撮影】消費者金融で借りた50万を旦那に内緒で返済する円光人妻！・旦那にバレるのが怖くて...他人の肉棒をぶち込まれ中出し",
                     1590192000,
-                    "fc2.com",
-                    "fc2.com",
                 ),
             ),
-            ("FC2-PPV-1187535", ("FC2-1187535", "【個人撮影】ゆずき23歳 ショートSEX", 1579132800.0, "fc2.com", "fc2.com")),
+            ("FC2-PPV-1187535", ("fc2.com", "FC2-1187535", "【個人撮影】ゆずき23歳 ショートSEX", 1579132800.0)),
         )
         self._run_test(values)
 
     def test_date(self):
         values = (
-            ("Devon Ray Milf Teen Cum Swap 28Jul2015 1080p", (None, None, 1438041600.0, None, "file name")),
-            ("welivetogether.15.08.20.abigail.mac.and.daisy.summers", (None, None, 1440028800, None, "file name")),
+            ("Devon Ray Milf Teen Cum Swap 28Jul2015 1080p", ("file name", None, None, 1438041600.0)),
+            ("welivetogether.15.08.20.abigail.mac.and.daisy.summers", ("file name", None, None, 1440028800)),
             ("welivetogether 23-jun 2014 test", None),
-            ("welivetogether dec.23.2014 test", (None, None, 1419292800, None, "file name")),
-            ("deeper.20.03.14.rae.lil.black", (None, None, 1584144000, None, "file name")),
+            ("welivetogether dec.23.2014 test", ("file name", None, None, 1419292800)),
+            ("deeper.20.03.14.rae.lil.black", ("file name", None, None, 1584144000)),
         )
         self._run_test(values)
 

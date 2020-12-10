@@ -13,7 +13,7 @@ from typing import Iterator, Optional, Tuple
 from bs4 import UnicodeDammit
 from lxml.etree import XPath
 from lxml.html import HtmlElement, fromstring
-from requests import RequestException, Response, Session
+from requests import HTTPError, RequestException, Session
 
 log_file = "logfile.log"
 sepWidth = 50
@@ -100,19 +100,23 @@ def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
     else:
         raise RequestException(url)
 
-    if res.ok:
-        if decoder == "lxml":
-            content = res.content
-        elif decoder:
-            res.encoding = decoder
-            content = res.text
-        else:
-            content = UnicodeDammit(
-                res.content,
-                override_encodings=("utf-8", "euc-jp"),
-                is_html=True,
-            ).unicode_markup
-        return fromstring(content, base_url=res.url)
+    try:
+        res.raise_for_status()
+    except HTTPError:
+        return
+
+    if decoder == "lxml":
+        content = res.content
+    elif decoder:
+        res.encoding = decoder
+        content = res.text
+    else:
+        content = UnicodeDammit(
+            res.content,
+            override_encodings=("utf-8", "euc-jp"),
+            is_html=True,
+        ).unicode_markup
+    return fromstring(content, base_url=res.url)
 
 
 def text_to_epoch(string: str) -> Optional[float]:
