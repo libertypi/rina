@@ -53,7 +53,7 @@ class Scraper:
 
         result.title = title
         result.productId = self._process_product_id(productId)
-        assert result.publishDate is None or isinstance(result.publishDate, float)
+        assert isinstance(result.publishDate, float) or result.publishDate is None
 
         return result
 
