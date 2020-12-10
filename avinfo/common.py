@@ -22,7 +22,7 @@ sep_slim = "-" * sep_width
 sep_success = "SUCCESS".center(sep_width, "-") + "\n"
 sep_failed = "FAILED".center(sep_width, "-") + "\n"
 sep_changed = "CHANGED".center(sep_width, "-") + "\n"
-_file_filter = ("#", "@", ".")
+_file_filter = frozenset("#@.")
 _colors = {"red": "\033[31m", "yellow": "\033[33m"}
 
 session = Session()
@@ -52,7 +52,7 @@ def walk_dir(top_dir: Path, files_only: bool = False) -> Iterator[Tuple[Path, st
 
     with scandir(top_dir) as it:
         for entry in it:
-            if entry.name.startswith(_file_filter):
+            if entry.name[0] in _file_filter:
                 continue
             path = Path(entry.path)
             try:
@@ -72,11 +72,12 @@ def list_dir(top_dir: Path) -> Iterator[Path]:
     with scandir(top_dir) as it:
         for entry in it:
             try:
-                if not entry.name.startswith(_file_filter) and entry.is_dir():
+                if entry.name[0] not in _file_filter and entry.is_dir():
                     yield Path(entry.path)
             except OSError as e:
                 color_printer(f"Error occurred scanning {entry.path}: {e}", color="red")
-    if not top_dir.name.startswith(_file_filter):
+
+    if top_dir.name[0] not in _file_filter:
         yield Path(top_dir)
 
 

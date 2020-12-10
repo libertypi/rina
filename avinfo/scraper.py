@@ -66,6 +66,7 @@ class Scraper:
         mask = self._get_keyword_mask()
 
         for base in ("uncensored/",) if self.uncensored_only else ("uncensored/", ""):
+
             tree = get_tree(f"https://www.javbus.com/{base}search/{self.keyword}", decoder="lxml")
             if tree is None:
                 continue
@@ -74,9 +75,11 @@ class Scraper:
 
                 productId = span.findtext("date[1]")
                 if productId and mask(productId):
+
                     title = span.text
-                    if title.startswith("【"):
+                    if title[0] == "【":
                         title = re_sub(r"^【(お得|特価)】\s*", "", title)
+
                     return ScrapeResult(
                         productId=productId,
                         title=title,
@@ -455,6 +458,28 @@ class FC2(Scraper):
             publishDate=date,
             source=self.source,
         )
+
+    def _javdb(self):
+        try:
+            json = session.get(f"https://javdb.com/videos/search_autocomplete.json?q={self.keyword}").json()
+        except (common.RequestException, ValueError):
+            return
+
+        namemask = self._get_keyword_mask()
+        try:
+            for item in json:
+                if not namemask(item["number"]):
+                    continue
+                if item["title"].endswith("..."):
+                    return
+                return ScrapeResult(
+                    productId=item["number"],
+                    title=re_sub(r"^\s*\[.*?\]\s*", "", item["title"]),
+                    publishDate=text_to_epoch(item["meta"].rpartition("發布時間:")[2]),
+                    source="javdb.com",
+                )
+        except KeyError:
+            pass
 
 
 class Heydouga(Scraper):
