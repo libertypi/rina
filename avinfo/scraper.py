@@ -93,7 +93,7 @@ class Scraper:
             base = random_choice(Scraper._javdb_url)
         except AttributeError:
             base = "https://javdb.com/search"
-            tree = get_tree(base, params={"q": self.keyword}, decoder="utf-8")
+            tree = get_tree(f"{base}?q={self.keyword}", decoder="utf-8")
             if tree is None:
                 return
 
@@ -104,7 +104,7 @@ class Scraper:
             )
             Scraper._javdb_url = tuple(pool)
         else:
-            tree = get_tree(base, params={"q": self.keyword}, decoder="utf-8")
+            tree = get_tree(f"{base}?q={self.keyword}", decoder="utf-8")
             if tree is None or "/search" not in tree.base_url:
                 return
 
