@@ -13,6 +13,7 @@ __all__ = "from_string"
 
 session.cookies.set_cookie(create_cookie(domain="www.javbus.com", name="existmag", value="all"))
 _subspace = re_compile(r"\s+").sub
+_subbraces = re_compile(r"[\s()\[\].-]+").sub
 
 
 @dataclass
@@ -30,6 +31,7 @@ class Scraper:
     regex: str
     keyword: str
     uncensored_only: bool = False
+    _search_sfx = re_compile(r"^\s*((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<s>[0-9]{1,2}|[a-d])\b").search
 
     def __init__(self, string: str, match: re.Match) -> None:
         self.string = string
@@ -92,27 +94,29 @@ class Scraper:
         try:
             base = random_choice(Scraper._javdb_url)
         except AttributeError:
-            base = "https://javdb.com/search"
-            tree = get_tree(f"{base}?q={self.keyword}", decoder="utf-8")
+            base = "https://javdb.com/search?q="
+            tree = get_tree(base + self.keyword, decoder="utf-8")
             if tree is None:
                 return
 
             pool = {base}
             pool.update(
-                urljoin(s, "search")
-                for s in tree.xpath('//nav[@class="sub-header"]/div[contains(text(),"最新域名")]//a/@href')
+                urljoin(s, "search?q=")
+                for s in tree.xpath('//nav[@class="sub-header"]/div/text()[contains(.,"最新域名")]/following::a[1]/@href')
             )
             Scraper._javdb_url = tuple(pool)
         else:
-            tree = get_tree(f"{base}?q={self.keyword}", decoder="utf-8")
+            tree = get_tree(base + self.keyword, decoder="utf-8")
             if tree is None or "/search" not in tree.base_url:
                 return
 
         mask = self._get_keyword_mask()
 
         for a in tree.iterfind('.//div[@id="videos"]//a[@class="box"]'):
+
             productId = a.findtext('div[@class="uid"]')
             if productId and mask(productId):
+
                 return ScrapeResult(
                     productId=productId,
                     title=a.findtext('div[@class="video-title"]'),
@@ -130,12 +134,9 @@ class Scraper:
 
     def _process_product_id(self, productId: str):
 
-        m = re_search(
-            r"^\s?((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<sfx>[0-9]{1,2}|[a-d])\b",
-            re_sub(r"[\s()\[\].-]+", " ", self.string[self.match.end() :]),
-        )
-        if m:
-            suffix = m["sfx"]
+        suffix = self._search_sfx(_subbraces(" ", self.string[self.match.end() :]))
+        if suffix:
+            suffix = suffix["s"]
             if suffix in "abcd":
                 suffix = suffix.upper()
             return f"{productId}-{suffix}"
@@ -153,7 +154,7 @@ class StudioMatcher(Scraper):
             "tail": r"-(?P<s2>[0-9]{2,4})(?:-(?P<s3>0[0-9]))?",
         }
     )
-    studio_search = re_compile(
+    _search_studio = re_compile(
         r"""\b(?:
         (?P<_carib>carib(?:bean|com)*|カリビアンコム)|  # 112220-001-carib
         (?P<_caribpr>carib(?:bean|com)*pr)|            # 101515_391-caribpr
@@ -165,6 +166,7 @@ class StudioMatcher(Scraper):
         )\b""",
         flags=re.VERBOSE,
     ).search
+    _search_sfx = re_compile(r"^\s*(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+").search
     datefmt: str = "%m%d%y"
     studio: str = None
 
@@ -173,7 +175,7 @@ class StudioMatcher(Scraper):
         super().__init__(string, match)
         self.keyword = "_".join(match.group("s1", "s2"))
 
-        m = self.studio_match = self.studio_search(string)
+        m = self.studio_match = self._search_studio(string)
         if m:
             self._query = getattr(self, m.lastgroup)
         elif match["s3"] and match["s4"]:
@@ -184,7 +186,7 @@ class StudioMatcher(Scraper):
 
         if result and (result.source.startswith("jav") or not result.publishDate):
             try:
-                result.publishDate = str_to_epoch(self.match["s1"], self.datefmt, regex=None)
+                result.publishDate = str_to_epoch(self.match["s1"], self.datefmt, sub_re=None)
             except ValueError:
                 pass
         return result
@@ -217,7 +219,7 @@ class StudioMatcher(Scraper):
             elif "日期" in k:
                 date = func(p)
             elif "製作商" in k:
-                studio = self.studio_search(func(p))
+                studio = self._search_studio(func(p))
                 break
 
         if studio:
@@ -288,7 +290,7 @@ class StudioMatcher(Scraper):
             return ScrapeResult(
                 productId=json["MovieID"],
                 title=json["Title"],
-                publishDate=text_to_epoch(json["Release"]),
+                publishDate=str_to_epoch(json["Release"]),
                 source=source,
             )
         except (common.RequestException, ValueError, KeyError):
@@ -356,19 +358,16 @@ class StudioMatcher(Scraper):
 
         result = f"{self.keyword}-{self.studio}"
 
-        try:
+        if self.studio_match:
             i = max(self.studio_match.end(), self.match.end())
-        except AttributeError:
+        else:
             i = self.match.end()
 
-        other = re_search(
-            r"^\s?(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+",
-            re_sub(r"[\s()\[\].-]+", " ", self.string[i:]),
-        )
-        if other:
-            other = other[0].split()
-            other.insert(0, result)
-            return "-".join(other)
+        suffix = self._search_sfx(_subbraces(" ", self.string[i:]))
+        if suffix:
+            suffix = suffix[0].split()
+            suffix.insert(0, result)
+            return "-".join(suffix)
 
         return result
 
@@ -393,7 +392,7 @@ class Heyzo(Scraper):
             return ScrapeResult(
                 productId=self.keyword,
                 title=json["name"],
-                publishDate=text_to_epoch(json["dateCreated"]),
+                publishDate=str_to_epoch(json["dateCreated"]),
                 source=self.source,
             )
         except (TypeError, ValueError, KeyError):
@@ -448,7 +447,7 @@ class FC2(Scraper):
                 return
             date = re_search(r"(?<=/)20[12][0-9]{5}", tree.get("href"))
             try:
-                date = str_to_epoch(date[0], "%Y%m%d")
+                date = str_to_epoch(date[0], "%Y%m%d", sub_re=None)
             except (TypeError, ValueError):
                 pass
 
@@ -465,10 +464,10 @@ class FC2(Scraper):
         except (common.RequestException, ValueError):
             return
 
-        namemask = self._get_keyword_mask()
+        mask = self._get_keyword_mask()
         try:
             for item in json:
-                if not namemask(item["number"]):
+                if not mask(item["number"]):
                     continue
                 if item["title"].endswith("..."):
                     return
@@ -529,7 +528,7 @@ class X1X(Scraper):
     __slots__ = Scraper.__slots__
     uncensored_only = True
     source = "x1x.com"
-    regex = r"x1x[\s-]+(?P<x1x>[0-9]{6})"
+    regex = r"x1x(?:\.com)[\s-]+(?P<x1x>[0-9]{6})"
 
     def _query(self):
 
@@ -574,7 +573,7 @@ class SM_Miracle(Scraper):
             return ScrapeResult(
                 productId=f"sm-miracle-{self.keyword}",
                 title=re_search(
-                    r"""(?:^|[{,])\s*title:\s*(?P<s>['"])(?P<title>.+?)(?P=s)""",
+                    r"""(?:^|[{,])\s*title:\s*(?P<q>['"])(?P<title>.+?)(?P=q)""",
                     res.content.decode("utf-8"),
                     flags=re.MULTILINE,
                 )["title"],
@@ -618,9 +617,10 @@ class UncensoredMatcher(Scraper):
     uncensored_only = True
     regex = (
         r"((?:n|k|kb|jpgc|shiroutozanmai|hamesamurai)[0-2][0-9]{3}|(?:bouga|ka|sr|tr|sky)[0-9]{3,4})",
-        r"(kin8(?:tengoku)?|xxx[\s-]?av|[a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s-]*([0-9]{2,6})",
+        r"(kin8(?:tengoku)?|[a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s-]*([0-9]{2,6})",
         r"(mkbd|bd)[\s-]?([sm]?[0-9]{2,4})",
-        r"(th101)[\s-]([0-9]{3})[\s-]([0-9]{6})",
+        r"(xxx)[\s-]*(av)[^0-9]*([0-9]{5})",
+        r"(th101)[\s-]*([0-9]{3})[\s-]([0-9]{6})",
     )
 
     def _query(self):
@@ -651,27 +651,32 @@ class PatternSearcher(Scraper):
 
 class DateSearcher:
 
-    source = "file name"
+    source = "date string"
 
     def _init_regex():
         fmt = {
-            "sep": r"[\s,.-]*",
-            "sepF": r"[\s,.-]+",
-            "year": r"(?:20)?([12][0-9])",
-            "yearF": r"(20[12][0-9])",
-            "mon": r"(1[0-2]|0[1-9])",
-            "day": r"(3[01]|[12][0-9]|0?[1-9])",
-            "dayF": r"(3[01]|[12][0-9]|0[1-9])",
+            "sep": r"[\s.-]*",
+            "sepF": r"[\s.-]+",
+            "y": r"(?:20)?([12][0-9])",
+            "yy": r"(20[12][0-9])",
+            "m": r"(1[0-2]|0?[1-9])",
+            "mm": r"(1[0-2]|0[1-9])",
+            "d": r"(3[01]|[12][0-9]|0?[1-9])",
+            "dd": r"(3[01]|[12][0-9]|0[1-9])",
             "b": r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
+            "B": r"(january|february|march|april|may|june|july|august|september|october|november|december)",
         }
         regex = tuple(
             p.format_map(fmt)
             for p in (
-                r"(?P<dby>{day}(?P<s1>{sep}){b}(?P=s1){year})",  # 23.Jun.(20)14
-                r"(?P<bdy>{b}(?P<s2>{sep}){day}(?P=s2){year})",  # Dec.23.(20)14
-                r"(?P<ymd>{year}(?P<s3>{sepF}){mon}(?P=s3){dayF})",  # (20)19.03.15
-                r"(?P<dmy>{dayF}(?P<s4>{sepF}){mon}(?P=s4){year})",  # 23.02.(20)19
-                r"(?P<Ymd>{yearF}(?P<s5>{sep}){mon}(?P=s5){dayF})",  # 20170102
+                r"(?P<dby>{d}(?P<sdby>{sep}){b}(?P=sdby){y})",  # 23.Jun.(20)14
+                r"(?P<bdy>{b}(?P<sbdy>{sep}){d}(?P=sbdy){y})",  # Dec.23.(20)14
+                r"(?P<dBy>{d}(?P<sdBy>{sep}){B}(?P=sdBy){y})",  # 19.June.(20)14
+                r"(?P<Bdy>{B}(?P<sBdy>{sep}){d}(?P=sBdy){y})",  # June.19.(20)14
+                r"(?P<mdy>{m}(?P<smdy>{sepF}){d}(?P=smdy){y})",  # 10.15.(20)19
+                r"(?P<ymd>{y}(?P<symd>{sepF}){m}(?P=symd){d})",  # (20)19.03.15
+                r"(?P<dmy>{d}(?P<sdmy>{sepF}){m}(?P=sdmy){y})",  # 23.02.(20)19
+                r"(?P<Ymd>{yy}(){mm}{dd})",  # 20170102
             )
         )
         fmt.clear()
@@ -693,7 +698,7 @@ class DateSearcher:
                 publishDate=str_to_epoch(
                     string=" ".join(match.group(i, i + 2, i + 3)),
                     fmt=fmt,
-                    regex=None,
+                    sub_re=None,
                 ),
                 source=cls.source,
             )

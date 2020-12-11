@@ -119,14 +119,14 @@ def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
 
 def text_to_epoch(string: str) -> Optional[float]:
     try:
-        return str_to_epoch(date_searcher(string).expand(r"\g<y> \g<m> \g<d>"), regex=None)
+        return str_to_epoch(date_searcher(string).expand(r"\g<y> \g<m> \g<d>"), sub_re=None)
     except (TypeError, AttributeError):
         pass
 
 
-def str_to_epoch(string: str, fmt: str = "%Y %m %d", regex=re_compile(r"[^0-9]+")) -> float:
-    if regex:
-        string = regex.sub(" ", string).strip()
+def str_to_epoch(string: str, fmt: str = "%Y %m %d", sub_re=re_compile(r"[^0-9]+")) -> float:
+    if sub_re:
+        string = sub_re.sub(" ", string).strip()
     return datetime.strptime(string, fmt).replace(tzinfo=timezone.utc).timestamp()
 
 

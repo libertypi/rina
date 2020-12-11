@@ -188,11 +188,11 @@ class Scraper(unittest.TestCase):
 
     def test_date(self):
         values = (
-            ("Devon Ray Milf Teen Cum Swap 28Jul2015 1080p", ("file name", None, None, 1438041600.0)),
-            ("welivetogether.15.08.20.abigail.mac.and.daisy.summers", ("file name", None, None, 1440028800)),
+            ("Devon Ray Milf Teen Cum Swap 28Jul2015 1080p", ("date string", None, None, 1438041600.0)),
+            ("welivetogether.15.08.20.abigail.mac.and.daisy.summers", ("date string", None, None, 1440028800)),
             ("welivetogether 23-jun 2014 test", None),
-            ("welivetogether dec.23.2014 test", ("file name", None, None, 1419292800)),
-            ("deeper.20.03.14.rae.lil.black", ("file name", None, None, 1584144000)),
+            ("welivetogether dec.23.2014 test", ("date string", None, None, 1419292800)),
+            ("deeper.20.03.14.rae.lil.black", ("date string", None, None, 1584144000)),
         )
         self._run_test(values)
 
