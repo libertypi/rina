@@ -33,20 +33,14 @@ class Scraper(unittest.TestCase):
                 ),
             ),
             ("bouga012 [cd2]", ("javbus.com", "bouga012-2", "忘我素人パイパンおさな妻浣腸2穴依頼調教", 1496275200.0)),
-            (
-                "150605-KURUMI_KUMI",
-                ("javbus.com", "150605-KURUMI_KUMI", "レズフェティシズム 〜ドレス姿の美麗レズカップルがイチャイチャ〜", 1433462400.0),
-            ),
+            ("n0253", ("javbus.com", "n0253", "無料校内中出し用炉便器", 1188518400.0)),
+            ("S2MBD-054", ("javbus.com", "S2MBD-054", "ボクのカテキョはビッチなエロギャル : 早川メアリー ( ブルーレイ版 )", 1467849600.0)),
         )
         self._run_test(values)
 
     def test_javdb(self):
         values = (
             ("FC2-1201745", ("javdb.com", "FC2-1201745", "シルクストッキングをテストするために女の子を雇います。", 1573776000.0)),
-            (
-                "XXX-AV-20761",
-                ("javdb.com", "XXX-AV-20761", "朝倉ことみ 中野ありさ 救マン病棟でハーレム大乱交！フルハイビジョン vol.03", 1579219200.0),
-            ),
             (
                 "XXXAV 20879",
                 ("javdb.com", "XXX-AV-20879", "朝倉ことみ 発情歯科衛生士～僕だけのいいなり天使 フルハイビジョン ｖｏｌ.０１", 1565654400.0),
@@ -204,6 +198,20 @@ class Scraper(unittest.TestCase):
                     1607558400.0,
                 ),
             ),
+        )
+        self._run_test(values)
+
+    def test_girlsdelta(self):
+        values = (("GirlsDelta 872", ("girlsdelta.com", "GirlsDelta-872", "MAHIRO 柚木まひろのワレメ", None)),)
+        self._run_test(values)
+
+    def test_onekgirl(self):
+        values = (
+            (
+                "150605-KURUMI_KUMI",
+                ("javbus.com", "150605-KURUMI_KUMI", "レズフェティシズム 〜ドレス姿の美麗レズカップルがイチャイチャ〜", 1433462400.0),
+            ),
+            ("150626 KURUMI", ("javbus.com", "150626-KURUMI", "めっちゃしたい！！改#124 〜アイドル級美少女の知られざる実態〜", 1435276800.0)),
         )
         self._run_test(values)
 

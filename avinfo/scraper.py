@@ -59,8 +59,7 @@ class Scraper:
 
         return result
 
-    @staticmethod
-    def _query() -> ScrapeResult:
+    def _query(self) -> ScrapeResult:
         pass
 
     def _javbus(self):
@@ -419,8 +418,9 @@ class Heyzo(Scraper):
 class FC2(Scraper):
 
     __slots__ = Scraper.__slots__
+    uncensored_only = True
     source = "fc2.com"
-    regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{2,10})"
+    regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{4,10})"
 
     def _query(self):
 
@@ -486,12 +486,12 @@ class Heydouga(Scraper):
     __slots__ = Scraper.__slots__
     uncensored_only = True
     source = "heydouga.com"
-    regex = r"heydouga[^0-9]*(?P<h1>4[0-9]{3})[^0-9]+(?P<heydouga>[0-9]{3,6})"
+    regex = r"heydouga[^0-9]*(?P<h1>4[0-9]{3})[^0-9]+(?P<hdg>[0-9]{3,6})"
 
     def _query(self, url: str = None):
 
         if not url:
-            m1, m2 = self.match.group("h1", "heydouga")
+            m1, m2 = self.match.group("h1", "hdg")
             self.keyword = f"heydouga-{m1}-{m2}"
             url = f"https://www.heydouga.com/moviepages/{m1}/{m2}/"
 
@@ -520,10 +520,10 @@ class Heydouga(Scraper):
 class Honnamatv(Heydouga):
 
     __slots__ = Scraper.__slots__
-    regex = r"honnamatv[^0-9]*(?P<honnamatv>[0-9]{3,})"
+    regex = r"honnamatv[^0-9]*(?P<honna>[0-9]{3,})"
 
     def _query(self):
-        uid = self.match["honnamatv"]
+        uid = self.match["honna"]
         self.keyword = f"honnamatv-{uid}"
 
         return super()._query(
@@ -605,7 +605,7 @@ class H4610(Scraper):
     def _query(self):
 
         m1, m2 = self.match.group("h41", "h4610")
-        self.keyword = f"{m1}-{m2}"
+        self.keyword = f"{m1.upper()}-{m2}"
 
         tree = get_tree(f"https://www.{m1}.com/moviepages/{m2}/")
         if tree is None:
@@ -658,16 +658,51 @@ class Kin8(Scraper):
         )
 
 
+class GirlsDelta(Scraper):
+
+    __slots__ = Scraper.__slots__
+    uncensored_only = True
+    source = "girlsdelta.com"
+    regex = r"girls\s?delta[^0-9]*(?P<gd>[0-9]{3,4})"
+
+    def _query(self):
+        uid = self.match["gd"]
+        self.keyword = f"GirlsDelta-{uid}"
+
+        tree = get_tree(f"https://girlsdelta.com/product/{uid}", decoder="lxml")
+        if tree is None or "/product/" not in tree.base_url:
+            return
+
+        try:
+            title = tree.findtext(".//title").partition("｜")[0]
+        except AttributeError:
+            return
+
+        date = xpath(
+            './/div[@class="product-detail"]//li'
+            '/*[contains(text(), "公開日")]'
+            '/following-sibling::*/text()[contains(., "20")]'
+        )(tree)
+
+        return ScrapeResult(
+            productId=self.keyword,
+            title=title,
+            publishDate=text_to_epoch(date[0]) if date else None,
+            source=self.source,
+        )
+
+
 class UncensoredMatcher(Scraper):
 
     __slots__ = Scraper.__slots__
     uncensored_only = True
     regex = (
-        r"((?:n|k|kb|jpgc|shiroutozanmai|hamesamurai)[0-2][0-9]{3}|(?:bouga|ka|sr|tr|sky)[0-9]{3,4})",
-        r"([a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s-]*([0-9]{2,6})",
+        r"((?:n|kb?|lb|jpgc|gedo|bouga|jup|wald|(?:hame|live)samurai)[0-2][0-9]{3})",
+        r"((?:crazyasia|peworld)[0-9]{5})",
         r"(mkbd|bd)[\s-]?([sm]?[0-9]{2,4})",
         r"(xxx)[\s-]*(av)[^0-9]*([0-9]{4,5})",
         r"(th101)[\s-]*([0-9]{3})[\s-]([0-9]{6})",
+        r"([a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s-]*([0-9]{2,6})",
     )
 
     def _query(self):
@@ -678,19 +713,18 @@ class OneKGirl(Scraper):
 
     __slots__ = Scraper.__slots__
     uncensored_only = True
-    regex = r"(?P<kg>(?P<kg1>[12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))[\s-]?(?P<kg2>[a-z]{3,8})(?:-(?P<kg3>[a-z]{3,6}))?)"
+    regex = r"([12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))[\s-]+([a-z]{3,8})(?:-(?P<kg>[a-z]{3,6}))?"
 
     def _query(self):
-        if self.match["kg3"]:
-            self.keyword = self.match.expand(r"\g<kg1>-\g<kg2>_\g<kg3>")
-        else:
-            self.keyword = self.match.expand(r"\g<kg1>-\g<kg2>")
+        m = self.match
+        i = m.lastindex
+        self.keyword = f"{m[i-2]}-{m[i-1]}_{m[i]}"
 
 
 class PatternSearcher(Scraper):
 
     __slots__ = Scraper.__slots__
-    regex = r"[0-9]{,3}(?P<p1>[a-z]{2,8})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,6}|[0-9]{2,6}))(?:hhb[0-9]?)?"
+    regex = r"[0-9]{,3}(?P<p1>[a-z]{2,20})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,10}|[0-9]{2,10}))(?:hhb[0-9]?)?"
 
     def _query(self):
         self.keyword = self.match.expand(r"\g<p1>-\g<p2>")
@@ -780,12 +814,13 @@ _search_map = {
     "studio": StudioMatcher,
     "heyzo": Heyzo,
     "fc2": FC2,
-    "heydouga": Heydouga,
-    "honnamatv": Honnamatv,
+    "hdg": Heydouga,
+    "honna": Honnamatv,
     "x1x": X1X,
     "sm": SM_Miracle,
     "h4610": H4610,
     "kin8": Kin8,
+    "gd": GirlsDelta,
     None: UncensoredMatcher,
     "kg": OneKGirl,
 }
