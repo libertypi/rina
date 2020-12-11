@@ -156,10 +156,8 @@ class Scraper(unittest.TestCase):
 
     def test_x1x(self):
         values = (
-            (
-                "x1x-111815 一ノ瀬アメリ",
-                ("x1x.com", "x1x-111815", "一ノ瀬アメリ - THE一ノ瀬アメリ ぶっかけ50連発！", 1396483200.0),
-            ),
+            ("x1x-111815 一ノ瀬アメリ", ("x1x.com", "x1x-111815", "THE一ノ瀬アメリ ぶっかけ50連発！", 1396483200.0)),
+            ("x1x.com 111860", ("x1x.com", "x1x-111860", "極上ボディー!!! 一ノ瀬アメリ", 1332374400.0)),
         )
         self._run_test(values)
 
@@ -183,6 +181,29 @@ class Scraper(unittest.TestCase):
                 ),
             ),
             ("FC2-PPV-1187535", ("fc2.com", "FC2-1187535", "【個人撮影】ゆずき23歳 ショートSEX", 1579132800.0)),
+        )
+        self._run_test(values)
+
+    def test_kin8(self):
+        values = (
+            (
+                "kin8-3039",
+                (
+                    "kin8tengoku.com",
+                    "kin8-3039",
+                    "JAPANESE STYLE MASSAGE スレンダーチビマンロリBODYをジックリ弄ぶ VOL2 Nelya Petite / ネルヤ",
+                    1548892800.0,
+                ),
+            ),
+            (
+                "Kin8tengoku 3329",
+                (
+                    "kin8tengoku.com",
+                    "kin8-3329",
+                    "肉感フェロモンちゃんのおまんこをじっくり観察 PUSSY COLLECTION プシコレ Mona Sweet / モナ スイート",
+                    1607558400.0,
+                ),
+            ),
         )
         self._run_test(values)
 

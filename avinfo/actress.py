@@ -96,16 +96,12 @@ class Wikipedia(Wiki):
 
 class MinnanoAV(Wiki):
 
-    baseurl = "http://www.minnano-av.com/search_result.php"
+    baseurl = "http://www.minnano-av.com/search_result.php?search_scope=actress&search_word="
 
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_tree(
-            cls.baseurl,
-            params={"search_scope": "actress", "search_word": keyword},
-            decoder="lxml",
-        )
+        tree = get_tree(cls.baseurl + keyword, decoder="lxml")
         if tree is None:
             return
 
@@ -155,14 +151,14 @@ class MinnanoAV(Wiki):
 
 class AVRevolution(Wiki):
 
-    baseurl = "http://neo-adultmovie-revolution.com/db/jyoyuu_betumei_db/"
+    baseurl = "http://neo-adultmovie-revolution.com/db/jyoyuu_betumei_db/?q="
 
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_tree(cls.baseurl, params={"q": keyword}, decoder="lxml")
+        tree = get_tree(cls.baseurl + keyword, decoder="lxml")
         try:
-            tree = xpath('//div[@class="container"]/div[contains(@class, "row") and @style and div[1]/a]')(tree)
+            tree = xpath('//div[@class="container"]/div[contains(@class,"row") and @style and div[1]/a]')(tree)
         except TypeError:
             return
 
@@ -248,12 +244,12 @@ class Seesaawiki(Wiki):
 
 class Msin(Wiki):
 
-    baseurl = "https://db.msin.jp/search/actress"
+    baseurl = "https://db.msin.jp/search/actress?str="
 
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_tree(cls.baseurl, params={"str": keyword})
+        tree = get_tree(cls.baseurl + keyword)
         if tree is None:
             return
 
@@ -306,12 +302,12 @@ class Msin(Wiki):
 
 class Manko(Wiki):
 
-    baseurl = "http://mankowomiseruavzyoyu.blog.fc2.com/"
+    baseurl = "http://mankowomiseruavzyoyu.blog.fc2.com/?q="
 
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_tree(cls.baseurl, params={"q": keyword}, decoder="lxml")
+        tree = get_tree(cls.baseurl + keyword, decoder="lxml")
         if tree is None:
             return
 
@@ -343,12 +339,12 @@ class Manko(Wiki):
 
 class Etigoya(Wiki):
 
-    baseurl = "http://etigoya955.blog49.fc2.com/"
+    baseurl = "http://etigoya955.blog49.fc2.com/?q="
 
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_tree(cls.baseurl, params={"q": keyword}, decoder="lxml")
+        tree = get_tree(cls.baseurl + keyword, decoder="lxml")
         if tree is None:
             return
 

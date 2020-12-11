@@ -156,13 +156,13 @@ class StudioMatcher(Scraper):
     )
     _search_studio = re_compile(
         r"""\b(?:
-        (?P<_carib>carib(?:bean|com)*|カリビアンコム)|  # 112220-001-carib
-        (?P<_caribpr>carib(?:bean|com)*pr)|            # 101515_391-caribpr
-        (?P<_1pon>1pon(?:do)?|一本道)|                  # 110411_209-1pon
-        (?P<_10mu>10mu(?:sume)?|天然むすめ)|            # 122812_01-10mu
-        (?P<_paco>paco(?:pacomama)?|パコパコママ)|      # 120618_394-paco
-        (?P<_mura>mura)(?:mura)?|                       # 010216_333-mura
-        (?P<_mesubuta>mesubuta|メス豚)                  # 160122_1020_01-mesubuta
+        (?P<_carib>carib(?:bean(?:com)?)?|カリビアンコム)|  # 112220-001-carib
+        (?P<_caribpr>carib(?:bean(?:com)?)?pr)|             # 101515_391-caribpr
+        (?P<_1pon>1pon(?:do)?|一本道)|                      # 110411_209-1pon
+        (?P<_10mu>10mu(?:sume)?|天然むすめ)|                # 122812_01-10mu
+        (?P<_paco>paco(?:pacomama)?|パコパコママ)|          # 120618_394-paco
+        (?P<_mura>mura)(?:mura)?|                           # 010216_333-mura
+        (?P<_mesubuta>mesubuta|メス豚)                      # 160122_1020_01-mesubuta
         )\b""",
         flags=re.VERBOSE,
     ).search
@@ -441,7 +441,7 @@ class FC2(Scraper):
         if not title:
             tree = get_tree(f"http://video.fc2.com/a/search/video/?keyword={uid}", decoder="lxml")
             try:
-                tree = tree.find('.//div[@id="pjx-search"]//ul/li[1]//a[@title][@href]')
+                tree = tree.find('.//div[@id="pjx-search"]//ul/li//a[@title][@href]')
                 title = tree.text
             except AttributeError:
                 return
@@ -486,20 +486,14 @@ class Heydouga(Scraper):
     __slots__ = Scraper.__slots__
     uncensored_only = True
     source = "heydouga.com"
-    regex = (
-        r"heydouga[^0-9]*(?P<h1>4[0-9]{3})[^0-9]+(?P<heydouga>[0-9]{3,6})",
-        r"honnamatv[^0-9]*(?P<honnamatv>[0-9]{3,})",
-    )
+    regex = r"heydouga[^0-9]*(?P<h1>4[0-9]{3})[^0-9]+(?P<heydouga>[0-9]{3,6})"
 
-    def _query(self):
-        m = self.match
+    def _query(self, url: str = None):
 
-        if m["heydouga"]:
-            self.keyword = m.expand(r"heydouga-\g<h1>-\g<heydouga>")
-            url = m.expand(r"https://www.heydouga.com/moviepages/\g<h1>/\g<heydouga>/")
-        else:
-            self.keyword = f"honnamatv-{m['honnamatv']}"
-            url = f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{m['honnamatv']}/"
+        if not url:
+            m1, m2 = self.match.group("h1", "heydouga")
+            self.keyword = f"heydouga-{m1}-{m2}"
+            url = f"https://www.heydouga.com/moviepages/{m1}/{m2}/"
 
         tree = get_tree(url, decoder="utf-8")
         if tree is None:
@@ -523,12 +517,26 @@ class Heydouga(Scraper):
         )
 
 
+class Honnamatv(Heydouga):
+
+    __slots__ = Scraper.__slots__
+    regex = r"honnamatv[^0-9]*(?P<honnamatv>[0-9]{3,})"
+
+    def _query(self):
+        uid = self.match["honnamatv"]
+        self.keyword = f"honnamatv-{uid}"
+
+        return super()._query(
+            url=f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{uid}/",
+        )
+
+
 class X1X(Scraper):
 
     __slots__ = Scraper.__slots__
     uncensored_only = True
     source = "x1x.com"
-    regex = r"x1x(?:\.com)[\s-]+(?P<x1x>[0-9]{6})"
+    regex = r"x1x(?:\.com)?[\s-]+(?P<x1x>[0-9]{6})"
 
     def _query(self):
 
@@ -537,17 +545,22 @@ class X1X(Scraper):
 
         tree = get_tree(f"http://www.x1x.com/title/{uid}")
         if tree is None:
-            return
+            tree = get_tree(f"http://www.x1x.com/ppv/title/{uid}")
+            if tree is None:
+                return
 
-        date = xpath(
-            '//div[@id="main_content"]//div[@class="movie_data_rt"]'
-            '//dt[contains(text(), "配信日")]'
-            '/following-sibling::dd[1]/text()[contains(., "20")]'
-        )(tree)
+        tree = tree.find('.//div[@id="main_content"]')
+        try:
+            date = xpath(
+                '//div[@class="movie_data_rt"]//dt[contains(text(), "配信日")]'
+                '/following-sibling::dd[1]/text()[contains(., "20")]'
+            )(tree)
+        except TypeError:
+            return
 
         return ScrapeResult(
             productId=self.keyword,
-            title=tree.findtext(".//title"),
+            title="".join(xpath("h2[1]/text()")(tree)),
             publishDate=text_to_epoch(date[0]) if date else None,
             source=self.source,
         )
@@ -611,15 +624,49 @@ class H4610(Scraper):
         )
 
 
+class Kin8(Scraper):
+
+    __slots__ = Scraper.__slots__
+    uncensored_only = True
+    source = "kin8tengoku.com"
+    regex = r"kin8(?:tengoku)?[^0-9]*(?P<kin8>[0-9]{4})"
+
+    def _query(self):
+        uid = self.match["kin8"]
+        self.keyword = f"kin8-{uid}"
+
+        tree = get_tree(f"https://www.kin8tengoku.com/moviepages/{uid}/index.html")
+        if tree is None:
+            return
+
+        try:
+            title = xpath('//div[@id="sub_main"]/p[contains(@class,"sub_title")]/text()')(tree)
+            title = title[0].partition("限定配信 ")
+        except IndexError:
+            return
+
+        date = xpath(
+            '//div[@id="main"]/div[contains(@id,"detail_box")]'
+            '//td[contains(text(),"更新日")]/following-sibling::td/text()[contains(.,"20")]'
+        )(tree)
+
+        return ScrapeResult(
+            productId=self.keyword,
+            title=title[2] or title[0],
+            publishDate=text_to_epoch(date[0]) if date else None,
+            source=self.source,
+        )
+
+
 class UncensoredMatcher(Scraper):
 
     __slots__ = Scraper.__slots__
     uncensored_only = True
     regex = (
         r"((?:n|k|kb|jpgc|shiroutozanmai|hamesamurai)[0-2][0-9]{3}|(?:bouga|ka|sr|tr|sky)[0-9]{3,4})",
-        r"(kin8(?:tengoku)?|[a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s-]*([0-9]{2,6})",
+        r"([a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s-]*([0-9]{2,6})",
         r"(mkbd|bd)[\s-]?([sm]?[0-9]{2,4})",
-        r"(xxx)[\s-]*(av)[^0-9]*([0-9]{5})",
+        r"(xxx)[\s-]*(av)[^0-9]*([0-9]{4,5})",
         r"(th101)[\s-]*([0-9]{3})[\s-]([0-9]{6})",
     )
 
@@ -734,10 +781,11 @@ _search_map = {
     "heyzo": Heyzo,
     "fc2": FC2,
     "heydouga": Heydouga,
-    "honnamatv": Heydouga,
+    "honnamatv": Honnamatv,
     "x1x": X1X,
     "sm": SM_Miracle,
     "h4610": H4610,
+    "kin8": Kin8,
     None: UncensoredMatcher,
     "kg": OneKGirl,
 }
