@@ -72,7 +72,7 @@ class Wikipedia(Wiki):
     def _query(cls, keyword: str):
 
         tree = get_tree(cls.baseurl + keyword, decoder="lxml")
-        if tree is None or not xpath('//a[@title="AV女優" and contains(text(),"AV女優")]')(tree):
+        if tree is None or tree.find('.//a[@title="Template:AV女優"]') is None:
             return
 
         name = tree.findtext('.//*[@id="firstHeading"]')

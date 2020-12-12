@@ -800,7 +800,7 @@ def _load_json_ld(tree: common.HtmlElement):
 
     May raise TypeError, ValueError when failed.
     """
-    return json_loads(re_sub(r"[\t\n\r\f\v]+", "", tree.findtext('.//script[@type="application/ld+json"]')))
+    return json_loads(re_sub(r"[\t\n\r\f\v]", "", tree.findtext('.//script[@type="application/ld+json"]')))
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
