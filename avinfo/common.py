@@ -114,6 +114,7 @@ def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
             override_encodings=("utf-8", "euc-jp"),
             is_html=True,
         ).unicode_markup
+
     return fromstring(content, base_url=res.url)
 
 

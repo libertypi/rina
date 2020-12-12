@@ -114,10 +114,8 @@ class Scraper(unittest.TestCase):
     def test_heyzo(self):
         values = (
             ("(heyzo) 1888", ("heyzo.com", "HEYZO-1888", "Z～元芸能人の美エロボディ～", 1545436800.0)),
-            (
-                "heyzo-0755-c",
-                ("heyzo.com", "HEYZO-0755-C", "クリスマスは二人で～ロリカワ彼女と彼氏目線でSEX～", 1419465600.0),
-            ),
+            ("heyzo-0755-c", ("heyzo.com", "HEYZO-0755-C", "クリスマスは二人で～ロリカワ彼女と彼氏目線でSEX～", 1419465600.0)),
+            ("HEYZO-0947", ("heyzo.com", "HEYZO-0947", "Ｗエクスタシー！美人姉妹丼は極上の味２ 後編～女２・男４の６P三昧～", 1441756800.0)),
         )
         self._run_test(values)
 
