@@ -31,7 +31,7 @@ class Scraper:
     regex: str
     keyword: str
     uncensored_only: bool = False
-    _search_sfx = re_compile(r"^\s*((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<s>[0-9]{1,2}|[a-d])\b").search
+    _match_sfx = re_compile(r"\s*((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<s>[0-9]{1,2}|[a-d])\b").match
 
     def __init__(self, string: str, match: re.Match) -> None:
         self.string = string
@@ -133,7 +133,7 @@ class Scraper:
 
     def _process_product_id(self, productId: str):
 
-        suffix = self._search_sfx(_subbraces(" ", self.string[self.match.end() :]))
+        suffix = self._match_sfx(_subbraces(" ", self.string[self.match.end() :]))
         if suffix:
             suffix = suffix["s"]
             if suffix in "abcd":
@@ -148,8 +148,8 @@ class StudioMatcher(Scraper):
     regex = r"(?P<studio>(?P<s1>{m}{d}{y}|(?P<s4>{y}{m}{d})){tail})".format_map(
         {
             "y": r"[0-2][0-9]",
-            "m": r"(?:1[0-2]|0[1-9])",
-            "d": r"(?:3[01]|[12][0-9]|0[1-9])",
+            "m": r"(?:0[1-9]|1[0-2])",
+            "d": r"(?:[12][0-9]|0[1-9]|3[01])",
             "tail": r"-(?P<s2>[0-9]{2,4})(?:-(?P<s3>0[0-9]))?",
         }
     )
@@ -165,7 +165,7 @@ class StudioMatcher(Scraper):
         )\b""",
         flags=re.VERBOSE,
     ).search
-    _search_sfx = re_compile(r"^\s*(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+").search
+    _match_sfx = re_compile(r"\s*(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+").match
     datefmt: str = "%m%d%y"
     studio: str = None
 
@@ -362,7 +362,7 @@ class StudioMatcher(Scraper):
         else:
             i = self.match.end()
 
-        suffix = self._search_sfx(_subbraces(" ", self.string[i:]))
+        suffix = self._match_sfx(_subbraces(" ", self.string[i:]))
         if suffix:
             suffix = suffix[0].split()
             suffix.insert(0, result)
@@ -387,7 +387,7 @@ class Heyzo(Scraper):
             return
 
         try:
-            json = json_loads(tree.findtext('.//script[@type="application/ld+json"]'))
+            json = _load_json_ld(tree)
             return ScrapeResult(
                 productId=self.keyword,
                 title=json["name"],
@@ -439,7 +439,7 @@ class FC2(Scraper):
                 pass
 
         if not title:
-            tree = get_tree(f"http://video.fc2.com/a/search/video/?keyword={uid}", decoder="lxml")
+            tree = get_tree(f"https://video.fc2.com/a/search/video/?keyword={uid}", decoder="lxml")
             try:
                 tree = tree.find('.//div[@id="pjx-search"]//ul/li//a[@title][@href]')
                 title = tree.text
@@ -615,15 +615,23 @@ class H4610(Scraper):
         if tree is None:
             return
 
-        date = xpath(
-            '//div[@id="movieInfo"]//section//dt[contains(text(), "公開日")]'
-            '/following-sibling::dd/text()[contains(., "20")]'
-        )(tree)
+        try:
+            json = _load_json_ld(tree)
+            title = json["name"]
+            date = str_to_epoch(json["dateCreated"])
+
+        except (TypeError, ValueError, KeyError):
+            title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
+            date = xpath(
+                '//div[@id="movieInfo"]//section//dt[contains(text(), "公開日")]'
+                '/following-sibling::dd/text()[contains(., "20")]'
+            )(tree)
+            date = text_to_epoch(date[0]) if date else None
 
         return ScrapeResult(
             productId=self.keyword,
-            title=tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span'),
-            publishDate=text_to_epoch(date[0]) if date else None,
+            title=title,
+            publishDate=date,
             source=f"{m1}.com",
         )
 
@@ -712,7 +720,7 @@ class OneKGirl(Scraper):
 
     __slots__ = ()
     uncensored_only = True
-    regex = r"([12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))[\s-]+([a-z]{3,8})(?:-(?P<kg>[a-z]{3,6}))?"
+    regex = r"([12][0-9](?:0[1-9]|1[0-2])(?:[12][0-9]|0[1-9]|3[01]))[\s-]+([a-z]{3,8})(?:-(?P<kg>[a-z]{3,6}))?"
 
     def _query(self):
         m = self.match
@@ -740,10 +748,10 @@ class DateSearcher:
             "sepF": r"[\s.-]+",
             "y": r"(?:20)?([12][0-9])",
             "yy": r"(20[12][0-9])",
-            "m": r"(1[0-2]|0?[1-9])",
-            "mm": r"(1[0-2]|0[1-9])",
-            "d": r"(3[01]|[12][0-9]|0?[1-9])",
-            "dd": r"(3[01]|[12][0-9]|0[1-9])",
+            "m": r"(0?[1-9]|1[0-2])",
+            "mm": r"(0[1-9]|1[0-2])",
+            "d": r"([12][0-9]|0?[1-9]|3[01])",
+            "dd": r"([12][0-9]|0[1-9]|3[01])",
             "b": r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
             "B": r"(january|february|march|april|may|june|july|august|september|october|november|december)",
         }
@@ -787,9 +795,18 @@ class DateSearcher:
             pass
 
 
+def _load_json_ld(tree: common.HtmlElement):
+    """Loads JSON-LD data from page.
+
+    May raise TypeError, ValueError when failed.
+    """
+    return json_loads(re_sub(r"[\t\n\r\f\v]+", "", tree.findtext('.//script[@type="application/ld+json"]')))
+
+
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
     """Combine one or more scraper regexes to a single pattern, in strict order,
-    without duplicates."""
+    without duplicates.
+    """
 
     item = {}
     for scraper in args:
