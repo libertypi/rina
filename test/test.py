@@ -132,11 +132,13 @@ class Scraper(unittest.TestCase):
                     1519862400,
                 ),
             ),
-            ("honnamatv-216 (5)", ("heydouga.com", "honnamatv-216-5", "じゅんこ 激ヤセ！M顔娘", 1380585600)),
             (
-                "heydouga-4197-001",
-                ("heydouga.com", "heydouga-4197-001", "刺激を求めて応募の梨香さん、おじさんの3Ｐと中出し - 梨香", 1542931200.0),
+                "Heydouga 4030-PPV1768",
+                ("heydouga.com", "heydouga-4030-1768", "夫婦喧嘩が原因で家出をしてきた隣の奥さん!! - 立花美涼", 1448150400.0),
             ),
+            ("Heydouga 4030-PPV2232 AV9898", ("heydouga.com", "heydouga-4030-2232", "極射 - あすかみさき", 1553904000.0)),
+            ("AV9898-1566", ("heydouga.com", "AV9898-1566", "前田由美 由美の家で撮影しちゃおう_Two", 1452643200.0)),
+            ("honnamatv-216 (5)", ("heydouga.com", "honnamatv-216-5", "じゅんこ 激ヤセ！M顔娘", 1380585600)),
         )
         self._run_test(values)
 

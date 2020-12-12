@@ -67,7 +67,7 @@ class AVString:
 
 class AVFile(AVString):
 
-    __slots__ = AVString.__slots__ + ("path", "newfilename", "_atime")
+    __slots__ = ("path", "newfilename", "_atime")
 
     def __init__(self, path: Path, stat: os.stat_result = None, namemax: int = None):
 

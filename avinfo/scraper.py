@@ -373,7 +373,7 @@ class StudioMatcher(Scraper):
 
 class Heyzo(Scraper):
 
-    __slots__ = Scraper.__slots__
+    __slots__ = ()
     uncensored_only = True
     source = "heyzo.com"
     regex = r"heyzo[^0-9]*(?P<heyzo>[0-9]{4})"
@@ -417,7 +417,7 @@ class Heyzo(Scraper):
 
 class FC2(Scraper):
 
-    __slots__ = Scraper.__slots__
+    __slots__ = ()
     uncensored_only = True
     source = "fc2.com"
     regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{4,10})"
@@ -483,15 +483,15 @@ class FC2(Scraper):
 
 class Heydouga(Scraper):
 
-    __slots__ = Scraper.__slots__
+    __slots__ = ()
     uncensored_only = True
     source = "heydouga.com"
-    regex = r"heydouga[^0-9]*(?P<h1>4[0-9]{3})[^0-9]+(?P<hdg>[0-9]{3,6})"
+    regex = r"heydouga[^0-9]*(?P<h1>4[0-9]{3})[^0-9]+(?P<heydou>[0-9]{3,6})"
 
     def _query(self, url: str = None):
 
         if not url:
-            m1, m2 = self.match.group("h1", "hdg")
+            m1, m2 = self.match.group("h1", "heydou")
             self.keyword = f"heydouga-{m1}-{m2}"
             url = f"https://www.heydouga.com/moviepages/{m1}/{m2}/"
 
@@ -499,11 +499,7 @@ class Heydouga(Scraper):
         if tree is None:
             return
 
-        try:
-            title = tree.findtext(".//title").rpartition(" - ")
-        except AttributeError:
-            return
-
+        title = tree.findtext(".//title").rpartition(" - ")
         date = xpath(
             '//div[@id="movie-info"]//span[contains(text(), "配信日")]'
             '/following-sibling::span/text()[contains(., "20")]'
@@ -517,23 +513,31 @@ class Heydouga(Scraper):
         )
 
 
+class AV9898(Heydouga):
+
+    __slots__ = ()
+    regex = r"av9898[^0-9]+(?P<av98>[0-9]{3,})"
+
+    def _query(self):
+        uid = self.match["av98"]
+        self.keyword = f"AV9898-{uid}"
+        return super()._query(f"https://av9898.heydouga.com/monthly/av9898/moviepages/{uid}/")
+
+
 class Honnamatv(Heydouga):
 
-    __slots__ = Scraper.__slots__
+    __slots__ = ()
     regex = r"honnamatv[^0-9]*(?P<honna>[0-9]{3,})"
 
     def _query(self):
         uid = self.match["honna"]
         self.keyword = f"honnamatv-{uid}"
-
-        return super()._query(
-            url=f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{uid}/",
-        )
+        return super()._query(f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{uid}/")
 
 
 class X1X(Scraper):
 
-    __slots__ = Scraper.__slots__
+    __slots__ = ()
     uncensored_only = True
     source = "x1x.com"
     regex = r"x1x(?:\.com)?[\s-]+(?P<x1x>[0-9]{6})"
@@ -568,7 +572,7 @@ class X1X(Scraper):
 
 class SM_Miracle(Scraper):
 
-    __slots__ = Scraper.__slots__
+    __slots__ = ()
     uncensored_only = True
     source = "sm-miracle.com"
     regex = r"sm[\s-]*miracle(?:[\s-]+no)?[\s.-]+e?(?P<sm>[0-9]{4})"
@@ -598,7 +602,7 @@ class SM_Miracle(Scraper):
 
 class H4610(Scraper):
 
-    __slots__ = Scraper.__slots__
+    __slots__ = ()
     uncensored_only = True
     regex = r"(?P<h41>h4610|[ch]0930)\W+(?P<h4610>[a-z]+[0-9]+)"
 
@@ -626,7 +630,7 @@ class H4610(Scraper):
 
 class Kin8(Scraper):
 
-    __slots__ = Scraper.__slots__
+    __slots__ = ()
     uncensored_only = True
     source = "kin8tengoku.com"
     regex = r"kin8(?:tengoku)?[^0-9]*(?P<kin8>[0-9]{4})"
@@ -660,7 +664,7 @@ class Kin8(Scraper):
 
 class GirlsDelta(Scraper):
 
-    __slots__ = Scraper.__slots__
+    __slots__ = ()
     uncensored_only = True
     source = "girlsdelta.com"
     regex = r"girls\s?delta[^0-9]*(?P<gd>[0-9]{3,4})"
@@ -673,11 +677,6 @@ class GirlsDelta(Scraper):
         if tree is None or "/product/" not in tree.base_url:
             return
 
-        try:
-            title = tree.findtext(".//title").partition("｜")[0]
-        except AttributeError:
-            return
-
         date = xpath(
             './/div[@class="product-detail"]//li'
             '/*[contains(text(), "公開日")]'
@@ -686,7 +685,7 @@ class GirlsDelta(Scraper):
 
         return ScrapeResult(
             productId=self.keyword,
-            title=title,
+            title=tree.findtext(".//title").partition("｜")[0],
             publishDate=text_to_epoch(date[0]) if date else None,
             source=self.source,
         )
@@ -694,14 +693,14 @@ class GirlsDelta(Scraper):
 
 class UncensoredMatcher(Scraper):
 
-    __slots__ = Scraper.__slots__
+    __slots__ = ()
     uncensored_only = True
     regex = (
         r"((?:n|kb?|lb|jpgc|gedo|bouga|jup|wald|(?:hame|live)samurai)[0-2][0-9]{3})",
         r"((?:crazyasia|peworld)[0-9]{5})",
-        r"(mkbd|bd)[\s-]?([sm]?[0-9]{2,4})",
         r"(xxx)[\s-]*(av)[^0-9]*([0-9]{4,5})",
         r"(th101)[\s-]*([0-9]{3})[\s-]([0-9]{6})",
+        r"(mkbd|bd)[\s-]?([sm]?[0-9]{2,4})",
         r"([a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s-]*([0-9]{2,6})",
     )
 
@@ -711,7 +710,7 @@ class UncensoredMatcher(Scraper):
 
 class OneKGirl(Scraper):
 
-    __slots__ = Scraper.__slots__
+    __slots__ = ()
     uncensored_only = True
     regex = r"([12][0-9](?:1[0-2]|0[1-9])(?:3[01]|[12][0-9]|0[1-9]))[\s-]+([a-z]{3,8})(?:-(?P<kg>[a-z]{3,6}))?"
 
@@ -723,8 +722,8 @@ class OneKGirl(Scraper):
 
 class PatternSearcher(Scraper):
 
-    __slots__ = Scraper.__slots__
-    regex = r"[0-9]{,3}(?P<p1>[a-z]{2,20})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,10}|[0-9]{2,10}))(?:hhb[0-9]?)?"
+    __slots__ = ()
+    regex = r"[0-9]{,3}(?P<p1>[a-z]{2,10})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:hhb[0-9]?)?"
 
     def _query(self):
         self.keyword = self.match.expand(r"\g<p1>-\g<p2>")
@@ -732,6 +731,7 @@ class PatternSearcher(Scraper):
 
 class DateSearcher:
 
+    __slots__ = ()
     source = "date string"
 
     def _init_regex():
@@ -814,7 +814,8 @@ _search_map = {
     "studio": StudioMatcher,
     "heyzo": Heyzo,
     "fc2": FC2,
-    "hdg": Heydouga,
+    "heydou": Heydouga,
+    "av98": AV9898,
     "honna": Honnamatv,
     "x1x": X1X,
     "sm": SM_Miracle,

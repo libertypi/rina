@@ -501,7 +501,7 @@ class Actress:
 
 class ActressFolder(Actress):
 
-    __slots__ = Actress.__slots__ + ("path",)
+    __slots__ = "path"
 
     def __init__(self, path: Path, executor: ThreadPoolExecutor = None):
         super().__init__(path.name, executor)
