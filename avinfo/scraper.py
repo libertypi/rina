@@ -222,7 +222,8 @@ class StudioMatcher(Scraper):
                 date = get_value(p)
             elif "製作商" in k:
                 studio = self._search_studio(get_value(p))
-                break
+                if productId and date:
+                    break
 
         if studio:
             result = getattr(self, studio.lastgroup)()
