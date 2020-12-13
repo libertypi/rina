@@ -35,7 +35,7 @@ date_searcher = re_compile(
     (?:(?P<han>年)|(?P<pun>[/.-]))\s*
     (?P<m>1[0-2]|0?[1-9])\s*
     (?(han)月|(?P=pun))\s*
-    (?P<d>3[01]|[12][0-9]|0?[1-9])
+    (?P<d>[12][0-9]|3[01]|0?[1-9])
     (?(han)\s*日)""",
     flags=re.VERBOSE,
 ).search

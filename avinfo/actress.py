@@ -81,8 +81,8 @@ class Wikipedia(Wiki):
             return
 
         birth = None
-        alias = xpath('//caption[@*="name"]/text()')(box)
-        xp = xpath("td//text()")
+        alias = xpath('.//caption[@*="name"]/text()[normalize-space()]')(box)
+        xp = xpath("td//text()[normalize-space()]")
 
         for tr in box.iterfind("tbody/tr[th][td]"):
             k = tr.find("th").text_content()
@@ -132,7 +132,7 @@ class MinnanoAV(Wiki):
         """Return if there's only one match."""
 
         links = xpath(
-            '//section[@id = "main-area"]//table[contains(@class, "actress")]'
+            './/section[@id = "main-area"]//table[contains(@class, "actress")]'
             '//td[not(contains(., "重複"))]/h2/a[@href]'
         )(tree)
 
@@ -158,7 +158,7 @@ class AVRevolution(Wiki):
 
         tree = get_tree(cls.baseurl + keyword, decoder="lxml")
         try:
-            tree = xpath('//div[@class="container"]/div[contains(@class,"row") and @style and div[1]/a]')(tree)
+            tree = xpath('.//div[@class="container"]/div[contains(@class,"row") and @style and div[1]/a]')(tree)
         except TypeError:
             return
 
@@ -312,7 +312,7 @@ class Manko(Wiki):
             return
 
         result = None
-        xp1 = xpath('(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())[1]')
+        xp1 = xpath('tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text()[normalize-space()]')
         xp2 = xpath("tr[td[1][contains(text(), $title)]]/td[2]")
 
         for tbody in tree.iterfind('.//div[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'):
@@ -349,7 +349,7 @@ class Etigoya(Wiki):
             return
 
         result = None
-        for text in xpath('//div[@id="main"]/div[@class="content"]//li/a/text()[contains(., "＝")]')(tree):
+        for text in xpath('.//div[@id="main"]/div[@class="content"]//li/a/text()[contains(., "＝")]')(tree):
             alias = text.split("＝")
             if _match_name(keyword, *alias):
                 if result:

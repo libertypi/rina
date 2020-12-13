@@ -101,7 +101,10 @@ class Scraper:
             pool = {base}
             pool.update(
                 urljoin(s, "search?q=")
-                for s in tree.xpath('//nav[@class="sub-header"]/div/text()[contains(.,"最新域名")]/following::a[1]/@href')
+                for s in tree.xpath(
+                    './/nav[@class="sub-header"]//*/text()[contains(., "最新域名")]'
+                    '/following::a[starts-with(@href, "http")][1]/@href',
+                )
             )
             Scraper._javdb_url = tuple(pool)
         else:
@@ -208,17 +211,17 @@ class StudioMatcher(Scraper):
             return
 
         productId = date = studio = None
-        func = lambda p: _subspace("", p.text_content().partition(":")[2])
+        get_value = lambda p: _subspace("", p.text_content().partition(":")[2])
         for p in xpath(
-            '//div[contains(@class,"movie")]/div[contains(@class,"info")]/p[contains(span/text(),":")]',
+            './/div[contains(@class,"movie")]/div[contains(@class,"info")]/p[span/text() and contains(.,":")]'
         )(tree):
             k = p.findtext("span")
             if "識別碼" in k:
-                productId = func(p)
+                productId = get_value(p)
             elif "日期" in k:
-                date = func(p)
+                date = get_value(p)
             elif "製作商" in k:
-                studio = self._search_studio(func(p))
+                studio = self._search_studio(get_value(p))
                 break
 
         if studio:
@@ -256,7 +259,7 @@ class StudioMatcher(Scraper):
             return
 
         date = xpath(
-            '//li[@class="movie-spec"]'
+            './/li[@class="movie-spec"]'
             '/span[contains(text(), "配信日") or contains(text(), "販売日")]'
             '/following-sibling::span/text()[contains(., "20")]'
         )(tree)
@@ -332,14 +335,13 @@ class StudioMatcher(Scraper):
 
         tree = tree.find('.//div[@id="detail-main"]')
         try:
-            title = "".join(xpath("h1/text()")(tree))
+            date = xpath('ul[@class="info"]/li[contains(.,"更新日")]/text()[contains(.,"20")]')(tree)
         except TypeError:
             return
 
-        date = xpath('ul[@class="info"]/li[contains(*/text(),"更新日")]/text()[contains(.,"20")]')(tree)
         return ScrapeResult(
             productId=self.keyword,
-            title=title,
+            title="".join(xpath("h1[1]/text()")(tree)),
             publishDate=text_to_epoch(date[0]) if date else None,
             source="muramura.tv",
         )
@@ -439,7 +441,11 @@ class FC2(Scraper):
                 pass
 
         if not title:
-            tree = get_tree(f"https://video.fc2.com/a/search/video/?keyword={uid}", decoder="lxml")
+            tree = get_tree(
+                "https://video.fc2.com/a/search/video/",
+                params={"keyword": f"aid={uid}"},
+                decoder="lxml",
+            )
             try:
                 tree = tree.find('.//div[@id="pjx-search"]//ul/li//a[@title][@href]')
                 title = tree.text
@@ -460,7 +466,9 @@ class FC2(Scraper):
 
     def _javdb(self):
         try:
-            json = session.get(f"https://javdb.com/videos/search_autocomplete.json?q={self.keyword}").json()
+            json = session.get(
+                f"https://javdb.com/videos/search_autocomplete.json?q={self.keyword}",
+            ).json()
         except (common.RequestException, ValueError):
             return
 
@@ -501,7 +509,7 @@ class Heydouga(Scraper):
 
         title = tree.findtext(".//title").rpartition(" - ")
         date = xpath(
-            '//div[@id="movie-info"]//span[contains(text(), "配信日")]'
+            './/div[@id="movie-info"]//span[contains(text(), "配信日")]'
             '/following-sibling::span/text()[contains(., "20")]'
         )(tree)
 
@@ -556,8 +564,8 @@ class X1X(Scraper):
         tree = tree.find('.//div[@id="main_content"]')
         try:
             date = xpath(
-                '//div[@class="movie_data_rt"]//dt[contains(text(), "配信日")]'
-                '/following-sibling::dd[1]/text()[contains(., "20")]'
+                './/div[@class="movie_data_rt"]//dt[contains(text(), "配信日")]'
+                '/following-sibling::dd/text()[contains(., "20")]'
             )(tree)
         except TypeError:
             return
@@ -579,20 +587,20 @@ class SM_Miracle(Scraper):
 
     def _query(self):
 
-        self.keyword = "e" + self.match["sm"]
+        uid = "e" + self.match["sm"]
+        self.keyword = f"sm-miracle-{uid}"
         try:
-            res = session.get(f"http://sm-miracle.com/movie/{self.keyword}.dat")
+            res = session.get(f"http://sm-miracle.com/movie/{uid}.dat")
             res.raise_for_status()
         except common.RequestException:
             return
 
         try:
             return ScrapeResult(
-                productId=f"sm-miracle-{self.keyword}",
+                productId=self.keyword,
                 title=re_search(
-                    r"""(?:^|[{,])\s*title:\s*(?P<q>['"])(?P<title>.+?)(?P=q)""",
+                    r'[\n{,]\s*title:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)',
                     res.content.decode("utf-8"),
-                    flags=re.MULTILINE,
                 )["title"],
                 source=self.source,
             )
@@ -623,7 +631,7 @@ class H4610(Scraper):
         except (TypeError, ValueError, KeyError):
             title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
             date = xpath(
-                '//div[@id="movieInfo"]//section//dt[contains(text(), "公開日")]'
+                './/div[@id="movieInfo"]//section//dt[contains(text(), "公開日")]'
                 '/following-sibling::dd/text()[contains(., "20")]'
             )(tree)
             date = text_to_epoch(date[0]) if date else None
@@ -651,14 +659,14 @@ class Kin8(Scraper):
         if tree is None:
             return
 
+        title = xpath('.//div[@id="sub_main"]/p[contains(@class,"sub_title")]/text()[normalize-space()]')(tree)
         try:
-            title = xpath('//div[@id="sub_main"]/p[contains(@class,"sub_title")]/text()')(tree)
             title = title[0].partition("限定配信 ")
         except IndexError:
             return
 
         date = xpath(
-            '//div[@id="main"]/div[contains(@id,"detail_box")]'
+            './/div[@id="main"]/div[contains(@id,"detail_box")]'
             '//td[contains(text(),"更新日")]/following-sibling::td/text()[contains(.,"20")]'
         )(tree)
 
@@ -748,10 +756,10 @@ class DateSearcher:
             "sepF": r"[\s.-]+",
             "y": r"(?:20)?([12][0-9])",
             "yy": r"(20[12][0-9])",
-            "m": r"(0?[1-9]|1[0-2])",
-            "mm": r"(0[1-9]|1[0-2])",
-            "d": r"([12][0-9]|0?[1-9]|3[01])",
-            "dd": r"([12][0-9]|0[1-9]|3[01])",
+            "m": r"(1[0-2]|0?[1-9])",
+            "mm": r"(1[0-2]|0[1-9])",
+            "d": r"([12][0-9]|3[01]|0?[1-9])",
+            "dd": r"([12][0-9]|3[01]|0[1-9])",
             "b": r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
             "B": r"(january|february|march|april|may|june|july|august|september|october|november|december)",
         }
