@@ -684,7 +684,7 @@ class GirlsDelta(Scraper):
     __slots__ = ()
     uncensored_only = True
     source = "girlsdelta.com"
-    regex = r"girls\s?delta[^0-9]*(?P<gd>[0-9]{3,4})"
+    regex = r"girls[\s-]?delta[^0-9]*(?P<gd>[0-9]{3,4})"
 
     def _query(self):
         uid = self.match["gd"]
@@ -717,7 +717,7 @@ class UncensoredMatcher(Scraper):
         r"((?:crazyasia|peworld)[0-9]{5})",
         r"(xxx)[\s-]*(av)[^0-9]*([0-9]{4,5})",
         r"(th101)[\s-]*([0-9]{3})[\s-]([0-9]{6})",
-        r"(mkbd|bd)[\s-]?([sm]?[0-9]{2,4})",
+        r"(mkb?d|bd)[\s-]?([sm]?[0-9]{2,4})",
         r"([a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s-]*([0-9]{2,6})",
     )
 
