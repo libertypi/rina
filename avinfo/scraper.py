@@ -495,7 +495,7 @@ class Heydouga(Scraper):
     __slots__ = ()
     uncensored_only = True
     source = "heydouga.com"
-    regex = r"heydouga[^0-9]*(?P<h1>4[0-9]{3})[^0-9]+(?P<heydou>[0-9]{3,6})"
+    regex = r"heydouga[^0-9]*(?P<h1>[0-9]{4})[^0-9]+(?P<heydou>[0-9]{3,6})"
 
     def _query(self, url: str = None):
 
@@ -743,7 +743,8 @@ class PatternSearcher(Scraper):
     regex = r"[0-9]{,3}(?P<p1>[a-z]{2,10})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:hhb[0-9]?)?"
 
     def _query(self):
-        self.keyword = self.match.expand(r"\g<p1>-\g<p2>")
+        m = self.match
+        self.keyword = f'{m["p1"]}-{m["p2"]}'
 
 
 class DateSearcher:
