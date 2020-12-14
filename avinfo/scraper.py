@@ -172,18 +172,17 @@ class StudioMatcher(Scraper):
     datefmt: str = "%m%d%y"
     studio: str = None
 
-    def __init__(self, string: str, match: re.Match) -> None:
+    def search(self):
 
-        super().__init__(string, match)
+        match = self.match
         self.keyword = f'{match["s1"]}_{match["s2"]}'
 
-        m = self.studio_match = self._search_studio(string)
+        m = self.studio_match = self._search_studio(self.string)
         if m:
             self._query = getattr(self, m.lastgroup)
         elif match["s3"] and match["s4"]:
             self._query = self._mesubuta
 
-    def search(self):
         result = super().search()
 
         if result and (result.source.startswith("jav") or not result.publishDate):
