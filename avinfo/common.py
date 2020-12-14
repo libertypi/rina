@@ -120,8 +120,9 @@ def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
 
 def text_to_epoch(string: str) -> Optional[float]:
     try:
-        return str_to_epoch(date_searcher(string).expand(r"\g<y> \g<m> \g<d>"), sub_re=None)
-    except (TypeError, AttributeError):
+        m = date_searcher(string)
+        return str_to_epoch(f'{m["y"]} {m["m"]} {m["d"]}', sub_re=None)
+    except (TypeError, ValueError):
         pass
 
 
