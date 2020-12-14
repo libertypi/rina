@@ -206,7 +206,7 @@ def update_dir_mtime(target: Path):
             except OSError as e:
                 color_printer(f"Error: {path.name}  ({e})", color="red")
             else:
-                print(f"{epoch_to_str(mtime, '%F')}  ==>  {epoch_to_str(record, '%F')}  {path.name}")
+                print(f"{epoch_to_str(mtime)}  ==>  {epoch_to_str(record)}  {path.name}")
                 return True
 
         return False

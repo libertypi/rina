@@ -188,7 +188,7 @@ class StudioMatcher(Scraper):
 
         if result and (result.source.startswith("jav") or not result.publishDate):
             try:
-                result.publishDate = str_to_epoch(self.match["s1"], self.datefmt, sub_re=None)
+                result.publishDate = str_to_epoch(self.match["s1"], self.datefmt)
             except ValueError:
                 pass
         return result
@@ -293,7 +293,7 @@ class StudioMatcher(Scraper):
             return ScrapeResult(
                 productId=json["MovieID"],
                 title=json["Title"],
-                publishDate=str_to_epoch(json["Release"]),
+                publishDate=text_to_epoch(json["Release"]),
                 source=source,
             )
         except (common.RequestException, ValueError, KeyError):
@@ -394,7 +394,7 @@ class Heyzo(Scraper):
             return ScrapeResult(
                 productId=self.keyword,
                 title=json["name"],
-                publishDate=str_to_epoch(json["dateCreated"]),
+                publishDate=text_to_epoch(json["dateCreated"]),
                 source=self.source,
             )
         except (TypeError, ValueError, KeyError):
@@ -454,7 +454,7 @@ class FC2(Scraper):
                 return
             date = re_search(r"(?<=/)20[12][0-9]{5}", tree.get("href"))
             try:
-                date = str_to_epoch(date[0], "%Y%m%d", sub_re=None)
+                date = str_to_epoch(date[0], "%Y%m%d")
             except (TypeError, ValueError):
                 pass
 
@@ -627,7 +627,7 @@ class H4610(Scraper):
         try:
             json = _load_json_ld(tree)
             title = json["name"]
-            date = str_to_epoch(json["dateCreated"])
+            date = text_to_epoch(json["dateCreated"])
 
         except (TypeError, ValueError, KeyError):
             title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
@@ -794,11 +794,7 @@ class DateSearcher:
         i = match.lastindex + 1
         try:
             return ScrapeResult(
-                publishDate=str_to_epoch(
-                    string=" ".join(match.group(i, i + 2, i + 3)),
-                    fmt=fmt,
-                    sub_re=None,
-                ),
+                publishDate=str_to_epoch(" ".join(match.group(i, i + 2, i + 3)), fmt),
                 source=cls.source,
             )
         except ValueError:

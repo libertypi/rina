@@ -121,18 +121,16 @@ def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
 def text_to_epoch(string: str) -> Optional[float]:
     try:
         m = date_searcher(string)
-        return str_to_epoch(f'{m["y"]} {m["m"]} {m["d"]}', sub_re=None)
+        return datetime(int(m["y"]), int(m["m"]), int(m["d"]), tzinfo=timezone.utc).timestamp()
     except (TypeError, ValueError):
         pass
 
 
-def str_to_epoch(string: str, fmt: str = "%Y %m %d", sub_re=re_compile(r"[^0-9]+")) -> float:
-    if sub_re:
-        string = sub_re.sub(" ", string).strip()
+def str_to_epoch(string: str, fmt: str = "%Y %m %d") -> float:
     return datetime.strptime(string, fmt).replace(tzinfo=timezone.utc).timestamp()
 
 
-def epoch_to_str(epoch: float, fmt: str = "%F %T") -> Optional[str]:
+def epoch_to_str(epoch: float, fmt: str = "%F") -> Optional[str]:
     try:
         return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime(fmt)
     except TypeError:
