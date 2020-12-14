@@ -32,11 +32,11 @@ session.headers.update(
 
 date_searcher = re_compile(
     r"""(?P<y>(?:19|20)[0-9]{2})\s*
-    (?:(?P<han>年)|(?P<pun>[/.-]))\s*
+    (?:(?P<han>年)|(?P<sep>[/.-]))\s*
     (?P<m>1[0-2]|0?[1-9])\s*
-    (?(han)月|(?P=pun))\s*
+    (?(han)月|(?P=sep))\s*
     (?P<d>[12][0-9]|3[01]|0?[1-9])
-    (?(han)\s*日)""",
+    (?(han)\s*日|(?=$|[^0-9]))""",
     flags=re.VERBOSE,
 ).search
 
