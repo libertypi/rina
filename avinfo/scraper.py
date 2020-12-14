@@ -175,7 +175,7 @@ class StudioMatcher(Scraper):
     def __init__(self, string: str, match: re.Match) -> None:
 
         super().__init__(string, match)
-        self.keyword = "_".join(match.group("s1", "s2"))
+        self.keyword = f'{match["s1"]}_{match["s2"]}'
 
         m = self.studio_match = self._search_studio(string)
         if m:

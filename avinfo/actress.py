@@ -65,13 +65,10 @@ class Wiki:
 
 
 class Wikipedia(Wiki):
+    @staticmethod
+    def _query(keyword: str):
 
-    baseurl = "https://ja.wikipedia.org/wiki/"
-
-    @classmethod
-    def _query(cls, keyword: str):
-
-        tree = get_tree(cls.baseurl + keyword, decoder="lxml")
+        tree = get_tree(f"https://ja.wikipedia.org/wiki/{keyword}", decoder="lxml")
         if tree is None or tree.find('.//a[@title="Template:AV女優"]') is None:
             return
 
@@ -95,13 +92,14 @@ class Wikipedia(Wiki):
 
 
 class MinnanoAV(Wiki):
-
-    baseurl = "http://www.minnano-av.com/search_result.php?search_scope=actress&search_word="
-
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_tree(cls.baseurl + keyword, decoder="lxml")
+        tree = get_tree(
+            "http://www.minnano-av.com/search_result.php",
+            params={"search_scope": "actress", "search_word": keyword},
+            decoder="lxml",
+        )
         if tree is None:
             return
 
@@ -128,16 +126,14 @@ class MinnanoAV(Wiki):
         return SearchResult(name=name, birth=birth, alias=alias)
 
     @staticmethod
-    def _scan_search_page(keyword: str, tree):
+    def _scan_search_page(keyword: str, tree: common.HtmlElement):
         """Return if there's only one match."""
 
-        links = xpath(
+        result = None
+        for a in xpath(
             './/section[@id = "main-area"]//table[contains(@class, "actress")]'
             '//td[not(contains(., "重複"))]/h2/a[@href]'
-        )(tree)
-
-        result = None
-        for a in links:
+        )(tree):
             if _match_name(keyword, a.text):
                 href = a.get("href").partition("?")[0]
                 if not result:
@@ -150,13 +146,13 @@ class MinnanoAV(Wiki):
 
 
 class AVRevolution(Wiki):
+    @staticmethod
+    def _query(keyword: str):
 
-    baseurl = "http://neo-adultmovie-revolution.com/db/jyoyuu_betumei_db/?q="
-
-    @classmethod
-    def _query(cls, keyword: str):
-
-        tree = get_tree(cls.baseurl + keyword, decoder="lxml")
+        tree = get_tree(
+            f"http://neo-adultmovie-revolution.com/db/jyoyuu_betumei_db/?q={keyword}",
+            decoder="lxml",
+        )
         try:
             tree = xpath('.//div[@class="container"]/div[contains(@class,"row") and @style and div[1]/a]')(tree)
         except TypeError:
@@ -170,7 +166,7 @@ class AVRevolution(Wiki):
                 a = row.find("div[1]/a[@href]")
                 title = _clean_name(a.text_content())
                 name = re_search(r"/([^/]+)/?$", a.get("href"))[1]
-            except AttributeError:
+            except (AttributeError, TypeError):
                 continue
 
             if result:
@@ -188,31 +184,30 @@ class AVRevolution(Wiki):
 
 
 class Seesaawiki(Wiki):
-
-    baseurl = "https://seesaawiki.jp/av_neme/d/"
-
-    @classmethod
-    def _query(cls, keyword: str):
+    @staticmethod
+    def _query(keyword: str):
 
         try:
-            urls = [cls.baseurl + urlquote(keyword, encoding="euc-jp")]
+            stack = ["https://seesaawiki.jp/av_neme/d/" + urlquote(keyword, encoding="euc-jp")]
         except UnicodeEncodeError:
             return
 
         while True:
-            tree = get_tree(urls[-1], decoder="euc-jp")
+            tree = get_tree(stack[-1], decoder="euc-jp")
             if tree is None:
                 return
 
-            text = tree.findtext('.//*[@id="content_1"]')
-            if not (text and re_search(r"((女優名|名前).*?)+変更", text)):
+            text = tree.findtext('.//h3[@id="content_1"]')
+            if not (text and re_search(r"(女優名|名前).*?変更", text)):
                 break
 
-            a = tree.find('.//div[@id="content_block_1-body"]/span/a[@href]')
-            if a is not None and "移動" in a.getparent().text_content():
-                url = urljoin(tree.base_url, a.get("href"))
-                if url not in urls:
-                    urls.append(url)
+            url = xpath(
+                './/div[@id="content_block_1-body" and contains(., "移動")]/span/a/@href',
+            )(tree)
+            if url:
+                url = urljoin(tree.base_url, url[0])
+                if url not in stack:
+                    stack.append(url)
                     continue
             return
 
@@ -230,26 +225,22 @@ class Seesaawiki(Wiki):
         else:
             box = (i.split("：", 1) for i in box.text.splitlines() if "：" in i)
 
+        stack.clear()
         birth = None
-        urls.clear()
-        alias = urls
         for k, v in box:
             if not birth and "生年月日" in k:
                 birth = date_searcher(v)
             elif re_search(r"旧名|別名|名前|女優名", k):
-                alias.extend(_split_name(v))
+                stack.extend(_split_name(v))
 
-        return SearchResult(name=name, birth=birth, alias=alias)
+        return SearchResult(name=name, birth=birth, alias=stack)
 
 
 class Msin(Wiki):
-
-    baseurl = "https://db.msin.jp/search/actress?str="
-
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_tree(cls.baseurl + keyword)
+        tree = get_tree(f"https://db.msin.jp/search/actress?str={keyword}")
         if tree is None:
             return
 
@@ -276,7 +267,7 @@ class Msin(Wiki):
             )
 
     @staticmethod
-    def _scan_search_page(keyword: str, tree):
+    def _scan_search_page(keyword: str, tree: common.HtmlElement):
 
         result = None
         for div in tree.iterfind('.//div[@id="content"]//div[@class="actress_info_find"]/div[@class="act_ditail"]'):
@@ -301,13 +292,10 @@ class Msin(Wiki):
 
 
 class Manko(Wiki):
+    @staticmethod
+    def _query(keyword: str):
 
-    baseurl = "http://mankowomiseruavzyoyu.blog.fc2.com/?q="
-
-    @classmethod
-    def _query(cls, keyword: str):
-
-        tree = get_tree(cls.baseurl + keyword, decoder="lxml")
+        tree = get_tree(f"http://mankowomiseruavzyoyu.blog.fc2.com/?q={keyword}", decoder="lxml")
         if tree is None:
             return
 
@@ -338,13 +326,10 @@ class Manko(Wiki):
 
 
 class Etigoya(Wiki):
+    @staticmethod
+    def _query(keyword: str):
 
-    baseurl = "http://etigoya955.blog49.fc2.com/?q="
-
-    @classmethod
-    def _query(cls, keyword: str):
-
-        tree = get_tree(cls.baseurl + keyword, decoder="lxml")
+        tree = get_tree(f"http://etigoya955.blog49.fc2.com/?q={keyword}", decoder="lxml")
         if tree is None:
             return
 
@@ -477,21 +462,19 @@ class Actress:
 
     @property
     def report(self):
+
         report = self._report
-        if isinstance(report, str):
-            return report
-
-        log = []
-        for k, v in report.items():
-            if v:
-                if isinstance(v, tuple):
-                    v = iter(v)
-                    log.append(f'{k + ":":>10} {next(v)}\n')
-                    log.extend(f'{"":>10} {i}\n' for i in v)
-                else:
-                    log.append(f'{k + ":":>10} {v}\n')
-
-        report = self._report = "".join(log)
+        if isinstance(report, dict):
+            log = []
+            for k, v in report.items():
+                if v:
+                    if isinstance(v, tuple):
+                        v = iter(v)
+                        log.append(f'{k + ":":>10} {next(v)}\n')
+                        log.extend(f'{"":>10} {i}\n' for i in v)
+                    else:
+                        log.append(f'{k + ":":>10} {v}\n')
+            report = self._report = "".join(log)
         return report
 
     @property
