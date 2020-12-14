@@ -712,8 +712,9 @@ class UncensoredMatcher(Scraper):
     __slots__ = ()
     uncensored_only = True
     regex = (
-        r"((?:n|kb?|lb|jpgc|gedo|bouga|jup|wald|(?:hame|live)samurai)[0-2][0-9]{3})",
-        r"((?:crazyasia|peworld)[0-9]{5})",
+        r"((?:gs|jiro|ka|kosatsu|mldo|ot|red|sg|sky|sr|wl)[0-9]{3})",
+        r"((?:(?:ham|liv)esamurai|it|jpgc|jup|kb?|lb|ma|n|pf|pp|sp|tar|wald)[0-2][0-9]{3})",
+        r"((?:bouga|crazyasia|eyu|gedo|nukimax|peworld|shi(?:kai|ma)|ubt)[0-9]{2,8})",
         r"(xxx)[\s-]*(av)[^0-9]*([0-9]{4,5})",
         r"(th101)[\s-]*([0-9]{3})[\s-]([0-9]{6})",
         r"(mkb?d|bd)[\s-]?([sm]?[0-9]{2,4})",

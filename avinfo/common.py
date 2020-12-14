@@ -76,9 +76,7 @@ def list_dir(top_dir: Path) -> Iterator[Path]:
                     yield Path(entry.path)
             except OSError as e:
                 color_printer(f"Error occurred scanning {entry.path}: {e}", color="red")
-
-    if top_dir.name[0] not in _file_filter:
-        yield Path(top_dir)
+    yield Path(top_dir)
 
 
 def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
