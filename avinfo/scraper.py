@@ -739,7 +739,7 @@ class OneKGirl(Scraper):
 class PatternSearcher(Scraper):
 
     __slots__ = ()
-    regex = r"[0-9]{,3}(?P<p1>[a-z]{2,10})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:hhb[0-9]?)?"
+    regex = r"[0-9]{,3}(?P<p1>[a-z]{2,10})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:hhb[0-9]{,2})?"
 
     def _query(self):
         m = self.match
