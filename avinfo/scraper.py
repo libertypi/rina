@@ -159,12 +159,12 @@ class StudioMatcher(Scraper):
     _search_studio = re_compile(
         r"""\b(?:
         (?P<_carib>carib(?:bean(?:com)?)?|カリビアンコム)|  # 112220-001-carib
-        (?P<_caribpr>carib(?:bean(?:com)?)?pr)|             # 101515_391-caribpr
-        (?P<_1pon>1pon(?:do)?|一本道)|                      # 110411_209-1pon
-        (?P<_10mu>10mu(?:sume)?|天然むすめ)|                # 122812_01-10mu
-        (?P<_paco>paco(?:pacomama)?|パコパコママ)|          # 120618_394-paco
-        (?P<_mura>mura)(?:mura)?|                           # 010216_333-mura
-        (?P<_mesubuta>mesubuta|メス豚)                      # 160122_1020_01-mesubuta
+        (?P<_caribpr>carib(?:bean(?:com)?)?pr|カリビアンコムプレミアム)|    # 101515_391-caribpr
+        (?P<_1pon>1pon(?:do)?|一本道)|  # 110411_209-1pon
+        (?P<_10mu>10mu(?:sume)?|天然むすめ)|    # 122812_01-10mu
+        (?P<_paco>paco(?:pacomama)?|パコパコママ)|  # 120618_394-paco
+        (?P<_mura>mura)(?:mura)?|   # 010216_333-mura
+        (?P<_mesubuta>mesubuta|メス豚)  # 160122_1020_01-mesubuta
         )\b""",
         flags=re.VERBOSE,
     ).search
@@ -712,13 +712,13 @@ class UncensoredMatcher(Scraper):
     __slots__ = ()
     uncensored_only = True
     regex = (
-        r"((?:gs|jiro|ka|kosatsu|mldo|ot|red|sg|sky|sr|wl)[0-9]{3})",
+        r"((?:gs|jiro|ka|kosatsu|mldo|ot|red|sg|sky|sr|tr|wl)[0-9]{3})",
         r"((?:(?:ham|liv)esamurai|it|jpgc|jup|kb?|lb|ma|n|pf|pp|sp|tar|wald)[0-2][0-9]{3})",
-        r"((?:bouga|crazyasia|eyu|gedo|nukimax|peworld|shi(?:kai|ma)|ubt)[0-9]{2,8})",
+        r"((?:bouga|crazyasia|eyu|gedo|nukimax|peworld|shi(?:kai|ma|routozanmai)|ubt)[0-9]{2,8})",
         r"(xxx)[\s-]*(av)[^0-9]*([0-9]{4,5})",
         r"(th101)[\s-]*([0-9]{3})[\s-]([0-9]{6})",
         r"(mkb?d|bd)[\s-]?([sm]?[0-9]{2,4})",
-        r"([a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4})[\s-]*([0-9]{2,6})",
+        r"([a-z]{1,4}(?:3d|2d|2m)+[a-z]{1,4}|r18|t28)[\s-]*([0-9]{2,6})",
     )
 
     def _query(self):
