@@ -140,6 +140,6 @@ def now(fmt: str = "%F %T") -> str:
 
 
 @lru_cache(maxsize=None)
-def xpath(xpath: str) -> XPath:
+def xpath(xpath: str, smart_strings: bool = False) -> XPath:
     """Returns a compiled XPath."""
-    return XPath(xpath)
+    return XPath(xpath, smart_strings=smart_strings)
