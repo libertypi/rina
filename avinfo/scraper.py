@@ -725,7 +725,7 @@ class UncensoredMatcher(Scraper):
         self.keyword = "-".join(filter(None, self.match.groups()))
 
 
-class OneKGirl(Scraper):
+class OneKGiri(Scraper):
 
     __slots__ = ()
     uncensored_only = True
@@ -846,7 +846,7 @@ _search_map = {
     "kin8": Kin8,
     "gd": GirlsDelta,
     None: UncensoredMatcher,
-    "kg": OneKGirl,
+    "kg": OneKGiri,
 }
 _search_re = _combine_scraper_regex(*_search_map.values()).search
 _iter_re = _combine_scraper_regex(PatternSearcher).finditer
@@ -860,7 +860,7 @@ _clean_re = re_compile(
     168x|44x|3xplanet|
     sis001|sexinsex|thz|dioguitar23|
     uncensored|nodrm|fhd|
-    tokyo[\s_-]?hot|1000[\s_-]?girl
+    tokyo[\s_-]?hot|1000[\s_-]?giri
     )(?:[\s\]_-]+|\b)|
     \s+
     """,
