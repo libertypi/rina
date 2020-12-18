@@ -2,7 +2,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from avinfo import common
+from avinfo.common import color_printer, log_file, now, re_search, sep_bold, sep_slim, sep_width
 
 
 def parse_args():
@@ -71,10 +71,8 @@ def parse_args():
         target_type = "file"
 
     if not args.mode:
-        if target_type == "str":
-            from avinfo.actress import all_cjk
-
-            args.mode = "actress" if all_cjk(args.target) else "video"
+        if target_type == "str" and not re_search(r"(?a:\w)", args.target):
+            args.mode = "actress"
         else:
             args.mode = "video"
 
@@ -88,13 +86,13 @@ def parse_args():
 
 
 def print_banner():
-    print(common.sep_slim)
+    print(sep_slim)
     for m in ("Adult Video Information Detector", "By David Pi"):
-        print(m.center(common.sep_width))
-    print(common.sep_slim)
+        print(m.center(sep_width))
+    print(sep_slim)
 
 
-def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=common.sep_width, fill="█"):
+def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=sep_width, fill="█"):
     percent = f"{100 * (iteration / float(total)):.1f}"
     filledLength = int(length * iteration // total)
     bar = f'{fill * filledLength}{"-" * (length - filledLength)}'
@@ -119,7 +117,7 @@ def process_scan(scan, mode: str, quiet: bool):
             failed.append(obj)
 
     total_changed = len(changed)
-    print(common.sep_bold)
+    print(sep_bold)
     print(f"{mode} scan finished.")
 
     msg = f"Total: {total}. Changed: {total_changed}. Failed: {len(failed)}."
@@ -144,7 +142,7 @@ Please choose an option:
         elif choice == "4":
             sys.exit()
 
-        print(common.sep_bold)
+        print(sep_bold)
         if choice == "2":
             for obj in changed:
                 obj.print()
@@ -153,29 +151,29 @@ Please choose an option:
                 obj.print()
         else:
             print("Invalid option.")
-        print(common.sep_bold)
+        print(sep_bold)
 
     failed.clear()
-    sep = common.sep_slim + "\n"
+    sep = sep_slim + "\n"
 
     print("Applying changes...")
     printProgressBar(0, total_changed)
 
-    with open(common.log_file, "a", encoding="utf-8") as f:
+    with open(log_file, "a", encoding="utf-8") as f:
         for i, obj in enumerate(changed, 1):
             try:
                 obj.apply()
             except OSError as e:
                 failed.append((obj.path, e))
             else:
-                f.write(f"[{common.now()}] Mode: {mode}\n")
+                f.write(f"[{now()}] Mode: {mode}\n")
                 f.write(obj.report)
                 f.write(sep)
             printProgressBar(i, total_changed)
 
     for path, e in failed:
-        common.color_printer("Target:", path, color="red")
-        common.color_printer("Error:", e, color="red")
+        color_printer("Target:", path, color="red")
+        color_printer("Error:", e, color="red")
 
 
 def main():

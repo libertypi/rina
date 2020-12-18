@@ -860,7 +860,7 @@ _clean_re = re_compile(
     (?:[\s\[_-]+|\b)(?:    
     [a-z0-9.-]+\.[a-z]{2,4}@|
     (?:[a-z]+2048|hotavxxx|nyap2p)\.com|
-    168x|44x|3xplanet|
+    168x|44x|3xplanet|sogclub|
     sis001|sexinsex|thz|dioguitar23|
     uncensored|nodrm|fhd|
     tokyo[\s_-]?hot|1000[\s_-]?giri

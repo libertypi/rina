@@ -540,13 +540,10 @@ def is_cjk_name():
     def _is_cjk_name(string: str) -> bool:
         return is_word(string) and any(1 << ord(c) & mask for c in string)
 
-    def _all_cjk(string: str):
-        return all(1 << ord(c) & mask for c in string)
-
-    return _is_cjk_name, _all_cjk
+    return _is_cjk_name
 
 
-is_cjk_name, all_cjk = is_cjk_name()
+is_cjk_name = is_cjk_name()
 
 
 def scan_path(target: Path) -> Iterator[ActressFolder]:

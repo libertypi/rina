@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterator
 
 from avinfo import common
-from avinfo.common import color_printer, epoch_to_str, re_compile, re_search, sep_changed, sep_failed, sep_success
+from avinfo.common import color_printer, re_compile, re_search, re_sub, sep_changed, sep_failed, sep_success, strftime
 from avinfo.scraper import from_string
 
 
@@ -42,7 +42,7 @@ class AVString:
         self.productId = report["ProductId"] = result.productId
         self.title = report["Title"] = result.title
         self.publishDate = result.publishDate
-        report["PubDate"] = epoch_to_str(self.publishDate)
+        report["PubDate"] = strftime(self.publishDate)
         self.source = report["Source"] = result.source
 
     def print(self):
@@ -92,11 +92,12 @@ class AVFile(AVString):
             if self.publishDate != stat.st_mtime:
                 self._status |= 0b100
                 self._atime = stat.st_atime
-                self._report["FromDate"] = epoch_to_str(stat.st_mtime)
+                self._report["FromDate"] = strftime(stat.st_mtime)
 
     def _get_filename(self, namemax: int):
 
-        title = _strip_title("", _clean_title(" ", self.title))
+        strip_title = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
+        title = strip_title("", re_sub(r'[\s<>:"/\\|?* 　]+', " ", self.title))
         suffix = self.path.suffix.lower()
         namemax = namemax - len(self.productId.encode("utf-8")) - len(suffix.encode("utf-8")) - 1
 
@@ -107,7 +108,7 @@ class AVFile(AVString):
             except TypeError:
                 strategy = lambda s: s[:-1]
                 title = strategy(title)
-            title = _strip_title("", title)
+            title = strip_title("", title)
 
         return f"{self.productId} {title}{suffix}"
 
@@ -125,10 +126,6 @@ class AVFile(AVString):
     @property
     def has_new_info(self):
         return not not self._status & 0b110
-
-
-_clean_title = re_compile(r'[\s<>:"/\\|?* 　]+').sub
-_strip_title = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
 
 
 def _trim_title(string: str):
@@ -208,7 +205,7 @@ def update_dir_mtime(target: Path):
             except OSError as e:
                 color_printer(f"Error: {path.name}  ({e})", color="red")
             else:
-                print(f"{epoch_to_str(mtime)}  ==>  {epoch_to_str(record)}  {path.name}")
+                print(f"{strftime(mtime)}  ==>  {strftime(record)}  {path.name}")
                 return True
 
         return False
