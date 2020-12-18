@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterator
 
 from avinfo import common
-from avinfo.common import color_printer, epoch_to_str, re_search, re_sub, sep_changed, sep_failed, sep_success
+from avinfo.common import color_printer, epoch_to_str, re_compile, re_search, sep_changed, sep_failed, sep_success
 from avinfo.scraper import from_string
 
 
@@ -96,7 +96,7 @@ class AVFile(AVString):
 
     def _get_filename(self, namemax: int):
 
-        title = _strip_title(re_sub(r'[\s<>:"/\\|?* 　]+', " ", self.title))
+        title = _strip_title("", _clean_title(" ", self.title))
         suffix = self.path.suffix.lower()
         namemax = namemax - len(self.productId.encode("utf-8")) - len(suffix.encode("utf-8")) - 1
 
@@ -107,7 +107,7 @@ class AVFile(AVString):
             except TypeError:
                 strategy = lambda s: s[:-1]
                 title = strategy(title)
-            title = _strip_title(title)
+            title = _strip_title("", title)
 
         return f"{self.productId} {title}{suffix}"
 
@@ -127,8 +127,8 @@ class AVFile(AVString):
         return not not self._status & 0b110
 
 
-def _strip_title(s: str):
-    return re_sub(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$", "", s)
+_clean_title = re_compile(r'[\s<>:"/\\|?* 　]+').sub
+_strip_title = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
 
 
 def _trim_title(string: str):
@@ -139,10 +139,12 @@ def _trim_title(string: str):
 
 
 def _get_namemax(path: Path):
-    try:
-        return os.statvfs(path).f_namemax
-    except OSError:
-        return 255
+    if os.name == "posix":
+        try:
+            return os.statvfs(path).f_namemax
+        except OSError:
+            pass
+    return 255
 
 
 def scan_path(target: Path, is_dir: bool = None) -> Iterator[AVFile]:
@@ -215,6 +217,7 @@ def update_dir_mtime(target: Path):
     print("Updating directory timestamps...")
 
     records = {}
+    records_get = records.get
     total = 1
     success = 0
 
@@ -225,7 +228,7 @@ def update_dir_mtime(target: Path):
         else:
             mtime = stat.st_mtime
             for parent in path.parents:
-                if records.get(parent, -1) < mtime:
+                if records_get(parent, -1) < mtime:
                     records[parent] = mtime
                 if parent == target:
                     break

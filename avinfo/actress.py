@@ -373,8 +373,8 @@ class Actress:
             if executor:
                 self._bfs_search(keyword, executor)
             else:
-                with ThreadPoolExecutor(max_workers=None) as executor:
-                    self._bfs_search(keyword, executor)
+                with ThreadPoolExecutor(max_workers=None) as ex:
+                    self._bfs_search(keyword, ex)
         except Exception as e:
             self._report["Error"] = str(e)
 
@@ -385,18 +385,20 @@ class Actress:
         visited = {}
         unvisited = {}
 
-        weight_to_func = {i: wiki.search for i, wiki in enumerate(_WIKI_LIST)}
-        unvisited[keyword] = 0
+        unvisited_get = unvisited.get
         all_visited = unvisited.keys().isdisjoint
+
+        unvisited[keyword] = 0
+        weight_to_func = {i: wiki.search for i, wiki in enumerate(_WIKI_LIST)}
 
         while unvisited and weight_to_func:
 
             if all_visited(nameDict):
                 pool = unvisited
             else:
-                pool = filter(unvisited.get, nameDict)
+                pool = filter(unvisited_get, nameDict)
 
-            keyword = max(pool, key=unvisited.get)
+            keyword = max(pool, key=unvisited_get)
             visited[keyword] = unvisited.pop(keyword)
 
             ft_to_weight = {ex.submit(f, keyword): i for i, f in weight_to_func.items()}
@@ -415,7 +417,7 @@ class Actress:
 
                 result.alias.difference_update(visited)
                 for i in result.alias:
-                    v = unvisited.get(i)
+                    v = unvisited_get(i)
                     if v:
                         v[0] += 1
                     else:
@@ -425,7 +427,7 @@ class Actress:
 
         report = self._report
         report["Visited"] = ", ".join(visited)
-        report["Unvisited"] = ", ".join(sorted(unvisited, key=unvisited.get, reverse=True))
+        report["Unvisited"] = ", ".join(sorted(unvisited, key=unvisited_get, reverse=True))
         name, report["Name"] = self._sort_search_result(nameDict)
         birth, report["Birth"] = self._sort_search_result(birthDict)
 

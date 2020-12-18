@@ -22,7 +22,6 @@ sep_slim = "-" * sep_width
 sep_success = "SUCCESS".center(sep_width, "-") + "\n"
 sep_failed = "FAILED".center(sep_width, "-") + "\n"
 sep_changed = "CHANGED".center(sep_width, "-") + "\n"
-_file_filter = frozenset("#@.")
 _colors = {"red": "\033[31m", "yellow": "\033[33m"}
 
 session = Session()
@@ -52,7 +51,7 @@ def walk_dir(top_dir: Path, files_only: bool = False) -> Iterator[Tuple[Path, st
 
     with scandir(top_dir) as it:
         for entry in it:
-            if entry.name[0] in _file_filter:
+            if entry.name[0] in "#@.":
                 continue
             path = Path(entry.path)
             try:
@@ -72,7 +71,7 @@ def list_dir(top_dir: Path) -> Iterator[Path]:
     with scandir(top_dir) as it:
         for entry in it:
             try:
-                if entry.name[0] not in _file_filter and entry.is_dir():
+                if entry.name[0] not in "#@." and entry.is_dir():
                     yield Path(entry.path)
             except OSError as e:
                 color_printer(f"Error occurred scanning {entry.path}: {e}", color="red")
@@ -95,7 +94,6 @@ def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
             sleep(1)
     else:
         raise RequestException(url)
-
     try:
         res.raise_for_status()
     except HTTPError:
@@ -116,16 +114,16 @@ def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
     return fromstring(content, base_url=res.url)
 
 
-def text_to_epoch(string: str) -> Optional[float]:
+def strptime(string: str, fmt: str) -> float:
+    return datetime.strptime(string, fmt).replace(tzinfo=timezone.utc).timestamp()
+
+
+def str_to_epoch(string: str) -> Optional[float]:
     try:
         m = date_searcher(string)
         return datetime(int(m["y"]), int(m["m"]), int(m["d"]), tzinfo=timezone.utc).timestamp()
     except (TypeError, ValueError):
         pass
-
-
-def str_to_epoch(string: str, fmt: str = "%Y %m %d") -> float:
-    return datetime.strptime(string, fmt).replace(tzinfo=timezone.utc).timestamp()
 
 
 def epoch_to_str(epoch: float, fmt: str = "%F") -> Optional[str]:

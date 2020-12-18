@@ -7,7 +7,7 @@ from urllib.parse import urljoin
 from requests.cookies import create_cookie
 
 from avinfo import common
-from avinfo.common import get_tree, re_compile, re_search, re_sub, session, str_to_epoch, text_to_epoch, xpath
+from avinfo.common import get_tree, re_compile, re_search, re_sub, session, str_to_epoch, strptime, xpath
 
 __all__ = "from_string"
 
@@ -78,13 +78,15 @@ class Scraper:
                 if productId and mask(productId):
 
                     title = span.text
+                    if not title:
+                        return
                     if title[0] == "【":
                         title = re_sub(r"^【(お得|特価)】\s*", "", title)
 
                     return ScrapeResult(
                         productId=productId,
                         title=title,
-                        publishDate=text_to_epoch(span.findtext("date[2]")),
+                        publishDate=str_to_epoch(span.findtext("date[2]")),
                         source="javbus.com",
                     )
 
@@ -122,7 +124,7 @@ class Scraper:
                 return ScrapeResult(
                     productId=productId,
                     title=a.findtext('div[@class="video-title"]'),
-                    publishDate=text_to_epoch(a.findtext('div[@class="meta"]')),
+                    publishDate=str_to_epoch(a.findtext('div[@class="meta"]')),
                     source="javdb.com",
                 )
 
@@ -187,7 +189,7 @@ class StudioMatcher(Scraper):
 
         if result and (result.source.startswith("jav") or not result.publishDate):
             try:
-                result.publishDate = str_to_epoch(self.match["s1"], self.datefmt)
+                result.publishDate = strptime(self.match["s1"], self.datefmt)
             except ValueError:
                 pass
         return result
@@ -236,7 +238,7 @@ class StudioMatcher(Scraper):
             return ScrapeResult(
                 productId=productId,
                 title=title,
-                publishDate=text_to_epoch(date),
+                publishDate=str_to_epoch(date),
                 source="javbus.com",
             )
 
@@ -267,7 +269,7 @@ class StudioMatcher(Scraper):
         return ScrapeResult(
             productId=self.keyword,
             title=title,
-            publishDate=text_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date[0]) if date else None,
             source=source,
         )
 
@@ -292,7 +294,7 @@ class StudioMatcher(Scraper):
             return ScrapeResult(
                 productId=json["MovieID"],
                 title=json["Title"],
-                publishDate=text_to_epoch(json["Release"]),
+                publishDate=str_to_epoch(json["Release"]),
                 source=source,
             )
         except (common.RequestException, ValueError, KeyError):
@@ -322,7 +324,7 @@ class StudioMatcher(Scraper):
         return ScrapeResult(
             productId=self.keyword,
             title=title,
-            publishDate=text_to_epoch(date),
+            publishDate=str_to_epoch(date),
             source="pacopacomama.com",
         )
 
@@ -342,7 +344,7 @@ class StudioMatcher(Scraper):
         return ScrapeResult(
             productId=self.keyword,
             title="".join(xpath("h1[1]/text()")(tree)),
-            publishDate=text_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date[0]) if date else None,
             source="muramura.tv",
         )
 
@@ -393,7 +395,7 @@ class Heyzo(Scraper):
             return ScrapeResult(
                 productId=self.keyword,
                 title=json["name"],
-                publishDate=text_to_epoch(json["dateCreated"]),
+                publishDate=str_to_epoch(json["dateCreated"]),
                 source=self.source,
             )
         except (TypeError, ValueError, KeyError):
@@ -407,7 +409,7 @@ class Heyzo(Scraper):
 
         date = tree.find('.//table[@class="movieInfo"]//*[@class="table-release-day"]')
         if date is not None:
-            date = text_to_epoch(date.text_content())
+            date = str_to_epoch(date.text_content())
 
         return ScrapeResult(
             productId=self.keyword,
@@ -436,7 +438,7 @@ class FC2(Scraper):
             try:
                 title = tree.findtext('.//div[@class="items_article_headerInfo"]/h3')
                 date = tree.findtext('.//div[@class="items_article_Releasedate"]/p')
-                date = text_to_epoch(date)
+                date = str_to_epoch(date)
             except AttributeError:
                 pass
 
@@ -453,7 +455,7 @@ class FC2(Scraper):
                 return
             date = re_search(r"(?<=/)20[12][0-9]{5}", tree.get("href"))
             try:
-                date = str_to_epoch(date[0], "%Y%m%d")
+                date = strptime(date[0], "%Y%m%d")
             except (TypeError, ValueError):
                 pass
 
@@ -482,7 +484,7 @@ class FC2(Scraper):
                 return ScrapeResult(
                     productId=item["number"],
                     title=re_sub(r"^\s*\[.*?\]\s*", "", item["title"]),
-                    publishDate=text_to_epoch(item["meta"].rpartition("發布時間:")[2]),
+                    publishDate=str_to_epoch(item["meta"].rpartition("發布時間:")[2]),
                     source="javdb.com",
                 )
         except KeyError:
@@ -516,7 +518,7 @@ class Heydouga(Scraper):
         return ScrapeResult(
             productId=self.keyword,
             title=title[0] or title[2],
-            publishDate=text_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date[0]) if date else None,
             source=self.source,
         )
 
@@ -573,7 +575,7 @@ class X1X(Scraper):
         return ScrapeResult(
             productId=self.keyword,
             title="".join(xpath("h2[1]/text()")(tree)),
-            publishDate=text_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date[0]) if date else None,
             source=self.source,
         )
 
@@ -626,7 +628,7 @@ class H4610(Scraper):
         try:
             json = _load_json_ld(tree)
             title = json["name"]
-            date = text_to_epoch(json["dateCreated"])
+            date = str_to_epoch(json["dateCreated"])
 
         except (TypeError, ValueError, KeyError):
             title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
@@ -634,7 +636,7 @@ class H4610(Scraper):
                 './/div[@id="movieInfo"]//section//dt[contains(text(), "公開日")]'
                 '/following-sibling::dd/text()[contains(., "20")]'
             )(tree)
-            date = text_to_epoch(date[0]) if date else None
+            date = str_to_epoch(date[0]) if date else None
 
         return ScrapeResult(
             productId=self.keyword,
@@ -673,7 +675,7 @@ class Kin8(Scraper):
         return ScrapeResult(
             productId=self.keyword,
             title=title[2] or title[0],
-            publishDate=text_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date[0]) if date else None,
             source=self.source,
         )
 
@@ -702,7 +704,7 @@ class GirlsDelta(Scraper):
         return ScrapeResult(
             productId=self.keyword,
             title=tree.findtext(".//title").partition("｜")[0],
-            publishDate=text_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date[0]) if date else None,
             source=self.source,
         )
 
@@ -753,11 +755,23 @@ class DateSearcher:
     source = "date string"
 
     def _init_regex():
+        template = [
+            r"(?P<{0}>{{{1}}}(?P<s{0}>{{sep}}{4}){{{2}}}(?P=s{0}){{{3}}})".format(f, *f, r)
+            for f, r in (
+                ("dby", "*"),  # 23.Jun.(20)14
+                ("bdy", "*"),  # Dec.23.(20)14
+                ("dBy", "*"),  # 19.June.(20)14
+                ("Bdy", "*"),  # June.19.(20)14
+                ("mdy", "+"),  # 10.15.(20)19
+                ("ymd", "+"),  # (20)19.03.15
+                ("dmy", "+"),  # 23.02.(20)19
+            )
+        ]
+        template.append(r"(?P<Ymd>{Y}(){mm}{dd})")  # 20170102
         fmt = {
-            "sep": r"[\s.-]*",
-            "sepF": r"[\s.-]+",
+            "sep": r"[\s.-]",
             "y": r"(?:20)?([12][0-9])",
-            "yy": r"(20[12][0-9])",
+            "Y": r"(20[12][0-9])",
             "m": r"(1[0-2]|0?[1-9])",
             "mm": r"(1[0-2]|0[1-9])",
             "d": r"([12][0-9]|3[01]|0?[1-9])",
@@ -765,19 +779,8 @@ class DateSearcher:
             "b": r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
             "B": r"(january|february|march|april|may|june|july|august|september|october|november|december)",
         }
-        regex = tuple(
-            p.format_map(fmt)
-            for p in (
-                r"(?P<dby>{d}(?P<sdby>{sep}){b}(?P=sdby){y})",  # 23.Jun.(20)14
-                r"(?P<bdy>{b}(?P<sbdy>{sep}){d}(?P=sbdy){y})",  # Dec.23.(20)14
-                r"(?P<dBy>{d}(?P<sdBy>{sep}){B}(?P=sdBy){y})",  # 19.June.(20)14
-                r"(?P<Bdy>{B}(?P<sBdy>{sep}){d}(?P=sBdy){y})",  # June.19.(20)14
-                r"(?P<mdy>{m}(?P<smdy>{sepF}){d}(?P=smdy){y})",  # 10.15.(20)19
-                r"(?P<ymd>{y}(?P<symd>{sepF}){m}(?P=symd){d})",  # (20)19.03.15
-                r"(?P<dmy>{d}(?P<sdmy>{sepF}){m}(?P=sdmy){y})",  # 23.02.(20)19
-                r"(?P<Ymd>{yy}(){mm}{dd})",  # 20170102
-            )
-        )
+        regex = tuple(t.format_map(fmt) for t in template)
+
         fmt.clear()
         return regex, fmt
 
@@ -794,7 +797,7 @@ class DateSearcher:
         i = match.lastindex + 1
         try:
             return ScrapeResult(
-                publishDate=str_to_epoch(" ".join(match.group(i, i + 2, i + 3)), fmt),
+                publishDate=strptime(" ".join(match.group(i, i + 2, i + 3)), fmt),
                 source=cls.source,
             )
         except ValueError:
