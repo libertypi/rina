@@ -2,7 +2,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from avinfo.common import color_printer, log_file, now, re_search, sep_bold, sep_slim, sep_width
+from avinfo.common import color_printer, log_file, now, sep_bold, sep_slim, sep_width
 
 
 def parse_args():
@@ -71,7 +71,7 @@ def parse_args():
         target_type = "file"
 
     if not args.mode:
-        if target_type == "str" and not re_search(r"(?a:\w)", args.target):
+        if target_type == "str" and not any(map(str.isascii, args.target)):
             args.mode = "actress"
         else:
             args.mode = "video"
