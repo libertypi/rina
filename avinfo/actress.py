@@ -548,7 +548,7 @@ is_cjk_name = is_cjk_name()
 
 def scan_path(target: Path) -> Iterator[ActressFolder]:
 
-    w = min(32, os.cpu_count() + 4) / 2
+    w = min(32, os.cpu_count() + 4) // 3
     with ThreadPoolExecutor(max_workers=w) as ex, ThreadPoolExecutor(max_workers=None) as exe:
         for ft in as_completed(ex.submit(ActressFolder, p, exe) for p in common.list_dir(target)):
             yield ft.result()
