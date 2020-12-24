@@ -15,7 +15,6 @@ from avinfo.common import (
     get_tree,
     re_compile,
     re_search,
-    re_split,
     re_sub,
     sep_changed,
     sep_failed,
@@ -160,12 +159,13 @@ class AVRevolution(Wiki):
 
         title_seen = result = None
         xp = xpath('div[3]/div/text()[not(contains(., "別名無"))]')
+        matcher = re_compile(r"/([^/]+)/?$").search
 
         for row in tree:
             try:
                 a = row.find("div[1]/a[@href]")
                 title = _clean_name(a.text_content())
-                name = re_search(r"/([^/]+)/?$", a.get("href"))[1]
+                name = matcher(a.get("href"))[1]
             except (AttributeError, TypeError):
                 continue
 
@@ -219,18 +219,17 @@ class Seesaawiki(Wiki):
         if box is None:
             return SearchResult(name=name)
         if box.tag == "table":
-            box = (
-                (tr.find("th").text_content(), tr.find("td").text_content()) for tr in box.iterfind(".//tr[th][td]")
-            )
+            box = ((tr.find("th").text_content(), tr.find("td").text_content()) for tr in box.iterfind(".//tr[th][td]"))
         else:
             box = (i.split("：", 1) for i in box.text.splitlines() if "：" in i)
 
         stack.clear()
         birth = None
+        matcher = re_compile(r"旧名|別名|名前|女優名").search
         for k, v in box:
             if not birth and "生年月日" in k:
                 birth = date_searcher(v)
-            elif re_search(r"旧名|別名|名前|女優名", k):
+            elif matcher(k):
                 stack.extend(_split_name(v))
 
         return SearchResult(name=name, birth=birth, alias=stack)
@@ -365,7 +364,7 @@ class Actress:
         }
 
         keyword = re_sub(r"\([0-9\s._-]+\)|\s+", "", keyword)
-        if not is_cjk_name(keyword):
+        if not _is_cjk_name(keyword):
             self._report["Error"] = "Not valid actress name."
             return
 
@@ -504,24 +503,7 @@ class ActressFolder(Actress):
         return self._status == 0b11
 
 
-def _split_name(string: str):
-    return re_split(r"\s*[\n、/／●・,＝=]\s*", string)
-
-
-def _match_name(keyword: str, *names: str):
-    return any(_clean_name(s) == keyword for s in names)
-
-
-@lru_cache(512)
-def _clean_name(string: str) -> str:
-    for string in re_split(r"[【「『｛（《\[(].*?[】」』｝）》\])]", re_sub(r"\d+歳|[\s 　]+", "", string)):
-        string = re_sub(r"[【「『｛（《\[(].*|.*?[】」』｝）》\])]", "", string)
-        if is_cjk_name(string):
-            return string
-    return ""
-
-
-def is_cjk_name():
+def _is_cjk_name():
 
     is_word = re_compile(r"\w{2,20}").fullmatch
     mask = 0
@@ -537,13 +519,38 @@ def is_cjk_name():
     ):
         mask |= (1 << j + 1) - (1 << i)
 
-    def _is_cjk_name(string: str) -> bool:
+    def _func(string: str) -> bool:
         return is_word(string) and any(1 << ord(c) & mask for c in string)
 
-    return _is_cjk_name
+    return _func
 
 
-is_cjk_name = is_cjk_name()
+_is_cjk_name = _is_cjk_name()
+
+
+def _clean_name():
+
+    split_str = re_compile(r"[【「『｛（《\[(].*?[】」』｝）》\])]").split
+    sub_str = re_compile(r"\d+歳|[\s 　]+").sub
+    clean_str = re_compile(r"[【「『｛（《\[(].*|.*?[】」』｝）》\])]").sub
+
+    @lru_cache(maxsize=512)
+    def _func(string: str) -> str:
+        for string in split_str(sub_str("", string)):
+            string = clean_str("", string)
+            if _is_cjk_name(string):
+                return string
+        return ""
+
+    return _func
+
+
+_clean_name = _clean_name()
+_split_name = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
+
+
+def _match_name(keyword: str, *names: str):
+    return any(_clean_name(s) == keyword for s in names)
 
 
 def scan_path(target: Path) -> Iterator[ActressFolder]:
