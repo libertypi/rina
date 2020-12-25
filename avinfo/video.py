@@ -4,8 +4,11 @@ from pathlib import Path
 from typing import Iterator
 
 from avinfo import common
-from avinfo.common import color_printer, re_compile, re_search, re_sub, sep_changed, sep_failed, sep_success, strftime
+from avinfo.common import color_printer, re_compile, re_search, sep_changed, sep_failed, sep_success, strftime
 from avinfo.scraper import from_string
+
+_clean_title = re_compile(r'[\s<>:"/\\|?* 　]+').sub
+_strip_title = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
 
 
 class AVString:
@@ -96,7 +99,7 @@ class AVFile(AVString):
 
     def _get_filename(self, namemax: int):
 
-        title = _strip_title("", re_sub(r'[\s<>:"/\\|?* 　]+', " ", self.title))
+        title = _strip_title("", _clean_title(" ", self.title))
         suffix = self.path.suffix.lower()
         namemax = namemax - len(self.productId.encode("utf-8")) - len(suffix.encode("utf-8")) - 1
 
@@ -125,9 +128,6 @@ class AVFile(AVString):
     @property
     def has_new_info(self):
         return not not self._status & 0b110
-
-
-_strip_title = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
 
 
 def _trim_title(string: str):

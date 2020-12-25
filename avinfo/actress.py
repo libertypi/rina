@@ -15,13 +15,54 @@ from avinfo.common import (
     get_tree,
     re_compile,
     re_search,
-    re_split,
     re_sub,
     sep_changed,
     sep_failed,
     sep_success,
     xpath,
 )
+
+
+def _init_funcs():
+    cjk_mask = 0
+    for i, j in (
+        (4352, 4607),
+        (11904, 42191),
+        (43072, 43135),
+        (44032, 55215),
+        (63744, 64255),
+        (65072, 65103),
+        (65381, 65500),
+        (131072, 196607),
+    ):
+        cjk_mask |= (1 << j + 1) - (1 << i)
+
+    is_word = re_compile(r"\w{2,20}").fullmatch
+    clean_str = re_compile(r"\d+歳|[\s 　]+").sub
+    braces = ("【】", "「」", "『』", "｛｝", "（）", "《》", (r"\[", r"\]"), (r"\(", r"\)"))
+    split_braces = re_compile("|".join(f"{p[0]}.*?{p[1]}" for p in braces)).split
+    clean_braces = re_compile(f'[{"".join(p[0] for p in braces)}].*|.*?[{"".join(p[1] for p in braces)}]').sub
+
+    def is_cjk_name(string: str):
+        return is_word(string) and any(1 << ord(c) & cjk_mask for c in string)
+
+    @lru_cache(maxsize=256)
+    def clean_name(string: str) -> str:
+        for string in split_braces(clean_str("", string)):
+            string = clean_braces("", string)
+            if is_cjk_name(string):
+                return string
+        return ""
+
+    return is_cjk_name, clean_name
+
+
+_is_cjk_name, _clean_name = _init_funcs()
+_split_name = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
+
+
+def _match_name(keyword: str, *names: str):
+    return any(_clean_name(s) == keyword for s in names)
 
 
 @dataclass
@@ -499,47 +540,6 @@ class ActressFolder(Actress):
     @property
     def has_new_info(self):
         return self._status == 0b11
-
-
-def _is_cjk_name():
-
-    is_word = re_compile(r"\w{2,20}").fullmatch
-    mask = 0
-    for i, j in (
-        (4352, 4607),
-        (11904, 42191),
-        (43072, 43135),
-        (44032, 55215),
-        (63744, 64255),
-        (65072, 65103),
-        (65381, 65500),
-        (131072, 196607),
-    ):
-        mask |= (1 << j + 1) - (1 << i)
-
-    def _func(string: str) -> bool:
-        return is_word(string) and any(1 << ord(c) & mask for c in string)
-
-    return _func
-
-
-_is_cjk_name = _is_cjk_name()
-
-
-@lru_cache(maxsize=256)
-def _clean_name(string: str) -> str:
-    for string in re_split(r"[【「『｛（《\[(].*?[】」』｝）》\])]", re_sub(r"\d+歳|[\s 　]+", "", string)):
-        string = re_sub(r"[【「『｛（《\[(].*|.*?[】」』｝）》\])]", "", string)
-        if _is_cjk_name(string):
-            return string
-    return ""
-
-
-_split_name = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
-
-
-def _match_name(keyword: str, *names: str):
-    return any(_clean_name(s) == keyword for s in names)
 
 
 def scan_path(target: Path) -> Iterator[ActressFolder]:

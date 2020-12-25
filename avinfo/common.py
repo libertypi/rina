@@ -157,7 +157,3 @@ def re_search(pattern: str, string: str, flags=None) -> Optional[re.Match]:
 
 def re_sub(pattern: str, repl: str, string: str, flags=None) -> str:
     return _re_method_cache(pattern, flags, "sub")(repl, string)
-
-
-def re_split(pattern: str, string: str, flags=None) -> List[str]:
-    return _re_method_cache(pattern, flags, "split")(string)
