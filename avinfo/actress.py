@@ -444,11 +444,8 @@ class Actress:
 
         for i in result.values():
             i.sort()
-        result = sorted(
-            result.items(),
-            key=lambda i: (len(i[1]), -i[1][0]),
-            reverse=True,
-        )
+        result = sorted(result.items(), key=lambda i: (-len(i[1]), i[1][0]))
+
         return (
             result[0][0],
             tuple(f'{k} ({", ".join(_WIKI_LIST[i].__name__ for i in v)})' for k, v in result),

@@ -67,11 +67,8 @@ def list_dir(top_dir: Path) -> Iterator[Path]:
 
     with scandir(top_dir) as it:
         for entry in it:
-            try:
-                if entry.name[0] not in "#@." and entry.is_dir():
-                    yield Path(entry.path)
-            except OSError as e:
-                color_printer(f"Error occurred scanning {entry.path}: {e}", color="red")
+            if entry.name[0] not in "#@." and entry.is_dir():
+                yield Path(entry.path)
     yield Path(top_dir)
 
 

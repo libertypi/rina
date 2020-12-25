@@ -94,29 +94,20 @@ class AVFile(AVString):
                 self._atime = stat.st_atime
                 self._report["FromDate"] = strftime(stat.st_mtime)
 
-    _strip_title = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
-
-    @staticmethod
-    def _trim_title(string: str):
-        return (
-            re_search(r"^.*?\w.*(?:(?=[【「『｛（《\[(])|[】」』｝）》\])？！!…。.](?=.))", string)
-            or re_search(r"^.*?\w.*[\s〜～●・,、_](?=.)", string)
-        )[0]
-
     def _get_filename(self, namemax: int):
 
-        title = self._strip_title("", re_sub(r'[\s<>:"/\\|?* 　]+', " ", self.title))
+        title = _strip_title("", re_sub(r'[\s<>:"/\\|?* 　]+', " ", self.title))
         suffix = self.path.suffix.lower()
         namemax = namemax - len(self.productId.encode("utf-8")) - len(suffix.encode("utf-8")) - 1
 
-        strategy = self._trim_title
+        strategy = _trim_title
         while len(title.encode("utf-8")) >= namemax:
             try:
                 title = strategy(title)
             except TypeError:
                 strategy = lambda s: s[:-1]
                 title = strategy(title)
-            title = self._strip_title("", title)
+            title = _strip_title("", title)
 
         return f"{self.productId} {title}{suffix}"
 
@@ -134,6 +125,16 @@ class AVFile(AVString):
     @property
     def has_new_info(self):
         return not not self._status & 0b110
+
+
+_strip_title = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
+
+
+def _trim_title(string: str):
+    return (
+        re_search(r"^.*?\w.*(?:(?=[【「『｛（《\[(])|[】」』｝）》\])？！!…。.](?=.))", string)
+        or re_search(r"^.*?\w.*[\s〜～●・,、_](?=.)", string)
+    )[0]
 
 
 def _get_namemax(path: Path):
