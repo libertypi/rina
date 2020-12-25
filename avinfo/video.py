@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterator
 
 from avinfo import common
-from avinfo.common import color_printer, re_compile, re_search, sep_changed, sep_failed, sep_success, strftime
+from avinfo.common import color_printer, re_compile, re_search, re_sub, sep_changed, sep_failed, sep_success, strftime
 from avinfo.scraper import from_string
 
 
@@ -94,20 +94,29 @@ class AVFile(AVString):
                 self._atime = stat.st_atime
                 self._report["FromDate"] = strftime(stat.st_mtime)
 
+    _strip_title = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
+
+    @staticmethod
+    def _trim_title(string: str):
+        return (
+            re_search(r"^.*?\w.*(?:(?=[【「『｛（《\[(])|[】」』｝）》\])？！!…。.](?=.))", string)
+            or re_search(r"^.*?\w.*[\s〜～●・,、_](?=.)", string)
+        )[0]
+
     def _get_filename(self, namemax: int):
 
-        title = _strip_title("", _clean_title(" ", self.title))
+        title = self._strip_title("", re_sub(r'[\s<>:"/\\|?* 　]+', " ", self.title))
         suffix = self.path.suffix.lower()
         namemax = namemax - len(self.productId.encode("utf-8")) - len(suffix.encode("utf-8")) - 1
 
-        strategy = _trim_title
+        strategy = self._trim_title
         while len(title.encode("utf-8")) >= namemax:
             try:
                 title = strategy(title)
             except TypeError:
                 strategy = lambda s: s[:-1]
                 title = strategy(title)
-            title = _strip_title("", title)
+            title = self._strip_title("", title)
 
         return f"{self.productId} {title}{suffix}"
 
@@ -125,17 +134,6 @@ class AVFile(AVString):
     @property
     def has_new_info(self):
         return not not self._status & 0b110
-
-
-_clean_title = re_compile(r'[\s<>:"/\\|?* 　]+').sub
-_strip_title = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
-
-
-def _trim_title(string: str):
-    return (
-        re_search(r"^.*?\w.*(?:(?=[【「『｛（《\[(])|[】」』｝）》\])？！!…。.](?=.))", string)
-        or re_search(r"^.*?\w.*[\s〜～●・,、_](?=.)", string)
-    )[0]
 
 
 def _get_namemax(path: Path):
