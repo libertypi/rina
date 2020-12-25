@@ -331,7 +331,7 @@ class Actress(unittest.TestCase):
             " xxx]木内亜美菜27歳 (abc)",
         )
         for string in values:
-            result = actress._clean_name(string)
+            result = actress.clean_name(string)
             self.assertEqual(result, "木内亜美菜", msg=string)
 
 

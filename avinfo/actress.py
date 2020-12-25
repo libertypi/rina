@@ -22,8 +22,10 @@ from avinfo.common import (
     xpath,
 )
 
+__all__ = ("Actress", "ActressFolder", "scan_path")
 
-def _init_funcs():
+
+def _get_cjk_mask():
     cjk_mask = 0
     for i, j in (
         (4352, 4607),
@@ -36,33 +38,33 @@ def _init_funcs():
         (131072, 196607),
     ):
         cjk_mask |= (1 << j + 1) - (1 << i)
-
-    is_word = re_compile(r"\w{2,20}").fullmatch
-    clean_str = re_compile(r"\d+歳|[\s 　]+").sub
-    braces = ("【】", "「」", "『』", "｛｝", "（）", "《》", (r"\[", r"\]"), (r"\(", r"\)"))
-    split_braces = re_compile("|".join(f"{p[0]}.*?{p[1]}" for p in braces)).split
-    clean_braces = re_compile(f'[{"".join(p[0] for p in braces)}].*|.*?[{"".join(p[1] for p in braces)}]').sub
-
-    def is_cjk_name(string: str):
-        return is_word(string) and any(1 << ord(c) & cjk_mask for c in string)
-
-    @lru_cache(maxsize=256)
-    def clean_name(string: str) -> str:
-        for string in split_braces(clean_str("", string)):
-            string = clean_braces("", string)
-            if is_cjk_name(string):
-                return string
-        return ""
-
-    return is_cjk_name, clean_name
+    return cjk_mask
 
 
-_is_cjk_name, _clean_name = _init_funcs()
-_split_name = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
+_cjk_mask = _get_cjk_mask()
+_is_word = re_compile(r"\w{2,20}").fullmatch
+_braces = ("【】", "「」", "『』", "｛｝", "（）", "《》", (r"\[", r"\]"), (r"\(", r"\)"))
+_clean_str = re_compile(r"\d+歳|[\s 　]+").sub
+_split_braces = re_compile("|".join(f"{p[0]}.*?{p[1]}" for p in _braces)).split
+_clean_braces = re_compile(f'[{"".join(p[0] for p in _braces)}].*|.*?[{"".join(p[1] for p in _braces)}]').sub
+split_name = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
 
 
-def _match_name(keyword: str, *names: str):
-    return any(_clean_name(s) == keyword for s in names)
+def is_cjk_name(string: str):
+    return _is_word(string) and any(1 << ord(c) & _cjk_mask for c in string)
+
+
+@lru_cache(maxsize=256)
+def clean_name(string: str) -> str:
+    for string in _split_braces(_clean_str("", string)):
+        string = _clean_braces("", string)
+        if is_cjk_name(string):
+            return string
+    return ""
+
+
+def match_name(keyword: str, *names: str):
+    return any(clean_name(s) == keyword for s in names)
 
 
 @dataclass
@@ -82,13 +84,13 @@ class Wiki:
 
         alias = result.alias
         if alias:
-            result.alias = set(filter(None, map(_clean_name, alias)))
+            result.alias = set(filter(None, map(clean_name, alias)))
         else:
             result.alias = set()
 
         name = result.name
         if name:
-            name = _clean_name(name)
+            name = clean_name(name)
             if name:
                 result.alias.add(name)
             result.name = name
@@ -127,7 +129,7 @@ class Wikipedia(Wiki):
             if not birth and "生年月日" in k:
                 birth = date_searcher("".join(xp(tr)))
             elif "別名" in k:
-                alias.extend(j for i in xp(tr) for j in _split_name(i))
+                alias.extend(j for i in xp(tr) for j in split_name(i))
 
         return SearchResult(name=name, birth=birth, alias=alias)
 
@@ -151,7 +153,7 @@ class MinnanoAV(Wiki):
 
         tree = tree.find('.//section[@id="main-area"]')
         try:
-            name = _clean_name(tree.findtext("section/h1"))
+            name = clean_name(tree.findtext("section/h1"))
         except (AttributeError, TypeError):
             return
 
@@ -175,7 +177,7 @@ class MinnanoAV(Wiki):
             './/section[@id = "main-area"]//table[contains(@class, "actress")]'
             '//td[not(contains(., "重複"))]/h2/a[@href]'
         )(tree):
-            if _match_name(keyword, a.text):
+            if match_name(keyword, a.text):
                 href = a.get("href").partition("?")[0]
                 if not result:
                     result = href
@@ -205,7 +207,7 @@ class AVRevolution(Wiki):
         for row in tree:
             try:
                 a = row.find("div[1]/a[@href]")
-                title = _clean_name(a.text_content())
+                title = clean_name(a.text_content())
                 name = re_search(r"/([^/]+)/?$", a.get("href"))[1]
             except (AttributeError, TypeError):
                 continue
@@ -217,7 +219,7 @@ class AVRevolution(Wiki):
 
             alias = xp(row)
             alias.append(title)
-            if _match_name(keyword, *alias):
+            if match_name(keyword, *alias):
                 title_seen = title
                 result = SearchResult(name=name, alias=alias)
 
@@ -272,7 +274,7 @@ class Seesaawiki(Wiki):
             if not birth and "生年月日" in k:
                 birth = date_searcher(v)
             elif re_search(r"旧名|別名|名前|女優名", k):
-                stack.extend(_split_name(v))
+                stack.extend(split_name(v))
 
         return SearchResult(name=name, birth=birth, alias=stack)
 
@@ -290,16 +292,16 @@ class Msin(Wiki):
 
         tree = tree.find('.//div[@id="content"]/div[@id="actress_view"]//div[@class="act_ditail"]')
         try:
-            name = _clean_name(tree.findtext('.//span[@class="mv_name"]'))
+            name = clean_name(tree.findtext('.//span[@class="mv_name"]'))
         except (AttributeError, TypeError):
             return
 
         xp = xpath("div[contains(text(), $title)]/following-sibling::span[//text()][1]")
         alias = xp(tree, title="別名")
         if alias:
-            alias = _split_name(alias[0].text_content())
+            alias = split_name(alias[0].text_content())
 
-        if _match_name(keyword, name, *alias):
+        if match_name(keyword, name, *alias):
             birth = xp(tree, title="生年月日")
             return SearchResult(
                 name=name,
@@ -317,9 +319,9 @@ class Msin(Wiki):
                 continue
 
             alias = div.findtext('div[@class="act_anotherName"]')
-            alias = _split_name(alias) if alias else ()
+            alias = split_name(alias) if alias else ()
 
-            if _match_name(keyword, name, *alias):
+            if match_name(keyword, name, *alias):
                 if result:
                     return
 
@@ -346,14 +348,14 @@ class Manko(Wiki):
 
         for tbody in tree.iterfind('.//div[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'):
             try:
-                name = _clean_name(xp1(tbody)[0])
+                name = clean_name(xp1(tbody)[0])
             except IndexError:
                 continue
             if not name:
                 continue
 
-            alias = tuple(j for i in xp2(tbody, title="別名") for j in _split_name(i.text_content()))
-            if _match_name(keyword, name, *alias):
+            alias = tuple(j for i in xp2(tbody, title="別名") for j in split_name(i.text_content()))
+            if match_name(keyword, name, *alias):
                 if result:
                     return
                 birth = xp2(tbody, title="生年月日")
@@ -377,7 +379,7 @@ class Etigoya(Wiki):
         result = None
         for text in xpath('.//div[@id="main"]/div[@class="content"]//li/a/text()[contains(., "＝")]')(tree):
             alias = text.split("＝")
-            if _match_name(keyword, *alias):
+            if match_name(keyword, *alias):
                 if result:
                     return
                 result = SearchResult(alias=alias)
@@ -406,7 +408,7 @@ class Actress:
         }
 
         keyword = re_sub(r"\([0-9\s._-]+\)|\s+", "", keyword)
-        if not _is_cjk_name(keyword):
+        if not is_cjk_name(keyword):
             self._report["Error"] = "Not valid actress name."
             return
 
