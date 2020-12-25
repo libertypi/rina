@@ -9,9 +9,19 @@ from urllib.parse import quote as urlquote
 from urllib.parse import urljoin
 
 from avinfo import common
-from avinfo.common import (color_printer, date_searcher, get_tree, re_compile,
-                           re_search, re_split, re_sub, sep_changed,
-                           sep_failed, sep_success, xpath)
+from avinfo.common import (
+    color_printer,
+    date_searcher,
+    get_tree,
+    re_compile,
+    re_search,
+    re_split,
+    re_sub,
+    sep_changed,
+    sep_failed,
+    sep_success,
+    xpath,
+)
 
 
 @dataclass

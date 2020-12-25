@@ -4,8 +4,7 @@ from pathlib import Path
 from typing import Iterator
 
 from avinfo import common
-from avinfo.common import (color_printer, re_compile, re_search, sep_changed,
-                           sep_failed, sep_success, strftime)
+from avinfo.common import color_printer, re_compile, re_search, sep_changed, sep_failed, sep_success, strftime
 from avinfo.scraper import from_string
 
 
