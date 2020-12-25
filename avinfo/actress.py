@@ -42,24 +42,20 @@ def _get_cjk_mask():
 
 
 _cjk_mask = _get_cjk_mask()
-_is_word = re_compile(r"\w{2,20}").fullmatch
-_braces = ("【】", "「」", "『』", "｛｝", "（）", "《》", (r"\[", r"\]"), (r"\(", r"\)"))
-_clean_str = re_compile(r"\d+歳|[\s 　]+").sub
-_split_braces = re_compile("|".join(f"{p[0]}.*?{p[1]}" for p in _braces)).split
-_clean_braces = re_compile(f'[{"".join(p[0] for p in _braces)}].*|.*?[{"".join(p[1] for p in _braces)}]').sub
+_name_cleaner = re_compile(r"\d+歳|[\s 　]+").sub
+_name_finder = re_compile(r"(?:^|[】」』｝）》\])])(\w{2,20})(?:$|[【「『｛（《\[(])").finditer
 split_name = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
 
 
-def is_cjk_name(string: str):
-    return _is_word(string) and any(1 << ord(c) & _cjk_mask for c in string)
+def contains_cjk(string: str):
+    return any(1 << ord(c) & _cjk_mask for c in string)
 
 
 @lru_cache(maxsize=256)
 def clean_name(string: str) -> str:
-    for string in _split_braces(_clean_str("", string)):
-        string = _clean_braces("", string)
-        if is_cjk_name(string):
-            return string
+    for m in _name_finder(_name_cleaner("", string)):
+        if contains_cjk(m[1]):
+            return m[1]
     return ""
 
 
@@ -262,9 +258,7 @@ class Seesaawiki(Wiki):
         if box is None:
             return SearchResult(name=name)
         if box.tag == "table":
-            box = (
-                (tr.find("th").text_content(), tr.find("td").text_content()) for tr in box.iterfind(".//tr[th][td]")
-            )
+            box = ((tr.find("th").text_content(), tr.find("td").text_content()) for tr in box.iterfind(".//tr[th][td]"))
         else:
             box = (i.split("：", 1) for i in box.text.splitlines() if "：" in i)
 
@@ -408,7 +402,7 @@ class Actress:
         }
 
         keyword = re_sub(r"\([0-9\s._-]+\)|\s+", "", keyword)
-        if not is_cjk_name(keyword):
+        if not (re_search(r"^\w{2,20}$", keyword) and contains_cjk(keyword)):
             self._report["Error"] = "Not valid actress name."
             return
 
