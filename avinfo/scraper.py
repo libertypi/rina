@@ -31,7 +31,6 @@ class Scraper:
     regex: str
     keyword: str
     uncensored_only: bool = False
-    _match_sfx = re_compile(r"\s*((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<s>[0-9]{1,2}|[a-d])\b").match
 
     def __init__(self, string: str, match: re.Match) -> None:
         self.string = string
@@ -138,7 +137,10 @@ class Scraper:
 
     def _process_product_id(self, productId: str):
 
-        suffix = self._match_sfx(_subbraces(" ", self.string[self.match.end() :]))
+        suffix = re_search(
+            r"^\s*((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<s>[0-9]{1,2}|[a-d])\b",
+            _subbraces(" ", self.string[self.match.end() :]),
+        )
         if suffix:
             suffix = suffix["s"]
             if suffix in "abcd":
@@ -170,7 +172,6 @@ class StudioMatcher(Scraper):
         )\b""",
         flags=re.VERBOSE,
     ).search
-    _match_sfx = re_compile(r"\s*(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+").match
     datefmt: str = "%m%d%y"
     studio: str = None
 
@@ -366,7 +367,10 @@ class StudioMatcher(Scraper):
         else:
             i = self.match.end()
 
-        suffix = self._match_sfx(_subbraces(" ", self.string[i:]))
+        suffix = re_search(
+            r"^\s*(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+",
+            _subbraces(" ", self.string[i:]),
+        )
         if suffix:
             suffix = suffix[0].split()
             suffix.insert(0, result)

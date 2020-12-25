@@ -5,10 +5,7 @@ from functools import lru_cache
 from os import scandir, stat_result
 from pathlib import Path
 from re import compile as re_compile
-from re import search as re_search
-from re import split as re_split
-from re import sub as re_sub
-from typing import Iterator, Optional, Tuple
+from typing import Iterator, List, Optional, Tuple
 
 from bs4 import UnicodeDammit
 from lxml.etree import XPath
@@ -25,7 +22,9 @@ sep_changed = "CHANGED".center(sep_width, "-") + "\n"
 _colors = {"red": "\033[31m", "yellow": "\033[33m"}
 
 session = Session()
-session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"})
+session.headers.update(
+    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"}
+)
 
 date_searcher = re_compile(
     r"""(?P<y>(?:19|20)[0-9]{2})\s*
@@ -143,3 +142,25 @@ def now(fmt: str = "%F %T") -> str:
 def xpath(xpath: str, smart_strings: bool = False) -> XPath:
     """Returns a compiled XPath."""
     return XPath(xpath, smart_strings=smart_strings)
+
+
+@lru_cache(maxsize=None)
+def _re_method_cache(pattern: str, flags: int, method: str):
+    """Returns a cached regex method"""
+    if flags is None:
+        pattern = re_compile(pattern)
+    else:
+        pattern = re_compile(pattern, flags=flags)
+    return getattr(pattern, method)
+
+
+def re_search(pattern: str, string: str, flags=None) -> Optional[re.Match]:
+    return _re_method_cache(pattern, flags, "search")(string)
+
+
+def re_sub(pattern: str, repl: str, string: str, flags=None) -> str:
+    return _re_method_cache(pattern, flags, "sub")(repl, string)
+
+
+def re_split(pattern: str, string: str, flags=None) -> List[str]:
+    return _re_method_cache(pattern, flags, "split")(string)

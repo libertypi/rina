@@ -9,18 +9,9 @@ from urllib.parse import quote as urlquote
 from urllib.parse import urljoin
 
 from avinfo import common
-from avinfo.common import (
-    color_printer,
-    date_searcher,
-    get_tree,
-    re_compile,
-    re_search,
-    re_sub,
-    sep_changed,
-    sep_failed,
-    sep_success,
-    xpath,
-)
+from avinfo.common import (color_printer, date_searcher, get_tree, re_compile,
+                           re_search, re_split, re_sub, sep_changed,
+                           sep_failed, sep_success, xpath)
 
 
 @dataclass
@@ -159,13 +150,12 @@ class AVRevolution(Wiki):
 
         title_seen = result = None
         xp = xpath('div[3]/div/text()[not(contains(., "別名無"))]')
-        matcher = re_compile(r"/([^/]+)/?$").search
 
         for row in tree:
             try:
                 a = row.find("div[1]/a[@href]")
                 title = _clean_name(a.text_content())
-                name = matcher(a.get("href"))[1]
+                name = re_search(r"/([^/]+)/?$", a.get("href"))[1]
             except (AttributeError, TypeError):
                 continue
 
@@ -219,17 +209,18 @@ class Seesaawiki(Wiki):
         if box is None:
             return SearchResult(name=name)
         if box.tag == "table":
-            box = ((tr.find("th").text_content(), tr.find("td").text_content()) for tr in box.iterfind(".//tr[th][td]"))
+            box = (
+                (tr.find("th").text_content(), tr.find("td").text_content()) for tr in box.iterfind(".//tr[th][td]")
+            )
         else:
             box = (i.split("：", 1) for i in box.text.splitlines() if "：" in i)
 
         stack.clear()
         birth = None
-        matcher = re_compile(r"旧名|別名|名前|女優名").search
         for k, v in box:
             if not birth and "生年月日" in k:
                 birth = date_searcher(v)
-            elif matcher(k):
+            elif re_search(r"旧名|別名|名前|女優名", k):
                 stack.extend(_split_name(v))
 
         return SearchResult(name=name, birth=birth, alias=stack)
@@ -528,24 +519,15 @@ def _is_cjk_name():
 _is_cjk_name = _is_cjk_name()
 
 
-def _clean_name():
-
-    split_str = re_compile(r"[【「『｛（《\[(].*?[】」』｝）》\])]").split
-    sub_str = re_compile(r"\d+歳|[\s 　]+").sub
-    clean_str = re_compile(r"[【「『｛（《\[(].*|.*?[】」』｝）》\])]").sub
-
-    @lru_cache(maxsize=512)
-    def _func(string: str) -> str:
-        for string in split_str(sub_str("", string)):
-            string = clean_str("", string)
-            if _is_cjk_name(string):
-                return string
-        return ""
-
-    return _func
+@lru_cache(maxsize=256)
+def _clean_name(string: str) -> str:
+    for string in re_split(r"[【「『｛（《\[(].*?[】」』｝）》\])]", re_sub(r"\d+歳|[\s 　]+", "", string)):
+        string = re_sub(r"[【「『｛（《\[(].*|.*?[】」』｝）》\])]", "", string)
+        if _is_cjk_name(string):
+            return string
+    return ""
 
 
-_clean_name = _clean_name()
 _split_name = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
 
 
