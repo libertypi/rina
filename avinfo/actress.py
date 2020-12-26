@@ -146,7 +146,8 @@ class MinnanoAV(Wiki):
 
         result = None
         for a in xpath(
-            './/section[@id = "main-area"]//table[contains(@class, "actress")]'
+            './/section[@id="main-area"]'
+            '//table[contains(@class, "actress")]'
             '//td[not(contains(., "重複"))]/h2/a[@href]'
         )(tree):
             if match_name(keyword, a.text):
