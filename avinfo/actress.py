@@ -216,11 +216,9 @@ class Seesaawiki(Wiki):
             if not (text and re_search(r"(女優名|名前).*?変更", text)):
                 break
 
-            url = xpath(
-                './/div[@id="content_block_1-body" and contains(., "移動")]/span/a/@href',
-            )(tree)
+            url = xpath('string(.//div[@id="content_block_1-body" and contains(., "移動")]/span/a/@href)')(tree)
             if url:
-                url = urljoin(tree.base_url, url[0])
+                url = urljoin(tree.base_url, url)
                 if url not in stack:
                     stack.append(url)
                     continue
@@ -268,16 +266,13 @@ class Msin(Wiki):
         except (AttributeError, TypeError):
             return
 
-        xp = xpath("div[contains(text(), $title)]/following-sibling::span[//text()][1]")
-        alias = xp(tree, title="別名")
-        if alias:
-            alias = split_name(alias[0].text_content())
+        xp = xpath("string(div[contains(text(), $title)]/following-sibling::span)")
+        alias = split_name(xp(tree, title="別名"))
 
         if match_name(keyword, name, *alias):
-            birth = xp(tree, title="生年月日")
             return SearchResult(
                 name=name,
-                birth=date_searcher(birth[0].text_content()) if birth else None,
+                birth=date_searcher(xp(tree, title="生年月日")),
                 alias=alias,
             )
 
@@ -315,25 +310,22 @@ class Manko(Wiki):
             return
 
         result = None
-        xp1 = xpath('tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text()[normalize-space()]')
-        xp2 = xpath("tr[td[1][contains(text(), $title)]]/td[2]")
+        name_xp = xpath('string(tr/td[@align="center" or @align="middle"]/*[self::font or self::span])')
+        info_xp = xpath("string(tr[td[1][contains(text(), $title)]]/td[2])")
 
         for tbody in tree.iterfind('.//div[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'):
-            try:
-                name = clean_name(xp1(tbody)[0])
-            except IndexError:
-                continue
+
+            name = clean_name(name_xp(tbody))
             if not name:
                 continue
 
-            alias = tuple(j for i in xp2(tbody, title="別名") for j in split_name(i.text_content()))
+            alias = split_name(info_xp(tbody, title="別名"))
             if match_name(keyword, name, *alias):
                 if result:
                     return
-                birth = xp2(tbody, title="生年月日")
                 result = SearchResult(
                     name=name,
-                    birth=date_searcher(birth[0].text_content()) if birth else None,
+                    birth=date_searcher(info_xp(tbody, title="生年月日")),
                     alias=alias,
                 )
 
