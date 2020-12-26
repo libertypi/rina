@@ -360,8 +360,6 @@ class StudioMatcher(Scraper):
         if not self.studio:
             return productId
 
-        result = f"{self.keyword}-{self.studio}"
-
         if self.studio_match:
             i = max(self.studio_match.end(), self.match.end())
         else:
@@ -372,9 +370,9 @@ class StudioMatcher(Scraper):
             _subbraces(" ", self.string[i:]),
         )
         if suffix:
-            return f'{result}-{suffix[0].strip().replace(" ", "-")}'
+            return f'{self.keyword}-{self.studio}-{suffix[0].strip().replace(" ", "-")}'
 
-        return result
+        return f"{self.keyword}-{self.studio}"
 
 
 class Heyzo(Scraper):
