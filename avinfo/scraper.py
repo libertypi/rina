@@ -748,7 +748,6 @@ class PatternSearcher(Scraper):
 
 class DateSearcher:
 
-    __slots__ = ()
     source = "date string"
 
     def _init_regex():
