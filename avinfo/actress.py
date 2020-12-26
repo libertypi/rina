@@ -123,9 +123,9 @@ class MinnanoAV(Wiki):
             if tree is None:
                 return
 
-        tree = tree.find('.//section[@id="main-area"]')
+        tree = tree.find('.//section[@id="main-area"]/section')
         try:
-            name = clean_name(tree.findtext("section/h1"))
+            name = clean_name(tree.findtext("h1"))
         except (AttributeError, TypeError):
             return
 
@@ -174,7 +174,7 @@ class AVRevolution(Wiki):
             return
 
         title_seen = result = None
-        xp = xpath('div[3]/div/text()[not(contains(., "別名無"))]')
+        alias_xp = xpath('div[3]/div/text()[not(contains(., "別名無"))]')
 
         for row in tree:
             try:
@@ -189,7 +189,7 @@ class AVRevolution(Wiki):
                     return
                 continue
 
-            alias = xp(row)
+            alias = alias_xp(row)
             alias.append(title)
             if match_name(keyword, *alias):
                 title_seen = title

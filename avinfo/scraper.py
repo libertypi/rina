@@ -134,7 +134,7 @@ class Scraper:
     def _process_product_id(self, productId: str):
 
         suffix = re_search(
-            r"^\s*((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<s>[0-9]{1,2}|[a-d])\b",
+            r"^\s*((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<s>[1-9][0-9]?|[a-d])\b",
             _subbraces(" ", self.string[self.match.end() :]),
         )
         if suffix:
@@ -212,7 +212,9 @@ class StudioMatcher(Scraper):
         get_value = lambda p: _subspace("", p.text_content().partition(":")[2])
 
         for p in xpath(
-            './/div[contains(@class, "movie")]/div[contains(@class, "info")]/p[span/text() and contains(., ":")]'
+            './/div[contains(@class, "movie")]'
+            '/div[contains(@class, "info")]'
+            '/p[span/text() and contains(.,  ":")]'
         )(tree):
 
             k = p.findtext("span")
@@ -366,13 +368,11 @@ class StudioMatcher(Scraper):
             i = self.match.end()
 
         suffix = re_search(
-            r"^\s*(([0-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)\b\s?)+",
+            r"^\s*(([1-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)($|\s))+",
             _subbraces(" ", self.string[i:]),
         )
         if suffix:
-            suffix = suffix[0].split()
-            suffix.insert(0, result)
-            return "-".join(suffix)
+            return f'{result}-{suffix[0].strip().replace(" ", "-")}'
 
         return result
 
@@ -513,7 +513,9 @@ class Heydouga(Scraper):
 
         title = tree.findtext(".//title").rpartition(" - ")
         date = xpath(
-            'string(.//div[@id="movie-info"]//span[contains(.,"配信日")]/following-sibling::span[contains(.,"20")])'
+            'string(.//div[@id="movie-info"]'
+            '//span[contains(., "配信日")]'
+            '/following-sibling::span[contains(., "20")])'
         )(tree)
 
         return ScrapeResult(
