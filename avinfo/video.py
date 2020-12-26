@@ -7,8 +7,6 @@ from avinfo import common
 from avinfo.common import color_printer, re_compile, re_search, sep_changed, sep_failed, sep_success, strftime
 from avinfo.scraper import from_string
 
-__all__ = ("AVString", "AVFile", "scan_path", "update_dir_mtime")
-
 
 class AVString:
 
@@ -107,7 +105,7 @@ class AVFile(AVString):
 
         title = strip("", clean(" ", self.title))
         suffix = self.path.suffix.lower()
-        namemax = namemax - len(self.productId.encode("utf-8")) - len(suffix.encode("utf-8")) - 1
+        namemax -= len(self.productId.encode("utf-8")) + len(suffix.encode("utf-8")) + 1
         strategy = self._trim_title
 
         while len(title.encode("utf-8")) >= namemax:

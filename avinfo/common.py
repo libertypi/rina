@@ -5,7 +5,7 @@ from functools import lru_cache
 from os import scandir, stat_result
 from pathlib import Path
 from re import compile as re_compile
-from typing import Iterator, List, Optional, Tuple
+from typing import Iterator, Optional, Tuple
 
 from bs4 import UnicodeDammit
 from lxml.etree import XPath
@@ -142,7 +142,7 @@ def xpath(xpath: str, smart_strings: bool = False) -> XPath:
 
 
 @lru_cache(maxsize=None)
-def _re_method_cache(pattern: str, flags: int, method: str):
+def _cache_re_method(pattern: str, flags: int, method: str):
     """Returns a cached regex method"""
     if flags is None:
         pattern = re_compile(pattern)
@@ -152,8 +152,8 @@ def _re_method_cache(pattern: str, flags: int, method: str):
 
 
 def re_search(pattern: str, string: str, flags=None) -> Optional[re.Match]:
-    return _re_method_cache(pattern, flags, "search")(string)
+    return _cache_re_method(pattern, flags, "search")(string)
 
 
 def re_sub(pattern: str, repl: str, string: str, flags=None) -> str:
-    return _re_method_cache(pattern, flags, "sub")(repl, string)
+    return _cache_re_method(pattern, flags, "sub")(repl, string)

@@ -9,8 +9,6 @@ from requests.cookies import create_cookie
 from avinfo import common
 from avinfo.common import get_tree, re_compile, re_search, re_sub, session, str_to_epoch, strptime, xpath
 
-__all__ = "from_string"
-
 session.cookies.set_cookie(create_cookie(domain="www.javbus.com", name="existmag", value="all"))
 _subspace = re_compile(r"\s+").sub
 _subbraces = re_compile(r"[\s()\[\].-]+").sub

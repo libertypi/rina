@@ -22,41 +22,17 @@ from avinfo.common import (
     xpath,
 )
 
-__all__ = ("Actress", "ActressFolder", "scan_path")
-
-
-def _get_cjk_mask():
-    cjk_mask = 0
-    for i, j in (
-        (4352, 4607),
-        (11904, 42191),
-        (43072, 43135),
-        (44032, 55215),
-        (63744, 64255),
-        (65072, 65103),
-        (65381, 65500),
-        (131072, 196607),
-    ):
-        cjk_mask |= (1 << j + 1) - (1 << i)
-    return cjk_mask
-
-
-_cjk_mask = _get_cjk_mask()
-_name_cleaner = re_compile(r"\d+歳|[\s 　]+").sub
-_name_finder = re_compile(r"(?:^|[】」』｝）》\])])(\w{2,20})(?:$|[【「『｛（《\[(])").finditer
+_is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
+_name_finder = re_compile(r"(?:^|[】」』｝）》\])]){}(?:$|[【「『｛（《\[(])".format(_is_cjk_name)).search
+_is_cjk_name = re_compile(_is_cjk_name).fullmatch
+_name_cleaner = re_compile(r"\d+歳|[\s 　]").sub
 split_name = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
-
-
-def contains_cjk(string: str):
-    return any(1 << ord(c) & _cjk_mask for c in string)
 
 
 @lru_cache(maxsize=256)
 def clean_name(string: str) -> str:
-    for m in _name_finder(_name_cleaner("", string)):
-        if contains_cjk(m[1]):
-            return m[1]
-    return ""
+    m = _name_finder(_name_cleaner("", string))
+    return m[1] if m else ""
 
 
 def match_name(keyword: str, *names: str):
@@ -258,7 +234,9 @@ class Seesaawiki(Wiki):
         if box is None:
             return SearchResult(name=name)
         if box.tag == "table":
-            box = ((tr.find("th").text_content(), tr.find("td").text_content()) for tr in box.iterfind(".//tr[th][td]"))
+            box = (
+                (tr.find("th").text_content(), tr.find("td").text_content()) for tr in box.iterfind(".//tr[th][td]")
+            )
         else:
             box = (i.split("：", 1) for i in box.text.splitlines() if "：" in i)
 
@@ -402,7 +380,7 @@ class Actress:
         }
 
         keyword = re_sub(r"\([0-9\s._-]+\)|\s+", "", keyword)
-        if not (re_search(r"^\w{2,20}$", keyword) and contains_cjk(keyword)):
+        if not _is_cjk_name(keyword):
             self._report["Error"] = "Not valid actress name."
             return
 
