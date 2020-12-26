@@ -260,15 +260,15 @@ class StudioMatcher(Scraper):
             return
 
         date = xpath(
-            './/li[@class="movie-spec"]'
+            'string(.//li[@class="movie-spec"]'
             '/span[contains(text(), "配信日") or contains(text(), "販売日")]'
-            '/following-sibling::span/text()[contains(., "20")]'
+            '/following-sibling::span/text()[contains(., "20")])'
         )(tree)
 
         return ScrapeResult(
             productId=self.keyword,
             title=title,
-            publishDate=str_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date),
             source=source,
         )
 
@@ -336,14 +336,14 @@ class StudioMatcher(Scraper):
 
         tree = tree.find('.//div[@id="detail-main"]')
         try:
-            date = xpath('ul[@class="info"]/li[contains(.,"更新日")]/text()[contains(.,"20")]')(tree)
+            date = xpath('string(ul[@class="info"]/li[contains(.,"更新日")]/text()[contains(.,"20")])')(tree)
         except TypeError:
             return
 
         return ScrapeResult(
             productId=self.keyword,
             title="".join(xpath("h1[1]/text()")(tree)),
-            publishDate=str_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date),
             source="muramura.tv",
         )
 
@@ -513,14 +513,14 @@ class Heydouga(Scraper):
 
         title = tree.findtext(".//title").rpartition(" - ")
         date = xpath(
-            './/div[@id="movie-info"]//span[contains(text(), "配信日")]'
-            '/following-sibling::span/text()[contains(., "20")]'
+            'string(.//div[@id="movie-info"]//span[contains(text(), "配信日")]'
+            '/following-sibling::span/text()[contains(., "20")])'
         )(tree)
 
         return ScrapeResult(
             productId=self.keyword,
             title=title[0] or title[2],
-            publishDate=str_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date),
             source=self.source,
         )
 
@@ -568,8 +568,8 @@ class X1X(Scraper):
         tree = tree.find('.//div[@id="main_content"]')
         try:
             date = xpath(
-                './/div[@class="movie_data_rt"]//dt[contains(text(), "配信日")]'
-                '/following-sibling::dd/text()[contains(., "20")]'
+                'string(.//div[@class="movie_data_rt"]//dt[contains(text(), "配信日")]'
+                '/following-sibling::dd/text()[contains(., "20")])'
             )(tree)
         except TypeError:
             return
@@ -577,7 +577,7 @@ class X1X(Scraper):
         return ScrapeResult(
             productId=self.keyword,
             title="".join(xpath("h2[1]/text()")(tree)),
-            publishDate=str_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date),
             source=self.source,
         )
 
@@ -635,10 +635,10 @@ class H4610(Scraper):
         except (TypeError, ValueError, KeyError):
             title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
             date = xpath(
-                './/div[@id="movieInfo"]//section//dt[contains(text(), "公開日")]'
-                '/following-sibling::dd/text()[contains(., "20")]'
+                'string(.//div[@id="movieInfo"]//section//dt[contains(text(), "公開日")]'
+                '/following-sibling::dd/text()[contains(., "20")])'
             )(tree)
-            date = str_to_epoch(date[0]) if date else None
+            date = str_to_epoch(date)
 
         return ScrapeResult(
             productId=self.keyword,
@@ -670,14 +670,14 @@ class Kin8(Scraper):
             return
 
         date = xpath(
-            './/div[@id="main"]/div[contains(@id,"detail_box")]'
-            '//td[contains(text(),"更新日")]/following-sibling::td/text()[contains(.,"20")]'
+            'string(.//div[@id="main"]/div[contains(@id,"detail_box")]'
+            '//td[contains(text(),"更新日")]/following-sibling::td/text()[contains(.,"20")])'
         )(tree)
 
         return ScrapeResult(
             productId=self.keyword,
             title=title[2] or title[0],
-            publishDate=str_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date),
             source=self.source,
         )
 
@@ -698,15 +698,15 @@ class GirlsDelta(Scraper):
             return
 
         date = xpath(
-            './/div[@class="product-detail"]//li'
+            'string(.//div[@class="product-detail"]//li'
             '/*[contains(text(), "公開日")]'
-            '/following-sibling::*/text()[contains(., "20")]'
+            '/following-sibling::*/text()[contains(., "20")])'
         )(tree)
 
         return ScrapeResult(
             productId=self.keyword,
             title=tree.findtext(".//title").partition("｜")[0],
-            publishDate=str_to_epoch(date[0]) if date else None,
+            publishDate=str_to_epoch(date),
             source=self.source,
         )
 
