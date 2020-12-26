@@ -310,7 +310,7 @@ class Manko(Wiki):
             return
 
         result = None
-        name_xp = xpath('string(tr/td[@align="center" or @align="middle"]/*[self::font or self::span])')
+        name_xp = xpath('string(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())')
         info_xp = xpath("string(tr[td[1][contains(text(), $title)]]/td[2])")
 
         for tbody in tree.iterfind('.//div[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'):
