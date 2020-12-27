@@ -8,11 +8,12 @@ from typing import Iterator
 from urllib.parse import quote as urlquote
 from urllib.parse import urljoin
 
-from avinfo import common
 from avinfo.common import (
+    HtmlElement,
     color_printer,
     date_searcher,
     get_tree,
+    list_dir,
     re_compile,
     re_search,
     re_sub,
@@ -140,7 +141,7 @@ class MinnanoAV(Wiki):
         return SearchResult(name=name, birth=birth, alias=alias)
 
     @staticmethod
-    def _scan_search_page(keyword: str, tree: common.HtmlElement):
+    def _scan_search_page(keyword: str, tree: HtmlElement):
         """Return if there's only one match."""
 
         result = None
@@ -274,7 +275,7 @@ class Msin(Wiki):
             )
 
     @staticmethod
-    def _scan_search_page(keyword: str, tree: common.HtmlElement):
+    def _scan_search_page(keyword: str, tree: HtmlElement):
 
         result = None
         for div in tree.iterfind('.//div[@id="content"]//div[@class="actress_info_find"]/div[@class="act_ditail"]'):
@@ -509,5 +510,5 @@ def scan_path(target: Path) -> Iterator[ActressFolder]:
 
     w = min(32, os.cpu_count() + 4) // 3
     with ThreadPoolExecutor(max_workers=w) as ex, ThreadPoolExecutor(max_workers=None) as exe:
-        for ft in as_completed(ex.submit(ActressFolder, p, exe) for p in common.list_dir(target)):
+        for ft in as_completed(ex.submit(ActressFolder, p, exe) for p in list_dir(target)):
             yield ft.result()

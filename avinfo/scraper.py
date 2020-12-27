@@ -168,6 +168,11 @@ class Scraper:
             return f"{productId}-{suffix}"
         return productId
 
+    def _warn(self, e: Exception):
+        import warnings
+
+        warnings.warn(f'Exception raised when processing "{self.string}":\n{e}')
+
 
 class StudioMatcher(Scraper):
 
@@ -209,8 +214,8 @@ class StudioMatcher(Scraper):
         if result and (result.source.startswith("jav") or not result.publishDate):
             try:
                 result.publishDate = strptime(self.match["s1"], self.datefmt)
-            except ValueError:
-                pass
+            except ValueError as e:
+                self._warn(e)
         return result
 
     def _query(self) -> Optional[ScrapeResult]:
@@ -227,7 +232,8 @@ class StudioMatcher(Scraper):
         tree = tree.find('.//div[@class="container"]')
         try:
             title = tree.findtext("h3").strip()
-        except AttributeError:
+        except AttributeError as e:
+            self._warn(e)
             return
 
         productId = date = studio = None
@@ -280,7 +286,8 @@ class StudioMatcher(Scraper):
         tree = tree.find('.//div[@id="moviepages"]')
         try:
             title = tree.findtext('.//div[@class="heading"]/h1')
-        except AttributeError:
+        except AttributeError as e:
+            self._warn(e)
             return
 
         date = xpath(
@@ -320,8 +327,10 @@ class StudioMatcher(Scraper):
                 publishDate=str_to_epoch(json["Release"]),
                 source=source,
             )
-        except (RequestException, ValueError, KeyError):
+        except RequestException:
             pass
+        except (ValueError, KeyError) as e:
+            self._warn(e)
 
     def _10mu(self):
         self.studio = "10mu"
@@ -340,7 +349,8 @@ class StudioMatcher(Scraper):
         tree = tree.find('.//div[@id="main"]')
         try:
             title = tree.findtext("h1")
-        except AttributeError:
+        except AttributeError as e:
+            self._warn(e)
             return
 
         date = tree.findtext('.//div[@class="detail-info"]//*[@class="date"]')
@@ -361,7 +371,8 @@ class StudioMatcher(Scraper):
         tree = tree.find('.//div[@id="detail-main"]')
         try:
             date = xpath('string(ul[@class="info"]/li[contains(.,"更新日")]/text()[contains(.,"20")])')(tree)
-        except TypeError:
+        except TypeError as e:
+            self._warn(e)
             return
 
         return ScrapeResult(
@@ -420,13 +431,14 @@ class Heyzo(Scraper):
                 publishDate=str_to_epoch(json["dateCreated"]),
                 source=self.source,
             )
-        except (ValueError, KeyError):
-            pass
+        except (ValueError, KeyError) as e:
+            self._warn(e)
 
         tree = tree.find('.//div[@id="wrapper"]//div[@id="movie"]')
         try:
             title = tree.findtext("h1").rpartition("\t-")
-        except AttributeError:
+        except AttributeError as e:
+            self._warn(e)
             return
 
         date = tree.find('.//table[@class="movieInfo"]//*[@class="table-release-day"]')
@@ -461,7 +473,7 @@ class FC2(Scraper):
                 title = tree.findtext('.//div[@class="items_article_headerInfo"]/h3')
                 date = tree.findtext('.//div[@class="items_article_Releasedate"]/p')
                 date = str_to_epoch(date)
-            except AttributeError:
+            except AttributeError as e:
                 pass
 
         if not title:
@@ -474,8 +486,8 @@ class FC2(Scraper):
             date = re_search(r"/(20[12][0-9]{5})", tree.get("href"))
             try:
                 date = strptime(date[1], "%Y%m%d")
-            except (TypeError, ValueError):
-                pass
+            except (TypeError, ValueError) as e:
+                self._warn(e)
 
         return ScrapeResult(
             productId=self.keyword,
@@ -505,8 +517,8 @@ class FC2(Scraper):
                     publishDate=str_to_epoch(item["meta"].rpartition("發布時間:")[2]),
                     source="javdb.com",
                 )
-        except KeyError:
-            pass
+        except KeyError as e:
+            self._warn(e)
 
 
 class Heydouga(Scraper):
@@ -588,7 +600,8 @@ class X1X(Scraper):
                 'string(.//div[@class="movie_data_rt"]//dt[contains(., "配信日")]'
                 '/following-sibling::dd[contains(., "20")])'
             )(tree)
-        except TypeError:
+        except TypeError as e:
+            self._warn(e)
             return
 
         return ScrapeResult(
@@ -625,8 +638,8 @@ class SM_Miracle(Scraper):
                 )["title"],
                 source=self.source,
             )
-        except TypeError:
-            pass
+        except TypeError as e:
+            self._warn(e)
 
 
 class H4610(Scraper):
@@ -649,7 +662,9 @@ class H4610(Scraper):
             title = json["name"]
             date = str_to_epoch(json["dateCreated"])
 
-        except (ValueError, KeyError):
+        except (ValueError, KeyError) as e:
+            self._warn(e)
+
             title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
             date = xpath(
                 'string(.//div[@id="movieInfo"]//section//dt[contains(., "公開日")]'
@@ -829,7 +844,12 @@ def _load_json_ld(tree: HtmlElement):
 
     Raise ValueError when failed.
     """
-    return json_loads(re_sub(r"[\t\n\r\f\v]", "", tree.findtext('.//script[@type="application/ld+json"]', "")))
+    json = re_sub(r"[\t\n\r\f\v]", "", tree.findtext('.//script[@type="application/ld+json"]', ""))
+    try:
+        return json_loads(json)
+    except ValueError:
+        func = lambda m: "".join((m[1], re_sub(r'\\*"', r'\\"', m[2]), m[3]))
+        return json_loads(re_sub(r'(:\s*")([^"]*"(?!\s*[,}]).*?)("\s*[,}])', func, json))
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
@@ -854,6 +874,27 @@ def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
         result = f"{b}(?:{result}){b}"
 
     return re_compile(result)
+
+
+def from_string(string: str) -> Optional[ScrapeResult]:
+    """Scrape information from a string."""
+
+    string = _clean_re(" ", string.lower()).replace("_", "-")
+
+    match = _search_re(string)
+    if match:
+        result = _search_map[match.lastgroup](string, match).search()
+        if result:
+            return result
+
+    for match in _iter_re(string):
+        result = PatternSearcher(string, match).search()
+        if result:
+            return result
+
+    match = _date_re(string)
+    if match:
+        return DateSearcher.search(match)
 
 
 _search_map = {
@@ -889,24 +930,3 @@ _clean_re = re_compile(
     """,
     flags=re.VERBOSE,
 ).sub
-
-
-def from_string(string: str) -> Optional[ScrapeResult]:
-    """Scrape information from a string."""
-
-    string = _clean_re(" ", string.lower()).replace("_", "-")
-
-    match = _search_re(string)
-    if match:
-        result = _search_map[match.lastgroup](string, match).search()
-        if result:
-            return result
-
-    for match in _iter_re(string):
-        result = PatternSearcher(string, match).search()
-        if result:
-            return result
-
-    match = _date_re(string)
-    if match:
-        return DateSearcher.search(match)

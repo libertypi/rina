@@ -3,8 +3,17 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator
 
-from avinfo import common
-from avinfo.common import color_printer, re_compile, re_search, sep_changed, sep_failed, sep_success, strftime
+from avinfo.common import (
+    color_printer,
+    re_compile,
+    re_search,
+    sep_bold,
+    sep_changed,
+    sep_failed,
+    sep_success,
+    strftime,
+    walk_dir,
+)
 from avinfo.scraper import from_string
 
 
@@ -191,7 +200,7 @@ def scan_path(target: Path, is_dir: bool = None) -> Iterator[AVFile]:
     with ThreadPoolExecutor(max_workers=None) as ex:
         for ft in as_completed(
             ex.submit(AVFile, path, stat, namemax)
-            for path, stat, _ in common.walk_dir(target, files_only=True)
+            for path, stat, _ in walk_dir(target, files_only=True)
             if path.suffix.lower() in video_ext
         ):
             yield ft.result()
@@ -216,7 +225,7 @@ def update_dir_mtime(target: Path):
 
         return False
 
-    print(common.sep_bold)
+    print(sep_bold)
     print("Updating directory timestamps...")
 
     records = {}
@@ -224,7 +233,7 @@ def update_dir_mtime(target: Path):
     total = 1
     success = 0
 
-    for path, stat, is_dir in common.walk_dir(target, files_only=False):
+    for path, stat, is_dir in walk_dir(target, files_only=False):
         if is_dir:
             total += 1
             success += _change_mtime(path, stat)

@@ -50,12 +50,12 @@ def walk_dir(top_dir: Path, files_only: bool = False) -> Iterator[Tuple[Path, st
             if entry.name[0] in "#@.":
                 continue
             path = Path(entry.path)
+            is_dir = entry.is_dir()
+            if is_dir:
+                yield from walk_dir(path, files_only)
+                if files_only:
+                    continue
             try:
-                is_dir = entry.is_dir()
-                if is_dir:
-                    yield from walk_dir(path, files_only)
-                    if files_only:
-                        continue
                 yield path, entry.stat(), is_dir
             except OSError as e:
                 color_printer(f"Error occurred scanning {entry.path}: {e}", color="red")
