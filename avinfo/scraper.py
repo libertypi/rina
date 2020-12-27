@@ -465,10 +465,7 @@ class FC2(Scraper):
                 pass
 
         if not title:
-            tree = get_tree(
-                "https://video.fc2.com/a/search/video/",
-                params={"keyword": f"aid={uid}"},
-            )
+            tree = get_tree("https://video.fc2.com/a/search/video/", params={"keyword": f"aid={uid}"})
             try:
                 tree = tree.find('.//div[@id="pjx-search"]//ul/li//a[@title][@href]')
                 title = tree.text
