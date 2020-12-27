@@ -844,8 +844,8 @@ def _load_json_ld(tree: HtmlElement):
     try:
         return json_loads(json)
     except ValueError:
-        func = lambda m: "".join((m[1], re_sub(r'\\*"', r'\\"', m[2]), m[3]))
-        return json_loads(re_sub(r'(:\s*")([^"]*"(?!\s*[,}]).*?)("\s*[,}])', func, json))
+        repl = lambda m: '":"{}"{}'.format(re_sub(r'\\*"', r'\\"', m[1]), m[2])
+        return json_loads(re_sub(r'"\s*:\s*"([^"]*"(?!\s*[,}]).*?)"\s*([,}])', repl, json))
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
