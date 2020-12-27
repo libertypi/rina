@@ -123,9 +123,9 @@ class MinnanoAV(Wiki):
             if tree is None:
                 return
 
-        tree = tree.find('.//section[@id="main-area"]/section')
+        tree = tree.find('.//section[@id="main-area"]')
         try:
-            name = clean_name(tree.findtext("h1"))
+            name = clean_name(tree.findtext("section/h1"))
         except (AttributeError, TypeError):
             return
 

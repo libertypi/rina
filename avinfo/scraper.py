@@ -111,7 +111,7 @@ class Scraper:
                 return
 
         mask = self._get_keyword_mask()
-        for a in tree.find('.//div[@id="videos"]').iterfind('.//a[@class="box"]'):
+        for a in tree.iterfind('.//div[@id="videos"]//a[@class="box"]'):
 
             productId = a.findtext('div[@class="uid"]')
             if productId and mask(productId):
@@ -752,20 +752,26 @@ class DateSearcher:
 
     def _init_regex():
         template = [
-            r"(?P<{0}>{{{1}}}(?P<s{0}>{{sep}}{4}){{{2}}}(?P=s{0}){{{3}}})".format(f, *f, r)
-            for f, r in (
-                ("dby", "*"),  # 23.Jun.(20)14
-                ("bdy", "*"),  # Dec.23.(20)14
-                ("dBy", "*"),  # 19.June.(20)14
-                ("Bdy", "*"),  # June.19.(20)14
-                ("mdy", "+"),  # 10.15.(20)19
-                ("ymd", "+"),  # (20)19.03.15
-                ("dmy", "+"),  # 23.02.(20)19
+            r"(?P<{0}>{{{1}}}\s*?(?P<s{0}>[\s.-])\s*{{{2}}}\s*?(?P=s{0})\s*{{{3}}})".format(f, *f)
+            for f in (
+                "mdy",  # 10.15.(20)19
+                "ymd",  # (20)19.03.15
+                "dmy",  # 23.02.(20)19
             )
         ]
         template.append(r"(?P<Ymd>{Y}(){mm}{dd})")  # 20170102
+        template.extend(
+            r"(?P<{0}>{{{1}}}\s*([.,-]?)\s*{{{2}}}\s*?[\s.,-]{4}\s*{{{3}}})".format(f, *f, r)
+            for f, r in (
+                ("dby", "?"),  # 23Jun(20)14
+                ("dBy", "?"),  # 19June(20)14
+                ("bdy", ""),  # Dec.23.(20)14
+                ("Bdy", ""),  # June.19.(20)14
+                ("ybd", "?"),  # (20)12Feb3
+                ("yBd", "?"),  # (20)12March3
+            )
+        )
         fmt = {
-            "sep": r"[\s.-]",
             "y": r"(?:20)?([12][0-9])",
             "Y": r"(20[12][0-9])",
             "m": r"(1[0-2]|0?[1-9])",
