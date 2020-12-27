@@ -7,7 +7,6 @@ from pathlib import Path
 from re import compile as re_compile
 from typing import Iterator, Optional, Tuple
 
-from bs4 import UnicodeDammit
 from lxml.etree import XPath
 from lxml.html import HtmlElement, fromstring
 from requests import HTTPError, RequestException, Session
@@ -72,17 +71,18 @@ def list_dir(top_dir: Path) -> Iterator[Path]:
     yield Path(top_dir)
 
 
-def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
+def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
     """Downloads a page and returns lxml.html element tree.
 
     :param url, **kwargs: url and optional arguments `requests` take
-    :param decoder: None (auto detect), lxml, or any encoding as string.
+    :param encoding: None (feed bytes to lxml), "auto" (detect by requests), or any
+    encodings
     """
     kwargs.setdefault("timeout", (7, 28))
 
     for retry in range(3):
         try:
-            res = session.get(url, **kwargs)
+            response = session.get(url, **kwargs)
             break
         except RequestException:
             if retry == 2:
@@ -90,24 +90,20 @@ def get_tree(url, *, decoder: str = None, **kwargs) -> Optional[HtmlElement]:
             time.sleep(1)
     else:
         raise RequestException(url)
+
     try:
-        res.raise_for_status()
+        response.raise_for_status()
     except HTTPError:
         return
 
-    if decoder == "lxml":
-        content = res.content
-    elif decoder:
-        res.encoding = decoder
-        content = res.text
+    if encoding:
+        if encoding != "auto":
+            response.encoding = encoding
+        content = response.text
     else:
-        content = UnicodeDammit(
-            res.content,
-            override_encodings=("utf-8", "euc-jp"),
-            is_html=True,
-        ).unicode_markup
+        content = response.content
 
-    return fromstring(content, base_url=res.url)
+    return fromstring(content, base_url=response.url)
 
 
 def strptime(string: str, fmt: str) -> float:

@@ -7,8 +7,18 @@ from urllib.parse import urljoin
 
 from requests.cookies import create_cookie
 
-from avinfo import common
-from avinfo.common import get_tree, re_compile, re_search, re_sub, session, str_to_epoch, strptime, xpath
+from avinfo.common import (
+    HtmlElement,
+    RequestException,
+    get_tree,
+    re_compile,
+    re_search,
+    re_sub,
+    session,
+    str_to_epoch,
+    strptime,
+    xpath,
+)
 
 session.cookies.set_cookie(create_cookie(domain="www.javbus.com", name="existmag", value="all"))
 _subspace = re_compile(r"\s+").sub
@@ -64,7 +74,7 @@ class Scraper:
 
         for base in ("uncensored/",) if self.uncensored_only else ("uncensored/", ""):
 
-            tree = get_tree(f"https://www.javbus.com/{base}search/{self.keyword}", decoder="lxml")
+            tree = get_tree(f"https://www.javbus.com/{base}search/{self.keyword}")
             if tree is None:
                 continue
             try:
@@ -98,7 +108,7 @@ class Scraper:
             base = random_choice(Scraper._javdb_url)
         except AttributeError:
             base = "https://javdb.com/search?q="
-            tree = get_tree(base + self.keyword, decoder="utf-8")
+            tree = get_tree(base + self.keyword, encoding="auto")
             if tree is None:
                 return
             alt = tree.xpath(
@@ -111,7 +121,7 @@ class Scraper:
             else:
                 Scraper._javdb_url = (base,)
         else:
-            tree = get_tree(base + self.keyword, decoder="utf-8")
+            tree = get_tree(base + self.keyword, encoding="auto")
             if tree is None:
                 return
 
@@ -205,11 +215,11 @@ class StudioMatcher(Scraper):
 
     def _query(self) -> Optional[ScrapeResult]:
 
-        tree = get_tree(f"https://www.javbus.com/{self.keyword}", decoder="lxml")
+        tree = get_tree(f"https://www.javbus.com/{self.keyword}")
 
         if tree is None:
             keyword = self.keyword.replace("_", "-")
-            tree = get_tree(f"https://www.javbus.com/{keyword}", decoder="lxml")
+            tree = get_tree(f"https://www.javbus.com/{keyword}")
             if tree is None:
                 return
             self.keyword = keyword
@@ -263,7 +273,7 @@ class StudioMatcher(Scraper):
             source = "caribbeancom.com"
             url = "https://www.caribbeancom.com"
 
-        tree = get_tree(f"{url}/moviepages/{self.keyword}/", decoder="euc-jp")
+        tree = get_tree(f"{url}/moviepages/{self.keyword}/", encoding="euc-jp")
         if tree is None:
             return
 
@@ -310,7 +320,7 @@ class StudioMatcher(Scraper):
                 publishDate=str_to_epoch(json["Release"]),
                 source=source,
             )
-        except (common.RequestException, ValueError, KeyError):
+        except (RequestException, ValueError, KeyError):
             pass
 
     def _10mu(self):
@@ -323,7 +333,7 @@ class StudioMatcher(Scraper):
     def _paco(self):
         self.studio = "paco"
 
-        tree = get_tree(f"https://www.pacopacomama.com/moviepages/{self.keyword}/", decoder="euc-jp")
+        tree = get_tree(f"https://www.pacopacomama.com/moviepages/{self.keyword}/", encoding="euc-jp")
         if tree is None:
             return
 
@@ -344,7 +354,7 @@ class StudioMatcher(Scraper):
     def _mura(self):
         self.studio = "mura"
 
-        tree = get_tree(f"https://www.muramura.tv/moviepages/{self.keyword}/", decoder="euc-jp")
+        tree = get_tree(f"https://www.muramura.tv/moviepages/{self.keyword}/", encoding="euc-jp")
         if tree is None:
             return
 
@@ -398,7 +408,7 @@ class Heyzo(Scraper):
         uid = self.match["heyzo"]
         self.keyword = f"HEYZO-{uid}"
 
-        tree = get_tree(f"https://www.heyzo.com/moviepages/{uid}/", decoder="lxml")
+        tree = get_tree(f"https://www.heyzo.com/moviepages/{uid}/")
         if tree is None:
             return
 
@@ -444,7 +454,7 @@ class FC2(Scraper):
         self.keyword = f"FC2-{uid}"
         title = date = None
 
-        tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/", decoder="lxml")
+        tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
         if tree is not None:
             tree = tree.find('.//section[@id="top"]//section[@class="items_article_header"]')
             try:
@@ -458,7 +468,6 @@ class FC2(Scraper):
             tree = get_tree(
                 "https://video.fc2.com/a/search/video/",
                 params={"keyword": f"aid={uid}"},
-                decoder="lxml",
             )
             try:
                 tree = tree.find('.//div[@id="pjx-search"]//ul/li//a[@title][@href]')
@@ -483,7 +492,7 @@ class FC2(Scraper):
             json = session.get(
                 f"https://javdb.com/videos/search_autocomplete.json?q={self.keyword}",
             ).json()
-        except (common.RequestException, ValueError):
+        except (RequestException, ValueError):
             return
 
         mask = self._get_keyword_mask()
@@ -517,7 +526,7 @@ class Heydouga(Scraper):
             self.keyword = f"heydouga-{m1}-{m2}"
             url = f"https://www.heydouga.com/moviepages/{m1}/{m2}/"
 
-        tree = get_tree(url, decoder="utf-8")
+        tree = get_tree(url, encoding="auto")
         if tree is None:
             return
 
@@ -607,7 +616,7 @@ class SM_Miracle(Scraper):
         try:
             res = session.get(f"http://sm-miracle.com/movie/{uid}.dat")
             res.raise_for_status()
-        except common.RequestException:
+        except RequestException:
             return
 
         try:
@@ -700,7 +709,7 @@ class GirlsDelta(Scraper):
         uid = self.match["gd"]
         self.keyword = f"GirlsDelta-{uid}"
 
-        tree = get_tree(f"https://girlsdelta.com/product/{uid}", decoder="lxml")
+        tree = get_tree(f"https://girlsdelta.com/product/{uid}")
         if tree is None or "/product/" not in tree.base_url:
             return
 
@@ -818,7 +827,7 @@ class DateSearcher:
             pass
 
 
-def _load_json_ld(tree: common.HtmlElement):
+def _load_json_ld(tree: HtmlElement):
     """Loads JSON-LD data from page.
 
     Raise ValueError when failed.

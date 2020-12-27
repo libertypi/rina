@@ -62,6 +62,10 @@ class Scraper(unittest.TestCase):
                 "120313_001 人 3",
                 ("caribbeancom.com", "120313-001-carib", "麻倉憂未公開映像 尻コキ編", 1385683200.0),
             ),
+            (
+                "090613_656-caribpr-whole1-hd",
+                ("caribbeancompr.com", "090613_656-caribpr-whole1-hd", "メルシーボークー DV 01 国宝級のおっぱい全裸家政婦", 1378425600.0),
+            ),
         )
         self._run_test(values)
 

@@ -83,7 +83,7 @@ class Wikipedia(Wiki):
     @staticmethod
     def _query(keyword: str):
 
-        tree = get_tree(f"https://ja.wikipedia.org/wiki/{keyword}", decoder="lxml")
+        tree = get_tree(f"https://ja.wikipedia.org/wiki/{keyword}")
         if tree is None or tree.find('.//a[@title="Template:AV女優"]') is None:
             return
 
@@ -113,7 +113,6 @@ class MinnanoAV(Wiki):
         tree = get_tree(
             "http://www.minnano-av.com/search_result.php",
             params={"search_scope": "actress", "search_word": keyword},
-            decoder="lxml",
         )
         if tree is None:
             return
@@ -158,17 +157,14 @@ class MinnanoAV(Wiki):
                     return
 
         if result:
-            return get_tree(urljoin(tree.base_url, result), decoder="lxml")
+            return get_tree(urljoin(tree.base_url, result))
 
 
 class AVRevolution(Wiki):
     @staticmethod
     def _query(keyword: str):
 
-        tree = get_tree(
-            f"http://neo-adultmovie-revolution.com/db/jyoyuu_betumei_db/?q={keyword}",
-            decoder="lxml",
-        )
+        tree = get_tree(f"http://neo-adultmovie-revolution.com/db/jyoyuu_betumei_db/?q={keyword}")
         try:
             tree = xpath('.//div[@class="container"]/div[contains(@class,"row") and @style and div[1]/a]')(tree)
         except TypeError:
@@ -209,7 +205,7 @@ class Seesaawiki(Wiki):
             return
 
         while True:
-            tree = get_tree(stack[-1], decoder="euc-jp")
+            tree = get_tree(stack[-1], encoding="auto")
             if tree is None:
                 return
 
@@ -254,7 +250,7 @@ class Msin(Wiki):
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_tree(f"https://db.msin.jp/search/actress?str={keyword}")
+        tree = get_tree(f"https://db.msin.jp/search/actress?str={keyword}", encoding="auto")
         if tree is None:
             return
 
@@ -306,7 +302,7 @@ class Manko(Wiki):
     @staticmethod
     def _query(keyword: str):
 
-        tree = get_tree(f"http://mankowomiseruavzyoyu.blog.fc2.com/?q={keyword}", decoder="lxml")
+        tree = get_tree(f"http://mankowomiseruavzyoyu.blog.fc2.com/?q={keyword}")
         if tree is None:
             return
 
@@ -337,7 +333,7 @@ class Etigoya(Wiki):
     @staticmethod
     def _query(keyword: str):
 
-        tree = get_tree(f"http://etigoya955.blog49.fc2.com/?q={keyword}", decoder="lxml")
+        tree = get_tree(f"http://etigoya955.blog49.fc2.com/?q={keyword}")
         if tree is None:
             return
 
