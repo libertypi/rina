@@ -79,7 +79,8 @@ class Scraper:
                 continue
             try:
                 tree = tree.find('.//div[@id="waterfall"]').iterfind('.//a[@class="movie-box"]//span')
-            except AttributeError:
+            except AttributeError as e:
+                self._warn(e)
                 continue
 
             mask = self._get_keyword_mask()
@@ -431,26 +432,24 @@ class Heyzo(Scraper):
                 publishDate=str_to_epoch(json["dateCreated"]),
                 source=self.source,
             )
+        except TypeError:
+            pass
         except (ValueError, KeyError) as e:
             self._warn(e)
 
         tree = tree.find('.//div[@id="wrapper"]//div[@id="movie"]')
         try:
             title = tree.findtext("h1").rpartition("\t-")
+            date = tree.find('.//table[@class="movieInfo"]//*[@class="table-release-day"]').text_content()
         except AttributeError as e:
             self._warn(e)
-            return
-
-        date = tree.find('.//table[@class="movieInfo"]//*[@class="table-release-day"]')
-        if date is not None:
-            date = str_to_epoch(date.text_content())
-
-        return ScrapeResult(
-            productId=self.keyword,
-            title=title[0] or title[2],
-            publishDate=date,
-            source=self.source,
-        )
+        else:
+            return ScrapeResult(
+                productId=self.keyword,
+                title=title[0] or title[2],
+                publishDate=str_to_epoch(date),
+                source=self.source,
+            )
 
 
 class FC2(Scraper):
@@ -469,23 +468,18 @@ class FC2(Scraper):
         tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
         if tree is not None:
             tree = tree.find('.//section[@id="top"]//section[@class="items_article_header"]')
-            try:
+            if tree is not None:
                 title = tree.findtext('.//div[@class="items_article_headerInfo"]/h3')
-                date = tree.findtext('.//div[@class="items_article_Releasedate"]/p')
-                date = str_to_epoch(date)
-            except AttributeError as e:
-                pass
+                date = str_to_epoch(tree.findtext('.//div[@class="items_article_Releasedate"]/p'))
 
         if not title:
             tree = get_tree("https://video.fc2.com/a/search/video/", params={"keyword": f"aid={uid}"})
             try:
                 tree = tree.find('.//div[@id="pjx-search"]//ul/li//a[@title][@href]')
                 title = tree.text
+                date = strptime(re_search(r"/(20[12][0-9]{5})", tree.get("href"))[1], "%Y%m%d")
             except AttributeError:
                 return
-            date = re_search(r"/(20[12][0-9]{5})", tree.get("href"))
-            try:
-                date = strptime(date[1], "%Y%m%d")
             except (TypeError, ValueError) as e:
                 self._warn(e)
 
@@ -602,14 +596,13 @@ class X1X(Scraper):
             )(tree)
         except TypeError as e:
             self._warn(e)
-            return
-
-        return ScrapeResult(
-            productId=self.keyword,
-            title="".join(xpath("h2[1]/text()")(tree)),
-            publishDate=str_to_epoch(date),
-            source=self.source,
-        )
+        else:
+            return ScrapeResult(
+                productId=self.keyword,
+                title="".join(xpath("h2[1]/text()")(tree)),
+                publishDate=str_to_epoch(date),
+                source=self.source,
+            )
 
 
 class SM_Miracle(Scraper):
@@ -659,23 +652,26 @@ class H4610(Scraper):
 
         try:
             json = _load_json_ld(tree)
-            title = json["name"]
-            date = str_to_epoch(json["dateCreated"])
-
+            return ScrapeResult(
+                productId=self.keyword,
+                title=json["name"],
+                publishDate=str_to_epoch(json["dateCreated"]),
+                source=f"{m1}.com",
+            )
+        except TypeError:
+            pass
         except (ValueError, KeyError) as e:
             self._warn(e)
 
-            title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
-            date = xpath(
-                'string(.//div[@id="movieInfo"]//section//dt[contains(., "公開日")]'
-                '/following-sibling::dd[contains(., "20")])'
-            )(tree)
-            date = str_to_epoch(date)
+        date = xpath(
+            'string(.//div[@id="movieInfo"]//section//dt[contains(., "公開日")]'
+            '/following-sibling::dd[contains(., "20")])'
+        )(tree)
 
         return ScrapeResult(
             productId=self.keyword,
-            title=title,
-            publishDate=date,
+            title=tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span'),
+            publishDate=str_to_epoch(date),
             source=f"{m1}.com",
         )
 
@@ -842,9 +838,9 @@ class DateSearcher:
 def _load_json_ld(tree: HtmlElement):
     """Loads JSON-LD data from page.
 
-    Raise ValueError when failed.
+    Raise TypeError if json was not found on page, ValueError when parsing failed.
     """
-    json = re_sub(r"[\t\n\r\f\v]", "", tree.findtext('.//script[@type="application/ld+json"]', ""))
+    json = re_sub(r"[\t\n\r\f\v]", "", tree.findtext('.//script[@type="application/ld+json"]'))
     try:
         return json_loads(json)
     except ValueError:
