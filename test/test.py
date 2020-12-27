@@ -219,9 +219,11 @@ class Scraper(unittest.TestCase):
         values = (
             ("Devon Ray Milf Teen Cum Swap 28Jul2015 1080p", ("date string", None, None, 1438041600.0)),
             ("welivetogether.15.08.20.abigail.mac.and.daisy.summers", ("date string", None, None, 1440028800)),
-            ("welivetogether 23-jun 2014 test", None),
+            ("welivetogether 23-jun 2014 test", ("date string", None, None, 1403481600.0)),
             ("welivetogether dec.23.2014 test", ("date string", None, None, 1419292800)),
             ("deeper.20.03.14.rae.lil.black", ("date string", None, None, 1584144000)),
+            ("march 14, 2012", ("date string", None, None, 1331683200.0)),
+            ("20-03.14", None),
         )
         self._run_test(values)
 

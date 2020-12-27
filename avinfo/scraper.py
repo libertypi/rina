@@ -148,13 +148,11 @@ class Scraper:
 class StudioMatcher(Scraper):
 
     uncensored_only = True
-    regex = r"(?P<studio>(?P<s1>{m}{d}{y}|(?P<s4>{y}{m}{d})){tail})".format_map(
-        {
-            "y": r"[0-2][0-9]",
-            "m": r"(?:0[1-9]|1[0-2])",
-            "d": r"(?:[12][0-9]|0[1-9]|3[01])",
-            "tail": r"-(?P<s2>[0-9]{2,4})(?:-(?P<s3>0[0-9]))?",
-        }
+    regex = r"(?P<studio>(?P<s1>{m}{d}{y}|(?P<s4>{y}{m}{d})){tail})".format(
+        y=r"[0-2][0-9]",
+        m=r"(?:0[1-9]|1[0-2])",
+        d=r"(?:[12][0-9]|0[1-9]|3[01])",
+        tail=r"-(?P<s2>[0-9]{2,4})(?:-(?P<s3>0[0-9]))?",
     )
     _search_studio = re_compile(
         r"""\b(?:
@@ -717,7 +715,7 @@ class UncensoredMatcher(Scraper):
         r"(xxx)[\s-]*(av)[^0-9]*([0-9]{4,5})",
         r"(th101)[\s-]*([0-9]{3})[\s-]([0-9]{6})",
         r"(mkb?d|bd)[\s-]?([sm]?[0-9]{2,4})",
-        r"([a-z]{1,4}(?:3d|2d|2m)+[a-z]{1,4}|r18|t28)[\s-]*([0-9]{2,6})",
+        r"([a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4}|r18|t28)[\s-]*([0-9]{2,6})",
     )
 
     def _query(self):
