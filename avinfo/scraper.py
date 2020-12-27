@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 from json import loads as json_loads
 from random import choice as random_choice
+from typing import Optional
 from urllib.parse import urljoin
 
 from requests.cookies import create_cookie
@@ -56,29 +57,33 @@ class Scraper:
 
         return result
 
-    def _query(self) -> ScrapeResult:
+    def _query(self) -> Optional[ScrapeResult]:
         pass
 
     def _javbus(self):
-
-        mask = self._get_keyword_mask()
 
         for base in ("uncensored/",) if self.uncensored_only else ("uncensored/", ""):
 
             tree = get_tree(f"https://www.javbus.com/{base}search/{self.keyword}", decoder="lxml")
             if tree is None:
                 continue
+            try:
+                tree = tree.find('.//div[@id="waterfall"]').iterfind('.//a[@class="movie-box"]//span')
+            except AttributeError:
+                continue
 
-            for span in tree.find('.//div[@id="waterfall"]').iterfind('.//a[@class="movie-box"]//span'):
+            mask = self._get_keyword_mask()
+            for span in tree:
 
-                productId = span.findtext("date[1]")
-                if productId and mask(productId):
+                productId = span.findtext("date[1]", "")
+                if mask(productId):
 
                     title = span.text
-                    if not title:
-                        return
-                    if title[0] == "【":
-                        title = re_sub(r"^【(お得|特価)】\s*", "", title)
+                    try:
+                        if title[0] == "【":
+                            title = re_sub(r"^【(お得|特価)】\s*", "", title)
+                    except IndexError:
+                        continue
 
                     return ScrapeResult(
                         productId=productId,
@@ -107,14 +112,21 @@ class Scraper:
                 Scraper._javdb_url = (base,)
         else:
             tree = get_tree(base + self.keyword, decoder="utf-8")
-            if tree is None or "/search" not in tree.base_url:
+            if tree is None:
                 return
 
-        mask = self._get_keyword_mask()
-        for a in tree.iterfind('.//div[@id="videos"]//a[@class="box"]'):
+        if "/search" not in tree.base_url:
+            return
 
-            productId = a.findtext('div[@class="uid"]')
-            if productId and mask(productId):
+        tree = tree.find('.//div[@id="videos"]')
+        if tree is None:
+            return
+
+        mask = self._get_keyword_mask()
+        for a in tree.iterfind('.//a[@class="box"]'):
+
+            productId = a.findtext('div[@class="uid"]', "")
+            if mask(productId):
 
                 return ScrapeResult(
                     productId=productId,
@@ -124,14 +136,16 @@ class Scraper:
                 )
 
     def _get_keyword_mask(self):
-        if not self._mask:
-            self._mask = re_compile(
+
+        mask = self._mask
+        if not mask:
+            mask = self._mask = re_compile(
                 r"\s*{}\s*".format(re_sub(r"[\s_-]", r"[\\s_-]?", self.keyword)),
                 flags=re.IGNORECASE,
             ).fullmatch
-        return self._mask
+        return mask
 
-    def _process_product_id(self, productId: str):
+    def _process_product_id(self, productId: str) -> str:
 
         suffix = re_search(
             r"^\s*((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<s>[1-9][0-9]?|[a-d])\b",
@@ -189,7 +203,7 @@ class StudioMatcher(Scraper):
                 pass
         return result
 
-    def _query(self):
+    def _query(self) -> Optional[ScrapeResult]:
 
         tree = get_tree(f"https://www.javbus.com/{self.keyword}", decoder="lxml")
 
@@ -347,13 +361,13 @@ class StudioMatcher(Scraper):
             source="muramura.tv",
         )
 
-    def _mesubuta(self):
+    def _mesubuta(self) -> None:
         self.studio = "mesubuta"
         self.datefmt = "%y%m%d"
         if self.match["s3"]:
             self.keyword = "_".join(self.match.group("s1", "s2", "s3"))
 
-    def _process_product_id(self, productId: str):
+    def _process_product_id(self, productId: str) -> str:
 
         if not self.studio:
             return productId
@@ -396,7 +410,7 @@ class Heyzo(Scraper):
                 publishDate=str_to_epoch(json["dateCreated"]),
                 source=self.source,
             )
-        except (TypeError, ValueError, KeyError):
+        except (ValueError, KeyError):
             pass
 
         tree = tree.find('.//div[@id="wrapper"]//div[@id="movie"]')
@@ -451,9 +465,9 @@ class FC2(Scraper):
                 title = tree.text
             except AttributeError:
                 return
-            date = re_search(r"(?<=/)20[12][0-9]{5}", tree.get("href"))
+            date = re_search(r"/(20[12][0-9]{5})", tree.get("href"))
             try:
-                date = strptime(date[0], "%Y%m%d")
+                date = strptime(date[1], "%Y%m%d")
             except (TypeError, ValueError):
                 pass
 
@@ -629,7 +643,7 @@ class H4610(Scraper):
             title = json["name"]
             date = str_to_epoch(json["dateCreated"])
 
-        except (TypeError, ValueError, KeyError):
+        except (ValueError, KeyError):
             title = tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
             date = xpath(
                 'string(.//div[@id="movieInfo"]//section//dt[contains(., "公開日")]'
@@ -807,9 +821,9 @@ class DateSearcher:
 def _load_json_ld(tree: common.HtmlElement):
     """Loads JSON-LD data from page.
 
-    May raise TypeError, ValueError when failed.
+    Raise ValueError when failed.
     """
-    return json_loads(re_sub(r"[\t\n\r\f\v]", "", tree.findtext('.//script[@type="application/ld+json"]')))
+    return json_loads(re_sub(r"[\t\n\r\f\v]", "", tree.findtext('.//script[@type="application/ld+json"]', "")))
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
@@ -871,17 +885,14 @@ _clean_re = re_compile(
 ).sub
 
 
-def from_string(string: str):
-    """Scrape information from a string.
-
-    Returns: ScrapeResult.
-    """
+def from_string(string: str) -> Optional[ScrapeResult]:
+    """Scrape information from a string."""
 
     string = _clean_re(" ", string.lower()).replace("_", "-")
 
     match = _search_re(string)
     if match:
-        result: ScrapeResult = _search_map[match.lastgroup](string, match).search()
+        result = _search_map[match.lastgroup](string, match).search()
         if result:
             return result
 
