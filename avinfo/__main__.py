@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from textwrap import dedent
 
-from avinfo.common import color_printer, get_choice_as_int, log_file, now, sep_bold, sep_slim, sep_width
+from avinfo.common import color_printer, get_choice_as_int, sep_bold, sep_slim, sep_width
 
 
 def parse_args():
@@ -162,19 +162,12 @@ def process_scan(scan, mode: str, quiet: bool):
     printProgressBar(0, total_changed)
 
     failed.clear()
-    sep = sep_slim + "\n"
-
-    with open(log_file, "a", encoding="utf-8") as f:
-        for i, obj in enumerate(changed, 1):
-            try:
-                obj.apply()
-            except OSError as e:
-                failed.append((obj.path, e))
-            else:
-                f.write(f"[{now()}] Mode: {mode}\n")
-                f.write(obj.report)
-                f.write(sep)
-            printProgressBar(i, total_changed)
+    for i, obj in enumerate(changed, 1):
+        try:
+            obj.apply()
+        except OSError as e:
+            failed.append((obj.path, e))
+        printProgressBar(i, total_changed)
 
     for path, e in failed:
         color_printer("Target:", path, color="red")

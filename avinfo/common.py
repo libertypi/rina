@@ -11,7 +11,6 @@ from lxml.etree import XPath
 from lxml.html import HtmlElement, fromstring
 from requests import HTTPError, RequestException, Session
 
-log_file = "logfile.log"
 sep_width = 50
 sep_bold = "=" * sep_width
 sep_slim = "-" * sep_width
@@ -136,11 +135,6 @@ def str_to_epoch(string: str) -> Optional[float]:
         return datetime(int(m["y"]), int(m["m"]), int(m["d"]), tzinfo=timezone.utc).timestamp()
     except (TypeError, ValueError):
         pass
-
-
-def now(fmt: str = "%F %T") -> str:
-    """Returns current local time as a string."""
-    return time.strftime(fmt, time.localtime())
 
 
 @lru_cache(maxsize=None)

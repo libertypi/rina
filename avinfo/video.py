@@ -66,7 +66,7 @@ class AVString:
     def report(self):
         report = self._report
         if isinstance(report, dict):
-            self._report = report = "".join(f'{k + ":":>10} {v}\n' for k, v in report.items() if v)
+            report = self._report = "".join(f'{k + ":":>10} {v}\n' for k, v in report.items() if v)
         return report
 
     @property
