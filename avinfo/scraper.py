@@ -627,7 +627,7 @@ class SM_Miracle(Scraper):
             return ScrapeResult(
                 productId=self.keyword,
                 title=re_search(
-                    r'[\n{,]\s*title:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)',
+                    r'[{,]\s*title\s*:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)\s*[,}]',
                     res.content.decode("utf-8"),
                 )["title"],
                 source=self.source,
@@ -769,7 +769,7 @@ class OneKGiri(Scraper):
 class PatternSearcher(Scraper):
 
     __slots__ = ()
-    regex = r"[0-9]{,3}(?P<p1>[a-z]{2,10})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:hhb[0-9]{,2})?"
+    regex = r"[0-9]{,3}(?P<p1>[a-z]{2,10})-?(?P<z>0)*(?P<p2>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:[hm]hb[0-9]{,2})?"
 
     def _query(self):
         m = self.match
