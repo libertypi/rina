@@ -1,8 +1,9 @@
 import argparse
 import sys
 from pathlib import Path
+from textwrap import dedent
 
-from avinfo.common import color_printer, log_file, now, sep_bold, sep_slim, sep_width
+from avinfo.common import color_printer, get_choice_as_int, log_file, now, sep_bold, sep_slim, sep_width
 
 
 def parse_args():
@@ -38,6 +39,14 @@ def parse_args():
         action="store_const",
         const="actress",
         help="detect actress bio from directories",
+    )
+    group.add_argument(
+        "-c",
+        "--concat",
+        dest="mode",
+        action="store_const",
+        const="concat",
+        help="find and concatenate consecutive videos",
     )
     group.add_argument(
         "-d",
@@ -79,7 +88,7 @@ def parse_args():
     elif args.mode == "actress" and target_type == "file":
         parser.error(f"When mode is '{args.mode}', the target must be a directory or a keyword.")
 
-    elif args.mode == "dir" and target_type != "dir":
+    elif args.mode in ("concat", "dir") and target_type != "dir":
         parser.error(f"When mode is '{args.mode}', the target must be a directory.")
 
     return args, target_type
@@ -126,38 +135,34 @@ def process_scan(scan, mode: str, quiet: bool):
         print("No change can be made.")
         return
 
-    msg = f"""{msg}
-Please choose an option:
-1) apply changes
-2) reload changes
-3) reload failures
-4) quit
-"""
+    if quiet:
+        print(msg)
+    else:
+        msg = f"""\
+            {sep_bold}
+            {msg}
+            Please choose an option:
+            1) apply changes
+            2) reload changes
+            3) reload failures
+            4) quit
+        """
+        msg = dedent(msg)
 
-    while not quiet:
-        choice = input(msg)
-
-        if choice == "1":
-            break
-        elif choice == "4":
-            sys.exit()
-
-        print(sep_bold)
-        if choice == "2":
-            for obj in changed:
+        while True:
+            choice = get_choice_as_int(msg, 4)
+            if choice == 1:
+                break
+            if choice == 4:
+                sys.exit()
+            for obj in changed if choice == 2 else failed:
                 obj.print()
-        elif choice == "3":
-            for obj in failed:
-                obj.print()
-        else:
-            print("Invalid option.")
-        print(sep_bold)
+
+    print(f"{sep_bold}\nApplying changes...")
+    printProgressBar(0, total_changed)
 
     failed.clear()
     sep = sep_slim + "\n"
-
-    print("Applying changes...")
-    printProgressBar(0, total_changed)
 
     with open(log_file, "a", encoding="utf-8") as f:
         for i, obj in enumerate(changed, 1):
@@ -183,7 +188,7 @@ def main():
     target = args.target
     mode = args.mode
 
-    print(f"Target: {args.target}. Mode: {mode}")
+    print(f"Target: {target}. Mode: {mode}")
     print("Task start...")
 
     if mode == "actress":
@@ -197,6 +202,12 @@ def main():
                 mode=mode,
                 quiet=args.quiet,
             )
+
+    elif mode == "concat":
+        from avinfo import concat
+
+        concat.main(target, quiet=args.quiet)
+
     else:
         from avinfo import video
 

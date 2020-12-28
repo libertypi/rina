@@ -42,6 +42,18 @@ def color_printer(*args, color: str, **kwargs):
     print("\033[0m", end="")
 
 
+def get_choice_as_int(msg: str, max_opt: int) -> int:
+    while True:
+        try:
+            choice = int(input(msg))
+        except ValueError:
+            pass
+        else:
+            if 1 <= choice <= max_opt:
+                return choice
+        color_printer("Invalid option.", color="red")
+
+
 def walk_dir(top_dir: Path, files_only: bool = False) -> Iterator[Tuple[Path, stat_result, bool]]:
     """Recursively yield 3-tuples of (path, stat, is_dir) in a bottom-top order."""
 
