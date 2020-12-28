@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass
+from json import dumps as json_dumps
 from json import loads as json_loads
 from random import choice as random_choice
 from typing import Optional
@@ -319,13 +320,13 @@ class StudioMatcher(Scraper):
             source = "1pondo.tv"
 
         try:
-            json = session.get(f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
-            json.raise_for_status()
-            json = json.json()
+            data = session.get(f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
+            data.raise_for_status()
+            data = data.json()
             return ScrapeResult(
-                productId=json["MovieID"],
-                title=json["Title"],
-                publishDate=str_to_epoch(json["Release"]),
+                productId=data["MovieID"],
+                title=data["Title"],
+                publishDate=str_to_epoch(data["Release"]),
                 source=source,
             )
         except RequestException:
@@ -425,11 +426,11 @@ class Heyzo(Scraper):
             return
 
         try:
-            json = _load_json_ld(tree)
+            data = _load_json_ld(tree)
             return ScrapeResult(
                 productId=self.keyword,
-                title=json["name"],
-                publishDate=str_to_epoch(json["dateCreated"]),
+                title=data["name"],
+                publishDate=str_to_epoch(data["dateCreated"]),
                 source=self.source,
             )
         except TypeError:
@@ -492,7 +493,7 @@ class FC2(Scraper):
 
     def _javdb(self):
         try:
-            json = session.get(
+            data = session.get(
                 f"https://javdb.com/videos/search_autocomplete.json?q={self.keyword}",
             ).json()
         except (RequestException, ValueError):
@@ -500,7 +501,7 @@ class FC2(Scraper):
 
         mask = self._get_keyword_mask()
         try:
-            for item in json:
+            for item in data:
                 if not mask(item["number"]):
                     continue
                 if item["title"].endswith("..."):
@@ -651,11 +652,11 @@ class H4610(Scraper):
             return
 
         try:
-            json = _load_json_ld(tree)
+            data = _load_json_ld(tree)
             return ScrapeResult(
                 productId=self.keyword,
-                title=json["name"],
-                publishDate=str_to_epoch(json["dateCreated"]),
+                title=data["name"],
+                publishDate=str_to_epoch(data["dateCreated"]),
                 source=f"{m1}.com",
             )
         except TypeError:
@@ -840,12 +841,12 @@ def _load_json_ld(tree: HtmlElement):
 
     Raise TypeError if json was not found on page, ValueError when parsing failed.
     """
-    json = re_sub(r"[\t\n\r\f\v]", "", tree.findtext('.//script[@type="application/ld+json"]'))
+    data = re_sub(r"[\t\n\r\f\v]", "", tree.findtext('.//script[@type="application/ld+json"]'))
     try:
-        return json_loads(json)
+        return json_loads(data)
     except ValueError:
-        repl = lambda m: '":"{}"{}'.format(re_sub(r'\\*"', r'\\"', m[1]), m[2])
-        return json_loads(re_sub(r'"\s*:\s*"([^"]*"(?!\s*[,}]).*?)"\s*([,}])', repl, json))
+        repl = lambda m: f"{m[1]}:{json_dumps(m[2], ensure_ascii=False)}{m[3]}"
+        return json_loads(re_sub(r'("[^"]+")\s*:\s*"(.*?)"\s*([,}])', repl, data))
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
