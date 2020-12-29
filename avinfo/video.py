@@ -3,16 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator, Tuple
 
-from avinfo._utils import (
-    color_printer,
-    re_compile,
-    re_search,
-    sep_bold,
-    sep_changed,
-    sep_failed,
-    sep_success,
-    strftime,
-)
+from avinfo._utils import color_printer, re_compile, re_search, sep_changed, sep_failed, sep_success, strftime
 from avinfo.scraper import ScrapeResult, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
@@ -259,7 +250,6 @@ def scan_dir(top_dir: Path) -> Iterator[AVFile]:
 
 def update_dir_mtime(top_dir: Path):
 
-    print(sep_bold)
     print("Updating directory timestamps...")
 
     if not isinstance(top_dir, Path):

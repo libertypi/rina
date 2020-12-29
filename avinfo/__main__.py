@@ -94,13 +94,6 @@ def parse_args():
     return args, target_type
 
 
-def print_banner():
-    print(sep_slim)
-    for m in ("Adult Video Information Detector", "By David Pi"):
-        print(m.center(sep_width))
-    print(sep_slim)
-
-
 def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=sep_width, fill="█"):
     percent = f"{100 * (iteration / float(total)):.1f}"
     filledLength = int(length * iteration // total)
@@ -175,14 +168,19 @@ def process_scan(scan, mode: str, quiet: bool):
 
 
 def main():
-    print_banner()
+
+    print(sep_slim)
+    for k in ("Adult Video Information Detector", "By David Pi"):
+        print(k.center(sep_width))
+    print(sep_slim)
 
     args, target_type = parse_args()
     target = args.target
     mode = args.mode
 
-    print(f"Target: {target}. Mode: {mode}")
-    print("Task start...")
+    for k, v in ("target:", target), ("type:", target_type), ("mode:", mode):
+        print(k, v)
+    print(sep_bold)
 
     if mode == "actress":
         from avinfo import actress
