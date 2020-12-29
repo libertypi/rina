@@ -20,7 +20,17 @@ def parse_args():
 
     parser = argparse.ArgumentParser(
         prog="avinfo",
-        description="""The ultimate AV detector.""",
+        description="The ultimate AV detector.",
+        epilog=dedent(
+            """\
+            examples:
+              %(prog)s /mnt/videos      -> recursively scrape all videos in dir
+              %(prog)s -a /mnt/videos   -> scan actress bio from dir names
+              %(prog)s HEYZO-2288.mp4   -> scrape a single file
+              %(prog)s 和登こころ       -> search for a particular actress
+            """
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     group = parser.add_mutually_exclusive_group()
@@ -30,7 +40,7 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="video",
-        help="detect information from videos (default)",
+        help="scrape video info (target: dir, file, keyword)",
     )
     group.add_argument(
         "-a",
@@ -38,7 +48,7 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="actress",
-        help="detect actress bio from directories",
+        help="detect actress bio (target: dir, keyword)",
     )
     group.add_argument(
         "-c",
@@ -46,7 +56,7 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="concat",
-        help="find and concatenate consecutive videos",
+        help="find and concat consecutive videos (target: dir)",
     )
     group.add_argument(
         "-d",
@@ -54,7 +64,7 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="dir",
-        help="modify directories' mtime to the newest file inside",
+        help="update dir's mtime to the newest file inside (target: dir)",
     )
 
     parser.add_argument(
@@ -67,7 +77,7 @@ def parse_args():
     parser.add_argument(
         "target",
         type=target_func,
-        help="the target, be it a file, a directory, or a keyword",
+        help="the target, be it a directory, a file, or a keyword",
     )
 
     args = parser.parse_args()
@@ -178,9 +188,11 @@ def main():
     target = args.target
     mode = args.mode
 
-    for k, v in ("target:", target), ("type:", target_type), ("mode:", mode):
-        print(k, v)
+    print("target:", target)
+    print("type:", target_type)
+    print("mode:", mode)
     print(sep_bold)
+    print("Task start...")
 
     if mode == "actress":
         from avinfo import actress
