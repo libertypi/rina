@@ -274,8 +274,11 @@ def update_dir_mtime(top_dir: Path):
         mtime = stat.st_mtime
         if is_dir:
             total += 1
-            record = records_get(path)
-            if record and record != mtime:
+            try:
+                record = records[path]
+            except KeyError:
+                continue
+            if record != mtime:
                 try:
                     os.utime(path, (stat.st_atime, record))
                 except OSError as e:
