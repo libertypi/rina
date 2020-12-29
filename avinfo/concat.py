@@ -8,7 +8,7 @@ from tempfile import mkstemp
 from textwrap import dedent
 from typing import Tuple
 
-from avinfo._interact import get_choice_as_int, sep_bold, sep_slim
+from avinfo._utils import get_choice_as_int, sep_bold, sep_slim
 
 FFMPEG = "ffmpeg"
 

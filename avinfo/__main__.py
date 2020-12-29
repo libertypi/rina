@@ -2,18 +2,8 @@ import argparse
 import sys
 from pathlib import Path
 from textwrap import dedent
-from typing import Iterable, Union
 
-from avinfo._interact import (
-    color_printer,
-    get_choice_as_int,
-    sep_bold,
-    sep_changed,
-    sep_failed,
-    sep_slim,
-    sep_success,
-    sep_width,
-)
+from avinfo._utils import color_printer, get_choice_as_int, sep_bold, sep_slim, sep_width
 
 
 def parse_args():

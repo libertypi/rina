@@ -7,8 +7,19 @@ from pathlib import Path
 from typing import Iterator
 from urllib.parse import quote, urljoin
 
-from avinfo._interact import color_printer, sep_changed, sep_failed, sep_success
-from avinfo._utils import HtmlElement, date_searcher, get_tree, re_compile, re_search, re_sub, xpath
+from avinfo._utils import (
+    HtmlElement,
+    color_printer,
+    date_searcher,
+    get_tree,
+    re_compile,
+    re_search,
+    re_sub,
+    sep_changed,
+    sep_failed,
+    sep_success,
+    xpath,
+)
 
 __all__ = ("scan_dir",)
 

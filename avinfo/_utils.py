@@ -9,6 +9,13 @@ from lxml.etree import XPath
 from lxml.html import HtmlElement, fromstring
 from requests import HTTPError, RequestException, Session
 
+sep_width = 50
+sep_bold = "=" * sep_width
+sep_slim = "-" * sep_width
+sep_success = "SUCCESS".center(sep_width, "-") + "\n"
+sep_failed = "FAILED".center(sep_width, "-") + "\n"
+sep_changed = "CHANGED".center(sep_width, "-") + "\n"
+
 session = Session()
 session.headers.update(
     {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"}
@@ -22,6 +29,24 @@ date_searcher = re_compile(
     (?(han)\s*日|(?=$|[^0-9]))""",
     flags=re.VERBOSE,
 ).search
+
+
+def color_printer(*args, color: str, **kwargs):
+    print("\033[31m" if color == "red" else "\033[33m", end="")
+    print(*args, **kwargs)
+    print("\033[0m", end="")
+
+
+def get_choice_as_int(msg: str, max_opt: int) -> int:
+    while True:
+        try:
+            choice = int(input(msg))
+        except ValueError:
+            pass
+        else:
+            if 1 <= choice <= max_opt:
+                return choice
+        color_printer("Invalid option.", color="red")
 
 
 def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:

@@ -3,8 +3,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator
 
-from avinfo._interact import color_printer, sep_bold, sep_changed, sep_failed, sep_success
-from avinfo._utils import re_compile, re_search, strftime
+from avinfo._utils import (
+    color_printer,
+    re_compile,
+    re_search,
+    sep_bold,
+    sep_changed,
+    sep_failed,
+    sep_success,
+    strftime,
+)
 from avinfo.scraper import ScrapeResult, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
