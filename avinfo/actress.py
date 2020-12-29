@@ -499,10 +499,14 @@ class ActressFolder(Actress):
 def list_dir(top_dir: Path) -> Iterator[Path]:
     """List dir paths under top."""
 
-    with os.scandir(top_dir) as it:
-        for entry in it:
-            if entry.name[0] not in "#@." and entry.is_dir():
-                yield Path(entry.path)
+    try:
+        with os.scandir(top_dir) as it:
+            for entry in it:
+                if entry.name[0] not in "#@." and entry.is_dir():
+                    yield Path(entry)
+    except OSError as e:
+        color_printer(f'Error occured scanning "{top_dir}": {e}', color="red")
+
     yield Path(top_dir)
 
 

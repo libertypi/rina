@@ -157,22 +157,30 @@ def _get_namemax(path):
 def _walk_dir(top_dir: Path, files_only: bool = False):
     """Recursively yield 3-tuples of (path, stat, is_dir) in a bottom-top order."""
 
-    with os.scandir(top_dir) as it:
-        for entry in it:
-            if entry.name[0] in "#@.":
-                continue
-            path = Path(entry.path)
-            is_dir = entry.is_dir()
-            if is_dir:
-                yield from _walk_dir(path, files_only)
-                if files_only:
+    try:
+        with os.scandir(top_dir) as it:
+            for entry in it:
+                if entry.name[0] in "#@.":
                     continue
-            try:
-                yield path, entry.stat(), is_dir
-            except OSError as e:
-                import warnings
+                try:
+                    if entry.is_dir():
+                        yield from _walk_dir(entry)
+                    else:
+                        yield Path(entry), entry.stat(), False
+                except OSError:
+                    pass
+    except OSError as e:
+        color_printer(f'Error occured scanning "{top_dir}": {e}', color="red")
 
-                warnings.warn(f"Error occurred scanning {entry.path}:\n{e}")
+    if not files_only:
+        try:
+            try:
+                yield Path(top_dir), top_dir.stat(), True
+            except AttributeError:
+                top_dir = Path(top_dir)
+                yield top_dir, top_dir.stat(), True
+        except OSError:
+            pass
 
 
 def from_string(string: str):
@@ -254,22 +262,6 @@ def scan_dir(top_dir: Path) -> Iterator[AVFile]:
 
 
 def update_dir_mtime(target: Path):
-    def _process_dir(path: Path, stat: os.stat_result):
-        try:
-            record = records[path]
-        except KeyError:
-            return False
-
-        mtime = stat.st_mtime
-        if record != mtime:
-            try:
-                os.utime(path, (stat.st_atime, record))
-            except OSError as e:
-                color_printer(f"Error: {path.name}  ({e})", color="red")
-            else:
-                print(f"{strftime(mtime)}  ==>  {strftime(record)}  {path.name}")
-                return True
-        return False
 
     print(sep_bold)
     print("Updating directory timestamps...")
@@ -280,16 +272,24 @@ def update_dir_mtime(target: Path):
     success = 0
 
     for path, stat, is_dir in _walk_dir(target, files_only=False):
+
+        mtime = stat.st_mtime
         if is_dir:
             total += 1
-            success += _process_dir(path, stat)
+            record = records_get(path)
+            if record and record != mtime:
+                try:
+                    os.utime(path, (stat.st_atime, record))
+                except OSError as e:
+                    color_printer(f'Error occured touching "{path.name}": {e}', color="red")
+                else:
+                    print(f"{strftime(mtime)}  ==>  {strftime(record)}  {path.name}")
+                    success += 1
         else:
-            mtime = stat.st_mtime
             for parent in path.parents:
                 if records_get(parent, -1) < mtime:
                     records[parent] = mtime
                 if parent == target:
                     break
 
-    success += _process_dir(target, target.stat())
     print(f"Finished. {total} dirs scanned, {success} modified.")
