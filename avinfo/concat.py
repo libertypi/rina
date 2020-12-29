@@ -1,7 +1,7 @@
 import os
 import re
 import subprocess
-from collections import defaultdict, deque
+from collections import defaultdict
 from pathlib import Path
 from shutil import which
 from tempfile import mkstemp
@@ -15,12 +15,12 @@ FFMPEG = "ffmpeg"
 
 class ConcatVideo:
 
-    __slots__ = ("output_path", "input_files", "_report")
+    __slots__ = ("output_path", "input_files", "report")
 
     def __init__(self, output_path: Path, input_files: Tuple[Path]) -> None:
         self.output_path = output_path
         self.input_files = input_files
-        self._report = "files ({}):\n{}\noutput preview:\n  {}".format(
+        self.report = "files ({}):\n{}\noutput preview:\n  {}".format(
             len(input_files),
             "\n".join(f"  {p}" for p in input_files),
             output_path,
@@ -35,9 +35,6 @@ class ConcatVideo:
         finally:
             os.unlink(tmpfile)
 
-    def __str__(self):
-        return self._report
-
 
 def find_consecutive_videos(top_dir: Path):
 
@@ -46,7 +43,8 @@ def find_consecutive_videos(top_dir: Path):
     except AttributeError:
         top_dir = Path(top_dir).resolve()
 
-    tmp = defaultdict(dict)
+    file_set = set()
+    groups = defaultdict(dict)
     matcher = re.compile(
         r"""
         (?P<pre>.+?)
@@ -57,25 +55,33 @@ def find_consecutive_videos(top_dir: Path):
         flags=re.VERBOSE | re.IGNORECASE,
     ).fullmatch
 
-    for root, _, input_files in os.walk(top_dir):
+    for root, _, files in os.walk(top_dir):
 
-        for m in filter(None, map(matcher, input_files)):
-            tmp[(m["pre"], m["sep"], m["ext"].lower())][int(m["num"])] = m.string
-        if not tmp:
+        for m in filter(None, map(matcher, files)):
+            groups[(m["pre"], m["sep"], m["ext"].lower())][int(m["num"])] = m.string
+        if not groups:
             continue
 
         joinpath = Path(root).joinpath
-        for k, v in tmp.items():
+
+        for k, v in groups.items():
+
             n = len(v)
             if 1 < n == max(v):
-                output_path = joinpath(k[0] + k[2])
-                if output_path.exists():
+                output_name = k[0] + k[2]
+
+                if not file_set:
+                    file_set.update(files)
+                if output_name in file_set:
                     continue
+
                 yield ConcatVideo(
-                    output_path=output_path,
+                    output_path=joinpath(output_name),
                     input_files=tuple(joinpath(v[i]) for i in range(1, n + 1)),
                 )
-        tmp.clear()
+
+        file_set.clear()
+        groups.clear()
 
 
 def main(top_dir: Path, quiet: bool = False):
@@ -84,11 +90,11 @@ def main(top_dir: Path, quiet: bool = False):
         print(f"{FFMPEG} not found.")
         return
 
-    result = deque()
+    result = []
     for video in find_consecutive_videos(top_dir):
         result.append(video)
         print(sep_slim)
-        print(video)
+        print(video.report)
 
     if not result:
         print("No change can be made.")
@@ -125,13 +131,14 @@ def main(top_dir: Path, quiet: bool = False):
             """
             msg = dedent(msg)
 
-            for _ in range(len(result)):
-                video = result.popleft()
-                choice = get_choice_as_int(msg.format(video), 3)
-                if choice == 1:
-                    result.append(video)
+            for i, video in enumerate(result):
+                choice = get_choice_as_int(msg.format(video.report), 3)
+                if choice == 2:
+                    result[i] = None
                 elif choice == 3:
                     return
+
+            result = filter(None, result)
 
         elif choice == 3:
             return

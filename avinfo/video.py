@@ -16,6 +16,7 @@ from avinfo._utils import (
 from avinfo.scraper import ScrapeResult, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
+_fn_regex = None
 
 
 class AVString:
@@ -67,9 +68,6 @@ class AVString:
         if isinstance(report, dict):
             report = self._report = "".join(f'{k + ":":>10} {v}\n' for k, v in report.items() if v)
         return report
-
-
-_fn_regex = None
 
 
 class AVFile(AVString):
@@ -269,8 +267,7 @@ def update_dir_mtime(top_dir: Path):
 
     records = {}
     records_get = records.get
-    total = 1
-    success = 0
+    total = success = 0
 
     for path, stat, is_dir in _walk_dir(top_dir, files_only=False):
 
@@ -288,7 +285,7 @@ def update_dir_mtime(top_dir: Path):
                     success += 1
         else:
             for parent in path.parents:
-                if records_get(parent, -1) < mtime:
+                if records_get(parent, 0) < mtime:
                     records[parent] = mtime
                 if parent == top_dir:
                     break
