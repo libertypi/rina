@@ -285,7 +285,7 @@ def update_dir_mtime(top_dir: Path):
                     success += 1
         else:
             for parent in path.parents:
-                if records_get(parent, 0) < mtime:
+                if mtime > records_get(parent, 0):
                     records[parent] = mtime
                 if parent == top_dir:
                     break
