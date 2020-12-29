@@ -159,9 +159,10 @@ class Scraper:
 
     def _process_product_id(self, productId: str) -> str:
 
+        m = self.match
         suffix = re_search(
-            r"^\s*((f?hd|sd|cd|dvd|vol)\s?|(216|108|72|48)0p\s)*(?P<s>[1-9][0-9]?|[a-d])\b",
-            _subbraces(" ", self.string[self.match.end() :]),
+            r"^\s*((f?hd|sd|cd|dvd|vol|[hm]hb)\s?|(216|108|72|48)0p\s)*(?P<s>[1-9][0-9]?|[a-d])\b",
+            _subbraces(" ", self.string[m.end(m.lastindex) :]),
         )
         if suffix:
             suffix = suffix["s"]
