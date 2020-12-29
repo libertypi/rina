@@ -26,7 +26,7 @@ __all__ = ("scrape",)
 session.cookies.set_cookie(create_cookie(domain="www.javbus.com", name="existmag", value="all"))
 _subspace = re_compile(r"\s+").sub
 _subbraces = re_compile(r"[\s()\[\].-]+").sub
-_trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
+_trans_sep = None
 
 
 @dataclass
@@ -150,12 +150,17 @@ class Scraper:
 
     def _get_keyword_mask(self):
 
+        global _trans_sep
+
         mask = self._mask
         if not mask:
-            mask = self._mask = re_compile(
-                r"\s*{}\s*".format(self.keyword.translate(_trans_sep)),
-                flags=re.IGNORECASE,
-            ).fullmatch
+            try:
+                mask = self.keyword.translate(_trans_sep)
+            except TypeError:
+                _trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
+                mask = self.keyword.translate(_trans_sep)
+            mask = self._mask = re_compile(r"\s*{}\s*".format(mask), flags=re.I).fullmatch
+
         return mask
 
     def _process_product_id(self, product_id: str) -> str:
