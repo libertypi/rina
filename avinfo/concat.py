@@ -41,9 +41,10 @@ class ConcatVideo:
 
 def find_consecutive_videos(top_dir: Path):
 
-    if not isinstance(top_dir, Path):
-        top_dir = Path(top_dir)
-    top_dir = top_dir.resolve()
+    try:
+        top_dir = top_dir.resolve()
+    except AttributeError:
+        top_dir = Path(top_dir).resolve()
 
     tmp = defaultdict(dict)
     matcher = re.compile(

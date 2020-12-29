@@ -496,23 +496,29 @@ class ActressFolder(Actress):
             os.rename(self.path, self.path.with_name(self.result))
 
 
-def list_dir(top_dir: Path) -> Iterator[Path]:
+def _list_dir(top_dir: Path) -> Iterator[Path]:
     """List dir paths under top."""
 
     try:
         with os.scandir(top_dir) as it:
             for entry in it:
-                if entry.name[0] not in "#@." and entry.is_dir():
-                    yield Path(entry)
+                try:
+                    if entry.name[0] not in "#@." and entry.is_dir():
+                        yield Path(entry)
+                except OSError:
+                    pass
     except OSError as e:
         color_printer(f'Error occured scanning "{top_dir}": {e}', color="red")
 
-    yield Path(top_dir)
+    yield top_dir
 
 
-def scan_dir(target: Path) -> Iterator[ActressFolder]:
+def scan_dir(top_dir: Path) -> Iterator[ActressFolder]:
+
+    if not isinstance(top_dir, Path):
+        top_dir = Path(top_dir)
 
     w = min(32, os.cpu_count() + 4) // 3
     with ThreadPoolExecutor(max_workers=w) as ex, ThreadPoolExecutor(max_workers=None) as exe:
-        for ft in as_completed(ex.submit(ActressFolder, p, exe) for p in list_dir(target)):
+        for ft in as_completed(ex.submit(ActressFolder, p, exe) for p in _list_dir(top_dir)):
             yield ft.result()

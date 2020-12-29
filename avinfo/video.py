@@ -1,7 +1,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Tuple
 
 from avinfo._utils import (
     color_printer,
@@ -154,7 +154,7 @@ def _get_namemax(path):
     return 255
 
 
-def _walk_dir(top_dir: Path, files_only: bool = False):
+def _walk_dir(top_dir: Path, files_only: bool = False) -> Iterator[Tuple[Path, os.stat_result, bool]]:
     """Recursively yield 3-tuples of (path, stat, is_dir) in a bottom-top order."""
 
     try:
@@ -174,11 +174,7 @@ def _walk_dir(top_dir: Path, files_only: bool = False):
 
     if not files_only:
         try:
-            try:
-                yield Path(top_dir), top_dir.stat(), True
-            except AttributeError:
-                top_dir = Path(top_dir)
-                yield top_dir, top_dir.stat(), True
+            yield Path(top_dir), top_dir.stat(), True
         except OSError:
             pass
 
@@ -251,6 +247,8 @@ def scan_dir(top_dir: Path) -> Iterator[AVFile]:
         ".wmv",
     }
     namemax = _get_namemax(top_dir)
+    if not isinstance(top_dir, Path):
+        top_dir = Path(top_dir)
 
     with ThreadPoolExecutor(max_workers=None) as ex:
         for ft in as_completed(
@@ -261,17 +259,20 @@ def scan_dir(top_dir: Path) -> Iterator[AVFile]:
             yield ft.result()
 
 
-def update_dir_mtime(target: Path):
+def update_dir_mtime(top_dir: Path):
 
     print(sep_bold)
     print("Updating directory timestamps...")
+
+    if not isinstance(top_dir, Path):
+        top_dir = Path(top_dir)
 
     records = {}
     records_get = records.get
     total = 1
     success = 0
 
-    for path, stat, is_dir in _walk_dir(target, files_only=False):
+    for path, stat, is_dir in _walk_dir(top_dir, files_only=False):
 
         mtime = stat.st_mtime
         if is_dir:
@@ -289,7 +290,7 @@ def update_dir_mtime(target: Path):
             for parent in path.parents:
                 if records_get(parent, -1) < mtime:
                     records[parent] = mtime
-                if parent == target:
+                if parent == top_dir:
                     break
 
     print(f"Finished. {total} dirs scanned, {success} modified.")
