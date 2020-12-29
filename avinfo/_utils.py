@@ -2,28 +2,17 @@ import re
 import time
 from datetime import datetime, timezone
 from functools import lru_cache
-from os import scandir, stat_result
-from pathlib import Path
 from re import compile as re_compile
-from typing import Iterator, Optional, Tuple
+from typing import Optional
 
 from lxml.etree import XPath
 from lxml.html import HtmlElement, fromstring
 from requests import HTTPError, RequestException, Session
 
-sep_width = 50
-sep_bold = "=" * sep_width
-sep_slim = "-" * sep_width
-sep_success = "SUCCESS".center(sep_width, "-") + "\n"
-sep_failed = "FAILED".center(sep_width, "-") + "\n"
-sep_changed = "CHANGED".center(sep_width, "-") + "\n"
-_colors = {"red": "\033[31m", "yellow": "\033[33m"}
-
 session = Session()
 session.headers.update(
     {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"}
 )
-
 date_searcher = re_compile(
     r"""(?P<y>(?:19|20)[0-9]{2})\s*
     (?:(?P<han>年)|(?P<sep>[/.-]))\s*
@@ -33,53 +22,6 @@ date_searcher = re_compile(
     (?(han)\s*日|(?=$|[^0-9]))""",
     flags=re.VERBOSE,
 ).search
-
-
-def color_printer(*args, color: str, **kwargs):
-    print(_colors[color], end="")
-    print(*args, **kwargs)
-    print("\033[0m", end="")
-
-
-def get_choice_as_int(msg: str, max_opt: int) -> int:
-    while True:
-        try:
-            choice = int(input(msg))
-        except ValueError:
-            pass
-        else:
-            if 1 <= choice <= max_opt:
-                return choice
-        color_printer("Invalid option.", color="red")
-
-
-def walk_dir(top_dir: Path, files_only: bool = False) -> Iterator[Tuple[Path, stat_result, bool]]:
-    """Recursively yield 3-tuples of (path, stat, is_dir) in a bottom-top order."""
-
-    with scandir(top_dir) as it:
-        for entry in it:
-            if entry.name[0] in "#@.":
-                continue
-            path = Path(entry.path)
-            is_dir = entry.is_dir()
-            if is_dir:
-                yield from walk_dir(path, files_only)
-                if files_only:
-                    continue
-            try:
-                yield path, entry.stat(), is_dir
-            except OSError as e:
-                color_printer(f"Error occurred scanning {entry.path}: {e}", color="red")
-
-
-def list_dir(top_dir: Path) -> Iterator[Path]:
-    """List dir paths under top."""
-
-    with scandir(top_dir) as it:
-        for entry in it:
-            if entry.name[0] not in "#@." and entry.is_dir():
-                yield Path(entry.path)
-    yield Path(top_dir)
 
 
 def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
@@ -144,18 +86,14 @@ def xpath(xpath: str, smart_strings: bool = False) -> XPath:
 
 
 @lru_cache(maxsize=None)
-def _cache_re_method(pattern: str, flags: int, method: str):
+def _cache_re_method(pattern: str, method: str):
     """Returns a cached regex method"""
-    if flags is None:
-        pattern = re_compile(pattern)
-    else:
-        pattern = re_compile(pattern, flags=flags)
-    return getattr(pattern, method)
+    return getattr(re_compile(pattern), method)
 
 
-def re_search(pattern: str, string: str, flags=None) -> Optional[re.Match]:
-    return _cache_re_method(pattern, flags, "search")(string)
+def re_search(pattern: str, string: str) -> Optional[re.Match]:
+    return _cache_re_method(pattern, "search")(string)
 
 
-def re_sub(pattern: str, repl: str, string: str, flags=None) -> str:
-    return _cache_re_method(pattern, flags, "sub")(repl, string)
+def re_sub(pattern: str, repl, string: str) -> str:
+    return _cache_re_method(pattern, "sub")(repl, string)

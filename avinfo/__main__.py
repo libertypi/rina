@@ -2,8 +2,18 @@ import argparse
 import sys
 from pathlib import Path
 from textwrap import dedent
+from typing import Iterable, Union
 
-from avinfo.common import color_printer, get_choice_as_int, sep_bold, sep_slim, sep_width
+from avinfo._interact import (
+    color_printer,
+    get_choice_as_int,
+    sep_bold,
+    sep_changed,
+    sep_failed,
+    sep_slim,
+    sep_success,
+    sep_width,
+)
 
 
 def parse_args():
@@ -120,9 +130,9 @@ def process_scan(scan, mode: str, quiet: bool):
     for obj in scan:
         total += 1
         obj.print()
-        if obj.has_new_info:
+        if obj.status == "changed":
             changed.append(obj)
-        elif not obj.ok:
+        elif obj.status == "failed":
             failed.append(obj)
 
     total_changed = len(changed)
@@ -191,7 +201,7 @@ def main():
             actress.Actress(target).print()
         else:
             process_scan(
-                actress.scan_path(target),
+                actress.scan_dir(target),
                 mode=mode,
                 quiet=args.quiet,
             )
@@ -205,13 +215,18 @@ def main():
         from avinfo import video
 
         if target_type == "str":
-            video.AVString(target).print()
-        elif mode == "video":
-            process_scan(
-                video.scan_path(target, target_type == "dir"),
-                mode=mode,
-                quiet=args.quiet,
-            )
+            video.from_string(target).print()
+            return
+
+        if mode == "video":
+
+            if target_type == "dir":
+                scan = video.scan_dir(target)
+            else:
+                scan = (video.from_path(target),)
+
+            process_scan(scan, mode=mode, quiet=args.quiet)
+
         if target_type == "dir":
             video.update_dir_mtime(target)
 

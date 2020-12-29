@@ -5,23 +5,12 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Iterator
-from urllib.parse import quote as urlquote
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
-from avinfo.common import (
-    HtmlElement,
-    color_printer,
-    date_searcher,
-    get_tree,
-    list_dir,
-    re_compile,
-    re_search,
-    re_sub,
-    sep_changed,
-    sep_failed,
-    sep_success,
-    xpath,
-)
+from avinfo._interact import color_printer, sep_changed, sep_failed, sep_success
+from avinfo._utils import HtmlElement, date_searcher, get_tree, re_compile, re_search, re_sub, xpath
+
+__all__ = ("scan_dir",)
 
 _is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
 _name_finder = re_compile(r"(?:^|[】」』｝）》\])]){}(?:$|[【「『｛（《\[(])".format(_is_cjk_name)).search
@@ -201,7 +190,7 @@ class Seesaawiki(Wiki):
     def _query(keyword: str):
 
         try:
-            stack = ["https://seesaawiki.jp/av_neme/d/" + urlquote(keyword, encoding="euc-jp")]
+            stack = ["https://seesaawiki.jp/av_neme/d/" + quote(keyword, encoding="euc-jp")]
         except UnicodeEncodeError:
             return
 
@@ -353,12 +342,11 @@ _WIKI_LIST = (Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Msin, Manko, Etigo
 
 class Actress:
 
-    __slots__ = ("name", "birth", "result", "_status", "_report")
+    __slots__ = ("name", "birth", "result", "status", "_report")
 
     def __init__(self, keyword: str, executor: ThreadPoolExecutor = None):
 
-        # status: || filenameDiff | ok ||
-        self._status = 0
+        self.status = "failed"
         self.name = self.birth = self.result = None
         self._report = {
             "Target": keyword,
@@ -437,7 +425,7 @@ class Actress:
         birth, report["Birth"] = self._sort_search_result(birthDict)
 
         if name and birth:
-            self._status |= 0b01
+            self.status = "ok"
             self.result = report["Result"] = f"{name}({birth})"
             self.name = name
             self.birth = birth
@@ -457,16 +445,15 @@ class Actress:
         )
 
     def print(self):
-        if self._status == 0b01:
+        if self.status == "ok":
             print(sep_success, self.report, sep="", end="")
-        elif self._status & 0b10:
+        elif self.status == "changed":
             color_printer(sep_changed, self.report, color="yellow", sep="", end="")
         else:
             color_printer(sep_failed, self.report, color="red", sep="", end="")
 
     @property
     def report(self):
-
         report = self._report
         if isinstance(report, dict):
             log = []
@@ -481,10 +468,6 @@ class Actress:
             report = self._report = "".join(log)
         return report
 
-    @property
-    def ok(self):
-        return not not self._status & 0b01
-
 
 class ActressFolder(Actress):
 
@@ -494,19 +477,25 @@ class ActressFolder(Actress):
         super().__init__(path.name, executor)
         self.path = self._report["Target"] = path
 
-        if self._status & 0b01 and self.result != path.name:
-            self._status |= 0b10
+        if self.status == "ok" and self.result != path.name:
+            self.status = "changed"
 
     def apply(self):
-        if self._status == 0b11:
+        if self.status == "changed":
             os.rename(self.path, self.path.with_name(self.result))
 
-    @property
-    def has_new_info(self):
-        return self._status == 0b11
+
+def list_dir(top_dir: Path) -> Iterator[Path]:
+    """List dir paths under top."""
+
+    with os.scandir(top_dir) as it:
+        for entry in it:
+            if entry.name[0] not in "#@." and entry.is_dir():
+                yield Path(entry.path)
+    yield Path(top_dir)
 
 
-def scan_path(target: Path) -> Iterator[ActressFolder]:
+def scan_dir(target: Path) -> Iterator[ActressFolder]:
 
     w = min(32, os.cpu_count() + 4) // 3
     with ThreadPoolExecutor(max_workers=w) as ex, ThreadPoolExecutor(max_workers=None) as exe:

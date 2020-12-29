@@ -15,7 +15,7 @@ from avinfo import actress, scraper, video
 class Scraper(unittest.TestCase):
     def _run_test(self, values):
         for string, answer in values:
-            result = scraper.from_string(string)
+            result = scraper.scrape(string)
             if result:
                 result = astuple(result)
             self.assertEqual(result, answer, msg=result)
@@ -366,10 +366,10 @@ class Files(unittest.TestCase):
             ("", " " + "a" * 300, None),
         )
         path = Path("test.Mp4")
-        for productId, title, answer in values:
+        for product_id, title, answer in values:
             result = self.DuckAVFile(
-                path=path,
-                productId=productId,
+                target=path,
+                product_id=product_id,
                 title=title,
             )._get_filename(namemax=255)
             if answer:

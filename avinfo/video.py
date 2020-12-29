@@ -3,61 +3,52 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator
 
-from avinfo.common import (
-    color_printer,
-    re_compile,
-    re_search,
-    sep_bold,
-    sep_changed,
-    sep_failed,
-    sep_success,
-    strftime,
-    walk_dir,
-)
-from avinfo.scraper import from_string
+from avinfo._interact import color_printer, sep_bold, sep_changed, sep_failed, sep_success
+from avinfo._utils import re_compile, re_search, strftime
+from avinfo.scraper import ScrapeResult, scrape
+
+__all__ = ("from_string", "from_path", "scan_dir")
 
 
 class AVString:
 
-    __slots__ = ("productId", "title", "publishDate", "source", "_report", "_status")
+    __slots__ = ("target", "product_id", "title", "publish_date", "source", "status", "_report")
 
-    def __init__(self, string: str):
+    def __init__(self, target: str, result: ScrapeResult, error: str):
 
-        # status: || dateDiff | filenameDiff | ok ||
-        self._status = 0
-        self.productId = self.title = self.publishDate = self.source = None
-        self._report = report = {
-            "Target": string,
-            "ProductId": None,
-            "Title": None,
-            "PubDate": None,
-            "FromDate": None,
-            "NewName": None,
-            "FromName": None,
-            "Source": None,
-        }
+        self.target = target
 
-        try:
-            result = from_string(string)
-        except Exception as e:
-            report["Error"] = str(e)
-            return
+        if result:
+            self.status = "ok"
+            self.product_id = result.product_id
+            self.title = result.title
+            self.publish_date = result.publish_date
+            self.source = result.source
+            self._report = {
+                "Target": target,
+                "ProductId": self.product_id,
+                "Title": self.title,
+                "NewName": None,
+                "FromName": None,
+                "PubDate": strftime(self.publish_date),
+                "FromDate": None,
+                "Source": self.source,
+            }
+        else:
+            self.status = "failed"
+            self.product_id = self.title = self.publish_date = self.source = None
+            self._report = {
+                "Target": target,
+                "Error": error or "Information not found.",
+            }
 
-        if not result:
-            report["Error"] = "Information not found."
-            return
-
-        self._status |= 0b001
-        self.productId = report["ProductId"] = result.productId
-        self.title = report["Title"] = result.title
-        self.publishDate = result.publishDate
-        report["PubDate"] = strftime(self.publishDate)
-        self.source = report["Source"] = result.source
+    def __repr__(self):
+        return f'{self.__class__.__name__}(target="{self.target}", status="{self.status}")'
 
     def print(self):
-        if self._status == 0b001:
+        if self.status == "ok":
             print(sep_success, self.report, sep="", end="")
-        elif self._status & 0b110:
+        elif self.status == "changed":
             color_printer(sep_changed, self.report, color="yellow", sep="", end="")
         else:
             color_printer(sep_failed, self.report, color="red", sep="", end="")
@@ -69,52 +60,52 @@ class AVString:
             report = self._report = "".join(f'{k + ":":>10} {v}\n' for k, v in report.items() if v)
         return report
 
-    @property
-    def ok(self):
-        return not not self._status & 0b001
+
+_fn_regex = None
 
 
 class AVFile(AVString):
 
-    __slots__ = ("path", "newfilename", "_atime")
+    __slots__ = ("new_name", "_atime")
+    target: Path
 
-    def __init__(self, path: Path, stat: os.stat_result = None, namemax: int = None):
+    def __init__(self, target: Path, result: ScrapeResult, error, stat=None, namemax=None):
 
-        super().__init__(path.stem)
+        super().__init__(target, result, error)
+        self.new_name = self._atime = None
 
-        self.path = self._report["Target"] = path
-        self.newfilename = None
-
-        if not self._status & 0b001:
+        if not result:
             return
 
-        if self.productId and self.title:
-            name = self._get_filename(namemax or _get_namemax(path))
-            if name != path.name:
-                self._status |= 0b010
-                self.newfilename = name
-                self._report.update(NewName=name, FromName=path.name)
+        if self.product_id and self.title:
+            name = self._get_filename(namemax or _get_namemax(target))
+            if name != target.name:
+                self.new_name = name
+                self._report.update(NewName=name, FromName=target.name)
+                self.status = "changed"
 
-        if self.publishDate:
+        if self.publish_date:
             if not stat:
-                stat = path.stat()
-            if self.publishDate != stat.st_mtime:
-                self._status |= 0b100
+                stat = target.stat()
+            if self.publish_date != stat.st_mtime:
                 self._atime = stat.st_atime
                 self._report["FromDate"] = strftime(stat.st_mtime)
+                self.status = "changed"
 
     def _get_filename(self, namemax: int):
 
+        global _fn_regex
+
         try:
-            clean, strip = AVFile._fnregex
-        except AttributeError:
+            clean, strip = _fn_regex
+        except TypeError:
             clean = re_compile(r'[\s<>:"/\\|?* 　]+').sub
             strip = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
-            AVFile._fnregex = clean, strip
+            _fn_regex = clean, strip
 
         title = strip("", clean(" ", self.title))
-        suffix = self.path.suffix.lower()
-        namemax -= len(self.productId.encode("utf-8")) + len(suffix.encode("utf-8")) + 1
+        suffix = self.target.suffix.lower()
+        namemax -= len(self.product_id.encode("utf-8")) + len(suffix.encode("utf-8")) + 1
         strategy = self._trim_title
 
         while len(title.encode("utf-8")) >= namemax:
@@ -125,7 +116,7 @@ class AVFile(AVString):
                 title = strategy(title)
             title = strip("", title)
 
-        return f"{self.productId} {title}{suffix}"
+        return f"{self.product_id} {title}{suffix}"
 
     @staticmethod
     def _trim_title(string: str):
@@ -135,22 +126,18 @@ class AVFile(AVString):
         )[0]
 
     def apply(self):
-        path = self.path
+        path = self.target
 
-        if self._status & 0b011 == 0b011:
-            new = path.with_name(self.newfilename)
+        if self.new_name is not None:
+            new = path.with_name(self.new_name)
             os.rename(path, new)
             path = new
 
-        if self._status & 0b101 == 0b101:
-            os.utime(path, (self._atime, self.publishDate))
-
-    @property
-    def has_new_info(self):
-        return not not self._status & 0b110
+        if self._atime is not None:
+            os.utime(path, (self._atime, self.publish_date))
 
 
-def _get_namemax(path: Path):
+def _get_namemax(path):
     if os.name == "posix":
         try:
             return os.statvfs(path).f_namemax
@@ -159,16 +146,67 @@ def _get_namemax(path: Path):
     return 255
 
 
-def scan_path(target: Path, is_dir: bool = None) -> Iterator[AVFile]:
+def _walk_dir(top_dir: Path, files_only: bool = False):
+    """Recursively yield 3-tuples of (path, stat, is_dir) in a bottom-top order."""
 
-    if is_dir is None:
-        is_dir = target.is_dir()
+    with os.scandir(top_dir) as it:
+        for entry in it:
+            if entry.name[0] in "#@.":
+                continue
+            path = Path(entry.path)
+            is_dir = entry.is_dir()
+            if is_dir:
+                yield from _walk_dir(path, files_only)
+                if files_only:
+                    continue
+            try:
+                yield path, entry.stat(), is_dir
+            except OSError as e:
+                import warnings
 
-    if not is_dir:
-        yield AVFile(target)
-        return
+                warnings.warn(f"Error occurred scanning {entry.path}:\n{e}")
 
-    namemax = _get_namemax(target)
+
+def from_string(string: str):
+    """Analyze a string, returns an AVString object."""
+
+    try:
+        result = scrape(string)
+        error = None
+    except Exception as e:
+        result = None
+        error = str(e)
+
+    return AVString(string, result, error)
+
+
+def from_path(path: Path, stat: os.stat_result = None, namemax: int = None):
+    """Analyze a file, returns an AVFile object."""
+
+    try:
+        stem = path.stem
+    except AttributeError:
+        path = Path(path)
+        stem = path.stem
+    try:
+        result = scrape(stem)
+        error = None
+    except Exception as e:
+        result = None
+        error = str(e)
+
+    return AVFile(
+        path,
+        result,
+        error,
+        stat=stat,
+        namemax=namemax,
+    )
+
+
+def scan_dir(top_dir: Path) -> Iterator[AVFile]:
+    """Recursively scans a dir, yields AVFile objects."""
+
     video_ext = {
         ".3gp",
         ".asf",
@@ -196,18 +234,19 @@ def scan_path(target: Path, is_dir: bool = None) -> Iterator[AVFile]:
         ".webm",
         ".wmv",
     }
+    namemax = _get_namemax(top_dir)
 
     with ThreadPoolExecutor(max_workers=None) as ex:
         for ft in as_completed(
-            ex.submit(AVFile, path, stat, namemax)
-            for path, stat, _ in walk_dir(target, files_only=True)
+            ex.submit(from_path, path, stat, namemax)
+            for path, stat, _ in _walk_dir(top_dir, files_only=True)
             if path.suffix.lower() in video_ext
         ):
             yield ft.result()
 
 
 def update_dir_mtime(target: Path):
-    def _change_mtime(path: Path, stat: os.stat_result):
+    def _process_dir(path: Path, stat: os.stat_result):
         try:
             record = records[path]
         except KeyError:
@@ -222,7 +261,6 @@ def update_dir_mtime(target: Path):
             else:
                 print(f"{strftime(mtime)}  ==>  {strftime(record)}  {path.name}")
                 return True
-
         return False
 
     print(sep_bold)
@@ -233,10 +271,10 @@ def update_dir_mtime(target: Path):
     total = 1
     success = 0
 
-    for path, stat, is_dir in walk_dir(target, files_only=False):
+    for path, stat, is_dir in _walk_dir(target, files_only=False):
         if is_dir:
             total += 1
-            success += _change_mtime(path, stat)
+            success += _process_dir(path, stat)
         else:
             mtime = stat.st_mtime
             for parent in path.parents:
@@ -245,5 +283,5 @@ def update_dir_mtime(target: Path):
                 if parent == target:
                     break
 
-    success += _change_mtime(target, target.stat())
+    success += _process_dir(target, target.stat())
     print(f"Finished. {total} dirs scanned, {success} modified.")

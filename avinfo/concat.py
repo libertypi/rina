@@ -8,7 +8,7 @@ from tempfile import mkstemp
 from textwrap import dedent
 from typing import Tuple
 
-from avinfo.common import get_choice_as_int, sep_bold, sep_slim
+from avinfo._interact import get_choice_as_int, sep_bold, sep_slim
 
 FFMPEG = "ffmpeg"
 
@@ -51,7 +51,7 @@ def find_consecutive_videos(top_dir: Path):
         (?P<pre>.+?)
         (?P<sep>(?:[\s._-]+(?:chunk|vol|cd|dvd))?[\s._-]*)
         (?P<num>0*[1-9][0-9]*)
-        (?P<ext>\.(?:mp4|wmv))
+        (?P<ext>\.(?:mp4|wmv|avi|mkv))
         """,
         flags=re.VERBOSE | re.IGNORECASE,
     ).fullmatch

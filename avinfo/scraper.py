@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 
 from requests.cookies import create_cookie
 
-from avinfo.common import (
+from avinfo._utils import (
     HtmlElement,
     RequestException,
     get_tree,
@@ -21,6 +21,8 @@ from avinfo.common import (
     xpath,
 )
 
+__all__ = ("scrape",)
+
 session.cookies.set_cookie(create_cookie(domain="www.javbus.com", name="existmag", value="all"))
 _subspace = re_compile(r"\s+").sub
 _subbraces = re_compile(r"[\s()\[\].-]+").sub
@@ -29,9 +31,9 @@ _subbraces = re_compile(r"[\s()\[\].-]+").sub
 @dataclass
 class ScrapeResult:
     source: str
-    productId: str = None
+    product_id: str = None
     title: str = None
-    publishDate: float = None
+    publish_date: float = None
 
 
 class Scraper:
@@ -53,18 +55,18 @@ class Scraper:
             result = func()
             if result:
                 try:
-                    productId = _subspace("", result.productId)
+                    product_id = _subspace("", result.product_id)
                     title = _subspace(" ", result.title).strip()
                 except TypeError:
                     continue
-                if productId and title:
+                if product_id and title:
                     break
         else:
             return
 
         result.title = title
-        result.productId = self._process_product_id(productId)
-        assert isinstance(result.publishDate, float) or result.publishDate is None
+        result.product_id = self._process_product_id(product_id)
+        assert isinstance(result.publish_date, float) or result.publish_date is None
 
         return result
 
@@ -87,8 +89,8 @@ class Scraper:
             mask = self._get_keyword_mask()
             for span in tree:
 
-                productId = span.findtext("date[1]", "")
-                if mask(productId):
+                product_id = span.findtext("date[1]", "")
+                if mask(product_id):
 
                     title = span.text
                     try:
@@ -98,9 +100,9 @@ class Scraper:
                         continue
 
                     return ScrapeResult(
-                        productId=productId,
+                        product_id=product_id,
                         title=title,
-                        publishDate=str_to_epoch(span.findtext("date[2]")),
+                        publish_date=str_to_epoch(span.findtext("date[2]")),
                         source="javbus.com",
                     )
 
@@ -124,10 +126,8 @@ class Scraper:
                 Scraper._javdb_url = (base,)
         else:
             tree = get_tree(base + self.keyword, encoding="auto")
-            if tree is None:
-                return
 
-        if "/search" not in tree.base_url:
+        if tree is None or "/search" not in tree.base_url:
             return
 
         tree = tree.find('.//div[@id="videos"]')
@@ -137,13 +137,13 @@ class Scraper:
         mask = self._get_keyword_mask()
         for a in tree.iterfind('.//a[@class="box"]'):
 
-            productId = a.findtext('div[@class="uid"]', "")
-            if mask(productId):
+            product_id = a.findtext('div[@class="uid"]', "")
+            if mask(product_id):
 
                 return ScrapeResult(
-                    productId=productId,
+                    product_id=product_id,
                     title=a.findtext('div[@class="video-title"]'),
-                    publishDate=str_to_epoch(a.findtext('div[@class="meta"]')),
+                    publish_date=str_to_epoch(a.findtext('div[@class="meta"]')),
                     source="javdb.com",
                 )
 
@@ -157,7 +157,7 @@ class Scraper:
             ).fullmatch
         return mask
 
-    def _process_product_id(self, productId: str) -> str:
+    def _process_product_id(self, product_id: str) -> str:
 
         m = self.match
         suffix = re_search(
@@ -168,8 +168,8 @@ class Scraper:
             suffix = suffix["s"]
             if suffix in "abcd":
                 suffix = suffix.upper()
-            return f"{productId}-{suffix}"
-        return productId
+            return f"{product_id}-{suffix}"
+        return product_id
 
     def _warn(self, e: Exception):
         import warnings
@@ -214,9 +214,9 @@ class StudioMatcher(Scraper):
 
         result = super().search()
 
-        if result and (result.source.startswith("jav") or not result.publishDate):
+        if result and (result.source.startswith("jav") or not result.publish_date):
             try:
-                result.publishDate = strptime(self.match["s1"], self.datefmt)
+                result.publish_date = strptime(self.match["s1"], self.datefmt)
             except ValueError as e:
                 self._warn(e)
         return result
@@ -239,7 +239,7 @@ class StudioMatcher(Scraper):
             self._warn(e)
             return
 
-        productId = date = studio = None
+        product_id = date = studio = None
         get_value = lambda p: _subspace("", p.text_content().partition(":")[2])
 
         for p in xpath(
@@ -250,12 +250,12 @@ class StudioMatcher(Scraper):
 
             k = p.findtext("span")
             if "識別碼" in k:
-                productId = get_value(p)
+                product_id = get_value(p)
             elif "日期" in k:
                 date = get_value(p)
             elif "製作商" in k:
                 studio = self._search_studio(get_value(p))
-                if productId and date:
+                if product_id and date:
                     break
 
         if studio:
@@ -263,14 +263,14 @@ class StudioMatcher(Scraper):
             if result:
                 return result
 
-        if title and productId:
-            if title.startswith(productId):
-                title = title[len(productId) :]
+        if title and product_id:
+            if title.startswith(product_id):
+                title = title[len(product_id) :]
 
             return ScrapeResult(
-                productId=productId,
+                product_id=product_id,
                 title=title,
-                publishDate=str_to_epoch(date),
+                publish_date=str_to_epoch(date),
                 source="javbus.com",
             )
 
@@ -300,9 +300,9 @@ class StudioMatcher(Scraper):
         )(tree)
 
         return ScrapeResult(
-            productId=self.keyword,
+            product_id=self.keyword,
             title=title,
-            publishDate=str_to_epoch(date),
+            publish_date=str_to_epoch(date),
             source=source,
         )
 
@@ -325,9 +325,9 @@ class StudioMatcher(Scraper):
             data.raise_for_status()
             data = data.json()
             return ScrapeResult(
-                productId=data["MovieID"],
+                product_id=data["MovieID"],
                 title=data["Title"],
-                publishDate=str_to_epoch(data["Release"]),
+                publish_date=str_to_epoch(data["Release"]),
                 source=source,
             )
         except RequestException:
@@ -358,9 +358,9 @@ class StudioMatcher(Scraper):
 
         date = tree.findtext('.//div[@class="detail-info"]//*[@class="date"]')
         return ScrapeResult(
-            productId=self.keyword,
+            product_id=self.keyword,
             title=title,
-            publishDate=str_to_epoch(date),
+            publish_date=str_to_epoch(date),
             source="pacopacomama.com",
         )
 
@@ -379,9 +379,9 @@ class StudioMatcher(Scraper):
             return
 
         return ScrapeResult(
-            productId=self.keyword,
+            product_id=self.keyword,
             title="".join(xpath("h1[1]/text()")(tree)),
-            publishDate=str_to_epoch(date),
+            publish_date=str_to_epoch(date),
             source="muramura.tv",
         )
 
@@ -391,15 +391,14 @@ class StudioMatcher(Scraper):
         if self.match["s3"]:
             self.keyword = "_".join(self.match.group("s1", "s2", "s3"))
 
-    def _process_product_id(self, productId: str) -> str:
+    def _process_product_id(self, product_id: str) -> str:
 
         if not self.studio:
-            return productId
+            return product_id
 
+        i = self.match.end()
         if self.studio_match:
-            i = max(self.studio_match.end(), self.match.end())
-        else:
-            i = self.match.end()
+            i = max(self.studio_match.end(), i)
 
         suffix = re_search(
             r"^\s*(([1-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)($|\s))+",
@@ -429,9 +428,9 @@ class Heyzo(Scraper):
         try:
             data = _load_json_ld(tree)
             return ScrapeResult(
-                productId=self.keyword,
+                product_id=self.keyword,
                 title=data["name"],
-                publishDate=str_to_epoch(data["dateCreated"]),
+                publish_date=str_to_epoch(data["dateCreated"]),
                 source=self.source,
             )
         except TypeError:
@@ -447,9 +446,9 @@ class Heyzo(Scraper):
             self._warn(e)
         else:
             return ScrapeResult(
-                productId=self.keyword,
+                product_id=self.keyword,
                 title=title[0] or title[2],
-                publishDate=str_to_epoch(date),
+                publish_date=str_to_epoch(date),
                 source=self.source,
             )
 
@@ -486,9 +485,9 @@ class FC2(Scraper):
                 self._warn(e)
 
         return ScrapeResult(
-            productId=self.keyword,
+            product_id=self.keyword,
             title=title,
-            publishDate=date,
+            publish_date=date,
             source=self.source,
         )
 
@@ -508,9 +507,9 @@ class FC2(Scraper):
                 if item["title"].endswith("..."):
                     return
                 return ScrapeResult(
-                    productId=item["number"],
+                    product_id=item["number"],
                     title=re_sub(r"^\s*\[.*?\]\s*", "", item["title"]),
-                    publishDate=str_to_epoch(item["meta"].rpartition("發布時間:")[2]),
+                    publish_date=str_to_epoch(item["meta"].rpartition("發布時間:")[2]),
                     source="javdb.com",
                 )
         except KeyError as e:
@@ -543,9 +542,9 @@ class Heydouga(Scraper):
         )(tree)
 
         return ScrapeResult(
-            productId=self.keyword,
+            product_id=self.keyword,
             title=title[0] or title[2],
-            publishDate=str_to_epoch(date),
+            publish_date=str_to_epoch(date),
             source=self.source,
         )
 
@@ -600,9 +599,9 @@ class X1X(Scraper):
             self._warn(e)
         else:
             return ScrapeResult(
-                productId=self.keyword,
+                product_id=self.keyword,
                 title="".join(xpath("h2[1]/text()")(tree)),
-                publishDate=str_to_epoch(date),
+                publish_date=str_to_epoch(date),
                 source=self.source,
             )
 
@@ -626,7 +625,7 @@ class SM_Miracle(Scraper):
 
         try:
             return ScrapeResult(
-                productId=self.keyword,
+                product_id=self.keyword,
                 title=re_search(
                     r'[{,]\s*title\s*:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)\s*[,}]',
                     res.content.decode("utf-8"),
@@ -655,9 +654,9 @@ class H4610(Scraper):
         try:
             data = _load_json_ld(tree)
             return ScrapeResult(
-                productId=self.keyword,
+                product_id=self.keyword,
                 title=data["name"],
-                publishDate=str_to_epoch(data["dateCreated"]),
+                publish_date=str_to_epoch(data["dateCreated"]),
                 source=f"{m1}.com",
             )
         except TypeError:
@@ -671,9 +670,9 @@ class H4610(Scraper):
         )(tree)
 
         return ScrapeResult(
-            productId=self.keyword,
+            product_id=self.keyword,
             title=tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span'),
-            publishDate=str_to_epoch(date),
+            publish_date=str_to_epoch(date),
             source=f"{m1}.com",
         )
 
@@ -701,9 +700,9 @@ class Kin8(Scraper):
         )(tree)
 
         return ScrapeResult(
-            productId=self.keyword,
+            product_id=self.keyword,
             title=title[2] or title[0],
-            publishDate=str_to_epoch(date),
+            publish_date=str_to_epoch(date),
             source=self.source,
         )
 
@@ -730,9 +729,9 @@ class GirlsDelta(Scraper):
         )(tree)
 
         return ScrapeResult(
-            productId=self.keyword,
+            product_id=self.keyword,
             title=tree.findtext(".//title").partition("｜")[0],
-            publishDate=str_to_epoch(date),
+            publish_date=str_to_epoch(date),
             source=self.source,
         )
 
@@ -830,7 +829,7 @@ class DateSearcher:
         i = match.lastindex + 1
         try:
             return ScrapeResult(
-                publishDate=strptime(" ".join(match.group(i, i + 2, i + 3)), fmt),
+                publish_date=strptime(" ".join(match.group(i, i + 2, i + 3)), fmt),
                 source=cls.source,
             )
         except ValueError:
@@ -874,7 +873,7 @@ def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
     return re_compile(result)
 
 
-def from_string(string: str) -> Optional[ScrapeResult]:
+def scrape(string: str) -> Optional[ScrapeResult]:
     """Scrape information from a string."""
 
     string = _clean_re(" ", string.lower()).replace("_", "-")
