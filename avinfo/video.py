@@ -120,18 +120,18 @@ class AVFile(AVString):
 
         global _fn_regex
 
+        suffix = self.target.suffix.lower()
+        namemax -= len(self.product_id.encode()) + len(suffix.encode()) + 1
+        if namemax <= 0:
+            return
+
         try:
             clean, strip = _fn_regex
         except TypeError:
             clean = re_compile(r'[\s<>:"/\\|?* 　]+').sub
             strip = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
             _fn_regex = clean, strip
-
         title = strip("", clean(" ", self.title))
-        suffix = self.target.suffix.lower()
-        namemax -= len(self.product_id.encode()) + len(suffix.encode()) + 1
-        if namemax <= 0:
-            return
 
         while len(title.encode()) >= namemax:
             # Title is too long for a filename. Trying to find a reasonable
@@ -182,7 +182,6 @@ class AVFile(AVString):
 
         Returns the new path.
         """
-
         path = self.target
 
         if self.new_name is not None:
@@ -239,6 +238,8 @@ def from_string(string: str):
         result = scrape(string)
         error = None
     except Exception as e:
+        if not isinstance(string, str):
+            raise TypeError(f"expected str object, not {type(string)!r}")
         result = None
         error = str(e)
 
@@ -248,13 +249,11 @@ def from_string(string: str):
 def from_path(path: Path, stat: os.stat_result = None, namemax: int = None):
     """Analyze a file, returns an AVFile object."""
 
-    try:
-        stem = path.stem
-    except AttributeError:
+    if not isinstance(path, Path):
         path = Path(path)
-        stem = path.stem
+
     try:
-        result = scrape(stem)
+        result = scrape(path.stem)
         error = None
     except Exception as e:
         result = None

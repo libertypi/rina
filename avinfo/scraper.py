@@ -176,7 +176,8 @@ class Scraper:
 
         m = self.match
         suffix = re_search(
-            r"^\s*((f?hd|sd|cd|dvd|vol|[hm]hb)\s?|(216|108|72|48)0p\s)*(?P<s>[1-9][0-9]?|[a-d])\b",
+            r"^\s*((f?hd|sd|cd|dvd|vol|[hm]hb)\s?|(216|108|72|48)0p\s)*"
+            r"(?P<s>[1-9][0-9]?|[a-d])\b",
             _subbraces(" ", self.string[m.end(m.lastindex) :]),
         )
 
@@ -423,8 +424,9 @@ class StudioMatcher(Scraper):
 
     def _process_product_id(self, product_id: str) -> str:
 
-        if not self.studio:
-            return product_id
+        result = [product_id]
+        if self.studio:
+            result.append(self.studio)
 
         i = self.match.end()
         if self.studio_match:
@@ -435,9 +437,9 @@ class StudioMatcher(Scraper):
             _subbraces(" ", self.string[i:]),
         )
         if suffix:
-            return f'{product_id}-{self.studio}-{suffix[0].strip().replace(" ", "-")}'
+            result.extend(suffix[0].split())
 
-        return f"{product_id}-{self.studio}"
+        return "-".join(result)
 
 
 class Heyzo(Scraper):
@@ -637,7 +639,8 @@ class X1X(Scraper):
         tree = tree.find('.//div[@id="main_content"]')
         try:
             date = xpath(
-                'string(.//div[@class="movie_data_rt"]//dt[contains(., "配信日")]'
+                'string(.//div[@class="movie_data_rt"]'
+                '//dt[contains(., "配信日")]'
                 '/following-sibling::dd[contains(., "20")])'
             )(tree)
         except TypeError as e:
@@ -673,7 +676,7 @@ class SM_Miracle(Scraper):
                 product_id=self.keyword,
                 title=re_search(
                     r'[{,]\s*title\s*:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)\s*[,}]',
-                    res.content.decode("utf-8"),
+                    res.content.decode(errors="ignore"),
                 )["title"],
                 source=self.source,
             )
@@ -710,7 +713,8 @@ class H4610(Scraper):
             self._warn(e)
 
         date = xpath(
-            'string(.//div[@id="movieInfo"]//section//dt[contains(., "公開日")]'
+            'string(.//div[@id="movieInfo"]//section'
+            '//dt[contains(., "公開日")]'
             '/following-sibling::dd[contains(., "20")])'
         )(tree)
 

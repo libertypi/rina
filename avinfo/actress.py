@@ -551,11 +551,12 @@ def scan_dir(top_dir: Path) -> Iterator[ActressFolder]:
     if not isinstance(top_dir, Path):
         top_dir = Path(top_dir)
 
-    w = min(32, os.cpu_count() + 4) // 3
-    with ThreadPoolExecutor(max_workers=w) as ex, ThreadPoolExecutor(
-        max_workers=None
-    ) as exe:
+    with ThreadPoolExecutor(
+        max_workers=min(32, os.cpu_count() + 4) // 3
+    ) as outer_ex, ThreadPoolExecutor(max_workers=None) as inner_ex:
+
         for ft in as_completed(
-            ex.submit(ActressFolder, p, exe) for p in _list_dir(top_dir)
+            outer_ex.submit(ActressFolder, path, inner_ex)
+            for path in _list_dir(top_dir)
         ):
             yield ft.result()
