@@ -3,8 +3,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator, Tuple
 
-from avinfo._utils import color_printer, re_compile, re_search, sep_changed, sep_failed, sep_success, strftime
-from avinfo.scraper import ScrapeResult, scrape
+from avinfo._utils import (
+    color_printer,
+    re_compile,
+    re_search,
+    sep_changed,
+    sep_failed,
+    sep_success,
+    strftime,
+)
+from avinfo.scraper import ScrapeResult, _has_word, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
 _fn_regex = None
@@ -12,7 +20,15 @@ _fn_regex = None
 
 class AVString:
 
-    __slots__ = ("target", "product_id", "title", "publish_date", "source", "status", "_report")
+    __slots__ = (
+        "target",
+        "product_id",
+        "title",
+        "publish_date",
+        "source",
+        "status",
+        "_report",
+    )
 
     def __init__(self, target: str, result: ScrapeResult, error: str):
 
@@ -43,7 +59,9 @@ class AVString:
             }
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(target="{self.target}", status="{self.status}")'
+        return (
+            f'{self.__class__.__name__}(target="{self.target}", status="{self.status}")'
+        )
 
     def print(self):
         if self.status == "ok":
@@ -57,7 +75,9 @@ class AVString:
     def report(self):
         report = self._report
         if isinstance(report, dict):
-            report = self._report = "".join(f'{k + ":":>10} {v}\n' for k, v in report.items() if v)
+            report = self._report = "".join(
+                f'{k + ":":>10} {v}\n' for k, v in report.items() if v
+            )
         return report
 
 
@@ -66,7 +86,14 @@ class AVFile(AVString):
     __slots__ = ("new_name", "_atime")
     target: Path
 
-    def __init__(self, target: Path, result: ScrapeResult, error, stat=None, namemax=None):
+    def __init__(
+        self,
+        target: Path,
+        result: ScrapeResult,
+        error: str,
+        stat: os.stat_result = None,
+        namemax: int = None,
+    ):
 
         super().__init__(target, result, error)
         self.new_name = self._atime = None
@@ -76,7 +103,7 @@ class AVFile(AVString):
 
         if self.product_id and self.title:
             name = self._get_filename(namemax or _get_namemax(target))
-            if name != target.name:
+            if name and name != target.name:
                 self.new_name = name
                 self._report.update(NewName=name, FromName=target.name)
                 self.status = "changed"
@@ -102,27 +129,60 @@ class AVFile(AVString):
 
         title = strip("", clean(" ", self.title))
         suffix = self.target.suffix.lower()
-        namemax -= len(self.product_id.encode("utf-8")) + len(suffix.encode("utf-8")) + 1
-        strategy = self._trim_title
+        namemax -= len(self.product_id.encode()) + len(suffix.encode()) + 1
+        if namemax <= 0:
+            return
 
-        while len(title.encode("utf-8")) >= namemax:
-            try:
-                title = strategy(title)
-            except TypeError:
-                strategy = lambda s: s[:-1]
-                title = strategy(title)
-            title = strip("", title)
+        while len(title.encode()) >= namemax:
+            # Title is too long for a filename. Trying to find a reasonable
+            # delimiter in order of:
+            # 1) title[cut..., title]cut..., title!cut...
+            # 2) title cut..., title,cut...
+
+            m = re_search(
+                r".*?\w.*(?:(?=[【「『｛（《\[(])|[】」』｝）》\])？！!…。.](?=.))|"
+                r".*?\w.*[\s〜～●・,、_](?=.)",
+                title,
+            )
+            if m:
+                title = strip("", m[0])
+
+            else:
+                # no delimiter was found by re.search, we have to forcefully
+                # delete some characters until title is shorter than namemax
+
+                len_sum = 0
+                # length of bytes needed to be deleted
+                thresh = len(title.encode()) - namemax
+
+                if thresh <= namemax:
+                    # counting from the end
+                    seq = range(len(title) - 1, -1, -1)
+                else:
+                    # more to be deleted than keeped,
+                    # counting from the beginning
+                    thresh = namemax - 1
+                    seq = range(len(title))
+
+                for i in seq:
+                    len_sum += len(title[i].encode())
+                    if len_sum > thresh:
+                        title = title[:i]
+                        break
+
+                # check if it can still be called a title
+                if _has_word(title):
+                    break
+                return
 
         return f"{self.product_id} {title}{suffix}"
 
-    @staticmethod
-    def _trim_title(string: str):
-        return (
-            re_search(r"^.*?\w.*(?:(?=[【「『｛（《\[(])|[】」』｝）》\])？！!…。.](?=.))", string)
-            or re_search(r"^.*?\w.*[\s〜～●・,、_](?=.)", string)
-        )[0]
-
     def apply(self):
+        """Apply changes (rename and change timestamp).
+
+        Returns the new path.
+        """
+
         path = self.target
 
         if self.new_name is not None:
@@ -133,8 +193,10 @@ class AVFile(AVString):
         if self._atime is not None:
             os.utime(path, (self._atime, self.publish_date))
 
+        return path
 
-def _get_namemax(path):
+
+def _get_namemax(path: Path):
     if os.name == "posix":
         try:
             return os.statvfs(path).f_namemax
@@ -143,7 +205,9 @@ def _get_namemax(path):
     return 255
 
 
-def _walk_dir(top_dir: Path, files_only: bool = False) -> Iterator[Tuple[Path, os.stat_result, bool]]:
+def _walk_dir(
+    top_dir: Path, files_only: bool = False
+) -> Iterator[Tuple[Path, os.stat_result, bool]]:
     """Recursively yield 3-tuples of (path, stat, is_dir) in a bottom-top order."""
 
     try:
@@ -264,15 +328,14 @@ def update_dir_mtime(top_dir: Path):
         mtime = stat.st_mtime
         if is_dir:
             total += 1
-            try:
-                record = records[path]
-            except KeyError:
-                continue
-            if record != mtime:
+            record = records_get(path)
+            if record and record != mtime:
                 try:
                     os.utime(path, (stat.st_atime, record))
                 except OSError as e:
-                    color_printer(f'Error occured touching "{path.name}": {e}', color="red")
+                    color_printer(
+                        f'Error occured touching "{path.name}": {e}', color="red"
+                    )
                 else:
                     print(f"{strftime(mtime)}  ==>  {strftime(record)}  {path.name}")
                     success += 1

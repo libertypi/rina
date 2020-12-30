@@ -23,9 +23,13 @@ from avinfo._utils import (
 
 __all__ = ("scrape",)
 
-session.cookies.set_cookie(create_cookie(domain="www.javbus.com", name="existmag", value="all"))
+session.cookies.set_cookie(
+    create_cookie(domain="www.javbus.com", name="existmag", value="all")
+)
 _subspace = re_compile(r"\s+").sub
 _subbraces = re_compile(r"[\s()\[\].-]+").sub
+_valid_id = re_compile(r"[A-Za-z0-9]+(?:[._-]?[A-Za-z0-9]+)*").fullmatch
+_has_word = re_compile(r"\w").search
 _trans_sep = None
 
 
@@ -60,7 +64,7 @@ class Scraper:
                     title = _subspace(" ", result.title).strip()
                 except TypeError:
                     continue
-                if product_id and title:
+                if _valid_id(product_id) and _has_word(title):
                     break
         else:
             return
@@ -82,7 +86,9 @@ class Scraper:
             if tree is None:
                 continue
             try:
-                tree = tree.find('.//div[@id="waterfall"]').iterfind('.//a[@class="movie-box"]//span')
+                tree = tree.find('.//div[@id="waterfall"]').iterfind(
+                    './/a[@class="movie-box"]//span'
+                )
             except AttributeError as e:
                 self._warn(e)
                 continue
@@ -117,7 +123,8 @@ class Scraper:
             if tree is None:
                 return
             alt = tree.xpath(
-                'string(.//nav[@class="sub-header"]//text()[contains(., "最新域名")]'
+                'string(.//nav[@class="sub-header"]'
+                '//text()[contains(., "最新域名")]'
                 '/following::a[starts-with(@href, "http")][1]/@href)',
                 smart_string=False,
             )
@@ -159,7 +166,9 @@ class Scraper:
             except TypeError:
                 _trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
                 mask = self.keyword.translate(_trans_sep)
-            mask = self._mask = re_compile(r"\s*{}\s*".format(mask), flags=re.I).fullmatch
+            mask = self._mask = re_compile(
+                r"\s*{}\s*".format(mask), flags=re.I
+            ).fullmatch
 
         return mask
 
@@ -249,16 +258,19 @@ class StudioMatcher(Scraper):
 
         product_id = date = studio = None
         get_value = lambda p: _subspace("", p.text_content().partition(":")[2])
+        mask = self._get_keyword_mask()
 
         for p in xpath(
             './/div[contains(@class, "movie")]'
             '/div[contains(@class, "info")]'
-            '/p[span/text() and contains(.,  ":")]'
+            '/p[span/text() and contains(., ":")]'
         )(tree):
 
             k = p.findtext("span")
             if "識別碼" in k:
                 product_id = get_value(p)
+                if not mask(product_id):
+                    return
             elif "日期" in k:
                 date = get_value(p)
             elif "製作商" in k:
@@ -329,7 +341,9 @@ class StudioMatcher(Scraper):
             source = "1pondo.tv"
 
         try:
-            data = session.get(f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
+            data = session.get(
+                f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json"
+            )
             data.raise_for_status()
             data = data.json()
             return ScrapeResult(
@@ -353,7 +367,10 @@ class StudioMatcher(Scraper):
     def _paco(self):
         self.studio = "paco"
 
-        tree = get_tree(f"https://www.pacopacomama.com/moviepages/{self.keyword}/", encoding="euc-jp")
+        tree = get_tree(
+            f"https://www.pacopacomama.com/moviepages/{self.keyword}/",
+            encoding="euc-jp",
+        )
         if tree is None:
             return
 
@@ -375,13 +392,18 @@ class StudioMatcher(Scraper):
     def _mura(self):
         self.studio = "mura"
 
-        tree = get_tree(f"https://www.muramura.tv/moviepages/{self.keyword}/", encoding="euc-jp")
+        tree = get_tree(
+            f"https://www.muramura.tv/moviepages/{self.keyword}/", encoding="euc-jp"
+        )
         if tree is None:
             return
 
         tree = tree.find('.//div[@id="detail-main"]')
         try:
-            date = xpath('string(ul[@class="info"]/li[contains(.,"更新日")]/text()[contains(.,"20")])')(tree)
+            date = xpath(
+                'string(ul[@class="info"]/li[contains(.,"更新日")]'
+                '/text()[contains(.,"20")])'
+            )(tree)
         except TypeError as e:
             self._warn(e)
             return
@@ -413,9 +435,9 @@ class StudioMatcher(Scraper):
             _subbraces(" ", self.string[i:]),
         )
         if suffix:
-            return f'{self.keyword}-{self.studio}-{suffix[0].strip().replace(" ", "-")}'
+            return f'{product_id}-{self.studio}-{suffix[0].strip().replace(" ", "-")}'
 
-        return f"{self.keyword}-{self.studio}"
+        return f"{product_id}-{self.studio}"
 
 
 class Heyzo(Scraper):
@@ -449,7 +471,9 @@ class Heyzo(Scraper):
         tree = tree.find('.//div[@id="wrapper"]//div[@id="movie"]')
         try:
             title = tree.findtext("h1").rpartition("\t-")
-            date = tree.find('.//table[@class="movieInfo"]//*[@class="table-release-day"]').text_content()
+            date = tree.find(
+                './/table[@class="movieInfo"]//*[@class="table-release-day"]'
+            ).text_content()
         except AttributeError as e:
             self._warn(e)
         else:
@@ -476,17 +500,26 @@ class FC2(Scraper):
 
         tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
         if tree is not None:
-            tree = tree.find('.//section[@id="top"]//section[@class="items_article_header"]')
+            tree = tree.find(
+                './/section[@id="top"]//section[@class="items_article_header"]'
+            )
             if tree is not None:
                 title = tree.findtext('.//div[@class="items_article_headerInfo"]/h3')
-                date = str_to_epoch(tree.findtext('.//div[@class="items_article_Releasedate"]/p'))
+                date = str_to_epoch(
+                    tree.findtext('.//div[@class="items_article_Releasedate"]/p')
+                )
 
         if not title:
-            tree = get_tree("https://video.fc2.com/a/search/video/", params={"keyword": f"aid={uid}"})
+            tree = get_tree(
+                "https://video.fc2.com/a/search/video/",
+                params={"keyword": f"aid={uid}"},
+            )
             try:
                 tree = tree.find('.//div[@id="pjx-search"]//ul/li//a[@title][@href]')
                 title = tree.text
-                date = strptime(re_search(r"/(20[12][0-9]{5})", tree.get("href"))[1], "%Y%m%d")
+                date = strptime(
+                    re_search(r"/(20[12][0-9]{5})", tree.get("href"))[1], "%Y%m%d"
+                )
             except AttributeError:
                 return
             except (TypeError, ValueError) as e:
@@ -565,7 +598,9 @@ class AV9898(Heydouga):
     def _query(self):
         uid = self.match["av98"]
         self.keyword = f"AV9898-{uid}"
-        return super()._query(f"https://av9898.heydouga.com/monthly/av9898/moviepages/{uid}/")
+        return super()._query(
+            f"https://av9898.heydouga.com/monthly/av9898/moviepages/{uid}/"
+        )
 
 
 class Honnamatv(Heydouga):
@@ -576,7 +611,9 @@ class Honnamatv(Heydouga):
     def _query(self):
         uid = self.match["honna"]
         self.keyword = f"honnamatv-{uid}"
-        return super()._query(f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{uid}/")
+        return super()._query(
+            f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{uid}/"
+        )
 
 
 class X1X(Scraper):
@@ -679,7 +716,9 @@ class H4610(Scraper):
 
         return ScrapeResult(
             product_id=self.keyword,
-            title=tree.findtext('.//div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span'),
+            title=tree.findtext(
+                './/div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span'
+            ),
             publish_date=str_to_epoch(date),
             source=f"{m1}.com",
         )
@@ -700,7 +739,9 @@ class Kin8(Scraper):
         if tree is None:
             return
 
-        title = xpath('normalize-space(.//div[@id="sub_main"]/p[contains(@class,"sub_title")])')(tree)
+        title = xpath(
+            'normalize-space(.//div[@id="sub_main"]/p[contains(@class,"sub_title")])'
+        )(tree)
         title = title.partition("限定配信 ")
         date = xpath(
             'string(.//div[@id="main"]/div[contains(@id,"detail_box")]'
@@ -790,7 +831,9 @@ class DateSearcher:
 
     def _init_regex():
         template = [
-            r"(?P<{0}>{{{1}}}\s*?(?P<s{0}>[\s.-])\s*{{{2}}}\s*?(?P=s{0})\s*{{{3}}})".format(f, *f)
+            r"(?P<{0}>{{{1}}}\s*?(?P<s{0}>[\s.-])\s*{{{2}}}\s*?(?P=s{0})\s*{{{3}}})".format(
+                f, *f
+            )
             for f in (
                 "mdy",  # 10.15.(20)19
                 "ymd",  # (20)19.03.15
@@ -799,7 +842,9 @@ class DateSearcher:
         ]
         template.append(r"(?P<Ymd>{Y}(){mm}{dd})")  # 20170102
         template.extend(
-            r"(?P<{0}>{{{1}}}\s*([.,-]?)\s*{{{2}}}\s*?[\s.,-]{4}\s*{{{3}}})".format(f, *f, r)
+            r"(?P<{0}>{{{1}}}\s*([.,-]?)\s*{{{2}}}\s*?[\s.,-]{4}\s*{{{3}}})".format(
+                f, *f, r
+            )
             for f, r in (
                 ("dby", "?"),  # 23Jun(20)14
                 ("dBy", "?"),  # 19June(20)14
@@ -849,7 +894,9 @@ def _load_json_ld(tree: HtmlElement):
 
     Raise TypeError if json was not found on page, ValueError when parsing failed.
     """
-    data = re_sub(r"[\t\n\r\f\v]", "", tree.findtext('.//script[@type="application/ld+json"]'))
+    data = re_sub(
+        r"[\t\n\r\f\v]", "", tree.findtext('.//script[@type="application/ld+json"]')
+    )
     try:
         return json_loads(data)
     except ValueError:

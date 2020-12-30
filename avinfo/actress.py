@@ -24,7 +24,9 @@ from avinfo._utils import (
 __all__ = ("scan_dir",)
 
 _is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
-_name_finder = re_compile(r"(?:^|[】」』｝）》\])]){}(?:$|[【「『｛（《\[(])".format(_is_cjk_name)).search
+_name_finder = re_compile(
+    r"(?:^|[】」』｝）》\])]){}(?:$|[【「『｛（《\[(])".format(_is_cjk_name)
+).search
 _is_cjk_name = re_compile(_is_cjk_name).fullmatch
 _name_cleaner = re_compile(r"\d+歳|[\s 　]").sub
 split_name = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
@@ -165,9 +167,14 @@ class AVRevolution(Wiki):
     @staticmethod
     def _query(keyword: str):
 
-        tree = get_tree(f"http://neo-adultmovie-revolution.com/db/jyoyuu_betumei_db/?q={keyword}")
+        tree = get_tree(
+            f"http://neo-adultmovie-revolution.com/db/jyoyuu_betumei_db/?q={keyword}"
+        )
         try:
-            tree = xpath('.//div[@class="container"]/div[contains(@class,"row") and @style and div[1]/a]')(tree)
+            tree = xpath(
+                './/div[@class="container"]'
+                '/div[contains(@class,"row") and @style and div[1]/a]'
+            )(tree)
         except TypeError:
             return
 
@@ -201,7 +208,9 @@ class Seesaawiki(Wiki):
     def _query(keyword: str):
 
         try:
-            stack = ["https://seesaawiki.jp/av_neme/d/" + quote(keyword, encoding="euc-jp")]
+            stack = [
+                "https://seesaawiki.jp/av_neme/d/" + quote(keyword, encoding="euc-jp")
+            ]
         except UnicodeEncodeError:
             return
 
@@ -214,7 +223,10 @@ class Seesaawiki(Wiki):
             if not (text and re_search(r"(女優名|名前).*?変更", text)):
                 break
 
-            url = xpath('string(.//div[@id="content_block_1-body" and contains(., "移動")]/span/a/@href)')(tree)
+            url = xpath(
+                'string(.//div[@id="content_block_1-body" '
+                'and contains(., "移動")]/span/a/@href)'
+            )(tree)
             if url:
                 url = urljoin(tree.base_url, url)
                 if url not in stack:
@@ -231,7 +243,8 @@ class Seesaawiki(Wiki):
             return SearchResult(name=name)
         if box.tag == "table":
             box = (
-                (tr.find("th").text_content(), tr.find("td").text_content()) for tr in box.iterfind(".//tr[th][td]")
+                (tr.find("th").text_content(), tr.find("td").text_content())
+                for tr in box.iterfind(".//tr[th][td]")
             )
         else:
             box = (i.split("：", 1) for i in box.text.splitlines() if "：" in i)
@@ -251,14 +264,18 @@ class Msin(Wiki):
     @classmethod
     def _query(cls, keyword: str):
 
-        tree = get_tree(f"https://db.msin.jp/search/actress?str={keyword}", encoding="auto")
+        tree = get_tree(
+            f"https://db.msin.jp/search/actress?str={keyword}", encoding="auto"
+        )
         if tree is None:
             return
 
         if "/actress?str=" in tree.base_url:
             return cls._scan_search_page(keyword, tree)
 
-        tree = tree.find('.//div[@id="content"]/div[@id="actress_view"]//div[@class="act_ditail"]')
+        tree = tree.find(
+            './/div[@id="content"]/div[@id="actress_view"]//div[@class="act_ditail"]'
+        )
         try:
             name = clean_name(tree.findtext('.//span[@class="mv_name"]'))
         except (AttributeError, TypeError):
@@ -278,7 +295,10 @@ class Msin(Wiki):
     def _scan_search_page(keyword: str, tree: HtmlElement):
 
         result = None
-        for div in tree.iterfind('.//div[@id="content"]//div[@class="actress_info_find"]/div[@class="act_ditail"]'):
+        for div in tree.iterfind(
+            './/div[@id="content"]//div[@class="actress_info_find"]'
+            '/div[@class="act_ditail"]'
+        ):
             name = div.findtext('div[@class="act_name"]/a')
             if not name:
                 continue
@@ -308,10 +328,16 @@ class Manko(Wiki):
             return
 
         result = None
-        name_xp = xpath('string(tr/td[@align="center" or @align="middle"]/*[self::font or self::span]//text())')
+        name_xp = xpath(
+            'string(tr/td[@align="center" or @align="middle"]'
+            "/*[self::font or self::span]//text())"
+        )
         info_xp = xpath("string(tr[td[1][contains(text(), $title)]]/td[2])")
 
-        for tbody in tree.iterfind('.//div[@id="center"]//div[@class="ently_body"]/div[@class="ently_text"]//tbody'):
+        for tbody in tree.iterfind(
+            './/div[@id="center"]//div[@class="ently_body"]'
+            '/div[@class="ently_text"]//tbody'
+        ):
 
             name = clean_name(name_xp(tbody))
             if not name:
@@ -339,7 +365,9 @@ class Etigoya(Wiki):
             return
 
         result = None
-        for text in xpath('.//div[@id="main"]/div[@class="content"]//li/a/text()[contains(., "＝")]')(tree):
+        for text in xpath(
+            './/div[@id="main"]/div[@class="content"]' '//li/a/text()[contains(., "＝")]'
+        )(tree):
             alias = text.split("＝")
             if match_name(keyword, *alias):
                 if result:
@@ -431,7 +459,9 @@ class Actress:
 
         report = self._report
         report["Visited"] = ", ".join(visited)
-        report["Unvisited"] = ", ".join(sorted(unvisited, key=unvisited_get, reverse=True))
+        report["Unvisited"] = ", ".join(
+            sorted(unvisited, key=unvisited_get, reverse=True)
+        )
         name, report["Name"] = self._sort_search_result(nameDict)
         birth, report["Birth"] = self._sort_search_result(birthDict)
 
@@ -452,7 +482,10 @@ class Actress:
 
         return (
             result[0][0],
-            tuple(f'{k} ({", ".join(_WIKI_LIST[i].__name__ for i in v)})' for k, v in result),
+            tuple(
+                f'{k} ({", ".join(_WIKI_LIST[i].__name__ for i in v)})'
+                for k, v in result
+            ),
         )
 
     def print(self):
@@ -519,6 +552,10 @@ def scan_dir(top_dir: Path) -> Iterator[ActressFolder]:
         top_dir = Path(top_dir)
 
     w = min(32, os.cpu_count() + 4) // 3
-    with ThreadPoolExecutor(max_workers=w) as ex, ThreadPoolExecutor(max_workers=None) as exe:
-        for ft in as_completed(ex.submit(ActressFolder, p, exe) for p in _list_dir(top_dir)):
+    with ThreadPoolExecutor(max_workers=w) as ex, ThreadPoolExecutor(
+        max_workers=None
+    ) as exe:
+        for ft in as_completed(
+            ex.submit(ActressFolder, p, exe) for p in _list_dir(top_dir)
+        ):
             yield ft.result()

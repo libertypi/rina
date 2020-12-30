@@ -18,7 +18,9 @@ sep_changed = "CHANGED".center(sep_width, "-") + "\n"
 
 session = Session()
 session.headers.update(
-    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"}
+    {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"
+    }
 )
 date_searcher = re_compile(
     r"""(?P<y>(?:19|20)[0-9]{2})\s*
@@ -99,7 +101,9 @@ def str_to_epoch(string: str) -> Optional[float]:
     """Search for YYYY-MM-DD like date in a string, returns epoch timestamp in UTC."""
     try:
         m = date_searcher(string)
-        return datetime(int(m["y"]), int(m["m"]), int(m["d"]), tzinfo=timezone.utc).timestamp()
+        return datetime(
+            int(m["y"]), int(m["m"]), int(m["d"]), tzinfo=timezone.utc
+        ).timestamp()
     except (TypeError, ValueError):
         pass
 

@@ -31,7 +31,20 @@ class ConcatVideo:
         try:
             with os.fdopen(tmpfd, "w", encoding="utf-8") as f:
                 f.writelines(f"file '{p}'\n" for p in self.input_files)
-            subprocess.run((FFMPEG, "-f", "concat", "-safe", "0", "-i", tmpfile, "-c", "copy", self.output_path))
+            subprocess.run(
+                (
+                    FFMPEG,
+                    "-f",
+                    "concat",
+                    "-safe",
+                    "0",
+                    "-i",
+                    tmpfile,
+                    "-c",
+                    "copy",
+                    self.output_path,
+                )
+            )
         finally:
             os.unlink(tmpfile)
 

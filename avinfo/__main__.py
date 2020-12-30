@@ -3,7 +3,13 @@ import sys
 from pathlib import Path
 from textwrap import dedent
 
-from avinfo._utils import color_printer, get_choice_as_int, sep_bold, sep_slim, sep_width
+from avinfo._utils import (
+    color_printer,
+    get_choice_as_int,
+    sep_bold,
+    sep_slim,
+    sep_width,
+)
 
 
 def parse_args():
@@ -24,10 +30,10 @@ def parse_args():
         epilog=dedent(
             """\
             examples:
-              %(prog)s /mnt/videos      -> recursively scrape all videos in dir
-              %(prog)s -a /mnt/videos   -> scan actress bio from dir names
-              %(prog)s HEYZO-2288.mp4   -> scrape a single file
-              %(prog)s 和登こころ       -> search for a particular actress
+              %(prog)s /mnt/dir           -> recursively scrape all videos in "dir"
+              %(prog)s -a /mnt/dir        -> scan actress bio from folder names under "dir"
+              %(prog)s -v heyzo-2288.mp4  -> scrape a single file
+              %(prog)s 和登こころ         -> search for a particular actress
             """
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -96,15 +102,17 @@ def parse_args():
             args.mode = "video"
 
     elif args.mode == "actress" and target_type == "file":
-        parser.error(f"When mode is '{args.mode}', the target must be a directory or a keyword.")
+        parser.error(f"in {args.mode} mode, the target should be a dir or a keyword.")
 
     elif args.mode in ("concat", "dir") and target_type != "dir":
-        parser.error(f"When mode is '{args.mode}', the target must be a directory.")
+        parser.error(f"in {args.mode} mode, the target should be a directory.")
 
     return args, target_type
 
 
-def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=sep_width, fill="█"):
+def printProgressBar(
+    iteration, total, prefix="Progress", suffix="Complete", length=sep_width, fill="█"
+):
     percent = f"{100 * (iteration / float(total)):.1f}"
     filledLength = int(length * iteration // total)
     bar = f'{fill * filledLength}{"-" * (length - filledLength)}'
