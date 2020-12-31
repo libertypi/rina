@@ -4,11 +4,11 @@ from pathlib import Path
 from textwrap import dedent
 
 from avinfo._utils import (
+    SEP_BOLD,
+    SEP_SLIM,
+    SEP_WIDTH,
     color_printer,
     get_choice_as_int,
-    sep_bold,
-    sep_slim,
-    sep_width,
 )
 
 
@@ -111,7 +111,7 @@ def parse_args():
 
 
 def printProgressBar(
-    iteration, total, prefix="Progress", suffix="Complete", length=sep_width, fill="█"
+    iteration, total, prefix="Progress", suffix="Complete", length=SEP_WIDTH, fill="█"
 ):
     percent = f"{100 * (iteration / float(total)):.1f}"
     filledLength = int(length * iteration // total)
@@ -137,7 +137,7 @@ def process_scan(scan, mode: str, quiet: bool):
             failed.append(obj)
 
     total_changed = len(changed)
-    print(sep_bold)
+    print(SEP_BOLD)
     print(f"{mode} scan finished.")
 
     msg = f"Total: {total}. Changed: {total_changed}. Failed: {len(failed)}."
@@ -150,7 +150,7 @@ def process_scan(scan, mode: str, quiet: bool):
         print(msg)
     else:
         msg = f"""\
-            {sep_bold}
+            {SEP_BOLD}
             {msg}
             Please choose an option:
             1) apply changes
@@ -169,7 +169,7 @@ def process_scan(scan, mode: str, quiet: bool):
             for obj in changed if choice == 2 else failed:
                 obj.print()
 
-    print(f"{sep_bold}\nApplying changes...")
+    print(f"{SEP_BOLD}\nApplying changes...")
     printProgressBar(0, total_changed)
 
     failed.clear()
@@ -181,16 +181,16 @@ def process_scan(scan, mode: str, quiet: bool):
         printProgressBar(i, total_changed)
 
     for path, e in failed:
-        color_printer("Target:", path, color="red")
-        color_printer("Error:", e, color="red")
+        color_printer("Target:", path)
+        color_printer("Error:", e)
 
 
 def main():
 
-    print(sep_slim)
+    print(SEP_SLIM)
     for k in ("Adult Video Information Detector", "By David Pi"):
-        print(k.center(sep_width))
-    print(sep_slim)
+        print(k.center(SEP_WIDTH))
+    print(SEP_SLIM)
 
     args, target_type = parse_args()
     target = args.target
@@ -199,7 +199,7 @@ def main():
     print("target:", target)
     print("type:", target_type)
     print("mode:", mode)
-    print(sep_bold)
+    print(SEP_BOLD)
     print("Task start...")
 
     if mode == "actress":

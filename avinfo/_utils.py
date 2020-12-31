@@ -6,22 +6,20 @@ from re import compile as re_compile
 from typing import Optional
 
 from lxml.etree import XPath
-from lxml.html import HtmlElement, fromstring
-from requests import HTTPError, RequestException, Session
+from lxml.html import HtmlElement
+from lxml.html import fromstring as html_fromstring
+from requests import HTTPError, Session
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 
-sep_width = 50
-sep_bold = "=" * sep_width
-sep_slim = "-" * sep_width
-sep_success = "SUCCESS".center(sep_width, "-") + "\n"
-sep_failed = "FAILED".center(sep_width, "-") + "\n"
-sep_changed = "CHANGED".center(sep_width, "-") + "\n"
+SEP_WIDTH = 50
+SEP_BOLD = "=" * SEP_WIDTH
+SEP_SLIM = "-" * SEP_WIDTH
+SEP_SUCCESS = "SUCCESS".center(SEP_WIDTH, "-")
+SEP_FAILED = "FAILED".center(SEP_WIDTH, "-")
+SEP_CHANGED = "CHANGED".center(SEP_WIDTH, "-")
+HTTP_TIMEOUT = (7, 28)
 
-session = Session()
-session.headers.update(
-    {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"
-    }
-)
 date_searcher = re_compile(
     r"""(?P<y>(?:19|20)[0-9]{2})\s*
     (?:(?P<han>年)|(?P<sep>[/.-]))\s*
@@ -33,8 +31,21 @@ date_searcher = re_compile(
 ).search
 
 
-def color_printer(*args, color: str, **kwargs):
-    print("\033[31m" if color == "red" else "\033[33m", end="")
+def _init_session(retries: int = 5, backoff: float = 0.3):
+    session = Session()
+    session.headers.update(
+        {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"
+        }
+    )
+    adapter = HTTPAdapter(max_retries=Retry(retries, backoff_factor=backoff))
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+
+def color_printer(*args, red: bool = True, **kwargs):
+    print("\033[31m" if red else "\033[33m", end="")
     print(*args, **kwargs)
     print("\033[0m", end="")
 
@@ -48,7 +59,7 @@ def get_choice_as_int(msg: str, max_opt: int) -> int:
         else:
             if 1 <= choice <= max_opt:
                 return choice
-        color_printer("Invalid option.", color="red")
+        color_printer("Invalid option.")
 
 
 def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
@@ -58,19 +69,8 @@ def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
     :param encoding: None (feed bytes to lxml), "auto" (detect by requests), or any
     encodings
     """
-    kwargs.setdefault("timeout", (7, 28))
-
-    for retry in range(3):
-        try:
-            response = session.get(url, **kwargs)
-            break
-        except RequestException:
-            if retry == 2:
-                raise
-            time.sleep(1)
-    else:
-        raise RequestException(url)
-
+    kwargs.setdefault("timeout", HTTP_TIMEOUT)
+    response = session.get(url, **kwargs)
     try:
         response.raise_for_status()
     except HTTPError:
@@ -83,7 +83,7 @@ def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
     else:
         content = response.content
 
-    return fromstring(content, base_url=response.url)
+    return html_fromstring(content, base_url=response.url)
 
 
 def strptime(string: str, fmt: str) -> float:
@@ -102,7 +102,10 @@ def str_to_epoch(string: str) -> Optional[float]:
     try:
         m = date_searcher(string)
         return datetime(
-            int(m["y"]), int(m["m"]), int(m["d"]), tzinfo=timezone.utc
+            int(m["y"]),
+            int(m["m"]),
+            int(m["d"]),
+            tzinfo=timezone.utc,
         ).timestamp()
     except (TypeError, ValueError):
         pass
@@ -126,3 +129,6 @@ def re_search(pattern: str, string: str) -> Optional[re.Match]:
 
 def re_sub(pattern: str, repl, string: str) -> str:
     return _cache_re_method(pattern, "sub")(repl, string)
+
+
+session = _init_session()

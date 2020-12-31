@@ -8,7 +8,7 @@ from tempfile import mkstemp
 from textwrap import dedent
 from typing import Tuple
 
-from avinfo._utils import get_choice_as_int, sep_bold, sep_slim
+from avinfo._utils import SEP_BOLD, SEP_SLIM, get_choice_as_int
 
 FFMPEG = "ffmpeg"
 
@@ -106,7 +106,7 @@ def main(top_dir: Path, quiet: bool = False):
     result = []
     for video in find_consecutive_videos(top_dir):
         result.append(video)
-        print(sep_slim)
+        print(SEP_SLIM)
         print(video.report)
 
     if not result:
@@ -115,7 +115,7 @@ def main(top_dir: Path, quiet: bool = False):
 
     print(
         "{}\nScan finished, {} files can be concatenated into {} files.".format(
-            sep_bold,
+            SEP_BOLD,
             sum(len(v.input_files) for v in result),
             len(result),
         )
@@ -123,7 +123,7 @@ def main(top_dir: Path, quiet: bool = False):
 
     if not quiet:
         msg = f"""\
-            {sep_bold}
+            {SEP_BOLD}
             please choose an option:
             1) apply all
             2) select items
@@ -133,11 +133,11 @@ def main(top_dir: Path, quiet: bool = False):
 
         if choice == 2:
             msg = f"""\
-                {sep_bold}
+                {SEP_BOLD}
                 please select what to do with following files:
-                {sep_slim}
+                {SEP_SLIM}
                 {{}}
-                {sep_slim}
+                {SEP_SLIM}
                 1) select
                 2) skip
                 3) quit

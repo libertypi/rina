@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import Iterator, Tuple
 
 from avinfo._utils import (
+    SEP_CHANGED,
+    SEP_FAILED,
+    SEP_SUCCESS,
     color_printer,
     re_compile,
     re_search,
-    sep_changed,
-    sep_failed,
-    sep_success,
     strftime,
 )
 from avinfo.scraper import ScrapeResult, _has_word, scrape
@@ -65,18 +65,18 @@ class AVString:
 
     def print(self):
         if self.status == "ok":
-            print(sep_success, self.report, sep="", end="")
+            print(SEP_SUCCESS, self.report, sep="\n")
         elif self.status == "changed":
-            color_printer(sep_changed, self.report, color="yellow", sep="", end="")
+            color_printer(SEP_CHANGED, self.report, red=False, sep="\n")
         else:
-            color_printer(sep_failed, self.report, color="red", sep="", end="")
+            color_printer(SEP_FAILED, self.report, sep="\n")
 
     @property
     def report(self):
         report = self._report
         if isinstance(report, dict):
-            report = self._report = "".join(
-                f'{k + ":":>10} {v}\n' for k, v in report.items() if v
+            report = self._report = "\n".join(
+                f'{k + ":":>10} {v}' for k, v in report.items() if v
             )
         return report
 
@@ -222,7 +222,7 @@ def _walk_dir(
                 except OSError:
                     pass
     except OSError as e:
-        color_printer(f'Error occured scanning "{top_dir}": {e}', color="red")
+        color_printer(f'Error occured scanning "{top_dir}": {e}')
 
     if not files_only:
         try:
@@ -332,9 +332,7 @@ def update_dir_mtime(top_dir: Path):
                 try:
                     os.utime(path, (stat.st_atime, record))
                 except OSError as e:
-                    color_printer(
-                        f'Error occured touching "{path.name}": {e}', color="red"
-                    )
+                    color_printer(f'Error occured touching "{path.name}": {e}')
                 else:
                     print(f"{strftime(mtime)}  ==>  {strftime(record)}  {path.name}")
                     success += 1

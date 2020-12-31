@@ -1,4 +1,5 @@
 import re
+import warnings
 from dataclasses import dataclass
 from json import dumps as json_dumps
 from json import loads as json_loads
@@ -9,9 +10,11 @@ from urllib.parse import urljoin
 from requests.cookies import create_cookie
 
 from avinfo._utils import (
+    HTTP_TIMEOUT,
     HtmlElement,
-    RequestException,
+    HTTPError,
     get_tree,
+    html_fromstring,
     re_compile,
     re_search,
     re_sub,
@@ -80,38 +83,69 @@ class Scraper:
 
     def _javbus(self):
 
-        for base in ("uncensored/",) if self.uncensored_only else ("uncensored/", ""):
+        response = session.get(
+            f"https://www.javbus.com/uncensored/search/{self.keyword}",
+            timeout=HTTP_TIMEOUT,
+        )
+        try:
+            response.raise_for_status()
+            ok = True
+        except HTTPError:
+            if self.uncensored_only:
+                return
+            ok = False
 
-            tree = get_tree(f"https://www.javbus.com/{base}search/{self.keyword}")
-            if tree is None:
-                continue
-            try:
-                tree = tree.find('.//div[@id="waterfall"]').iterfind(
-                    './/a[@class="movie-box"]//span'
+        if ok or response.status_code == 404:
+
+            tree = html_fromstring(response.content)
+
+            if ok:
+                result = self._parse_javbus_search(tree)
+                if result or self.uncensored_only:
+                    return result
+
+            result = xpath(
+                'string(.//div[@class = "search-header"]'
+                '//li[@role = "presentation"][1])'
+            )(tree)
+            if re_search(r"\(.*?/\s*0+\s*\)", result):
+                return
+            if not result:
+                warnings.warn("xpath for javbus header broken")
+
+        tree = get_tree(f"https://www.javbus.com/search/{self.keyword}")
+        if tree is not None:
+            return self._parse_javbus_search(tree)
+
+    def _parse_javbus_search(self, tree: HtmlElement):
+
+        try:
+            tree = tree.find('.//div[@id="waterfall"]').iterfind(
+                './/a[@class="movie-box"]//span'
+            )
+        except AttributeError as e:
+            self._warn(e)
+            return
+
+        mask = self._get_keyword_mask()
+        for span in tree:
+
+            product_id = span.findtext("date[1]", "")
+            if mask(product_id):
+
+                title = span.text
+                try:
+                    if title[0] == "【":
+                        title = re_sub(r"^【(お得|特価)】\s*", "", title)
+                except IndexError:
+                    continue
+
+                return ScrapeResult(
+                    product_id=product_id,
+                    title=title,
+                    publish_date=str_to_epoch(span.findtext("date[2]")),
+                    source="javbus.com",
                 )
-            except AttributeError as e:
-                self._warn(e)
-                continue
-
-            mask = self._get_keyword_mask()
-            for span in tree:
-
-                product_id = span.findtext("date[1]", "")
-                if mask(product_id):
-
-                    title = span.text
-                    try:
-                        if title[0] == "【":
-                            title = re_sub(r"^【(お得|特価)】\s*", "", title)
-                    except IndexError:
-                        continue
-
-                    return ScrapeResult(
-                        product_id=product_id,
-                        title=title,
-                        publish_date=str_to_epoch(span.findtext("date[2]")),
-                        source="javbus.com",
-                    )
 
     def _javdb(self):
 
@@ -132,6 +166,7 @@ class Scraper:
                 Scraper._javdb_url = (base, urljoin(alt, "search?q="))
             else:
                 Scraper._javdb_url = (base,)
+                warnings.warn("xpath for javdb alt-url broken")
         else:
             tree = get_tree(base + self.keyword, encoding="auto")
 
@@ -190,8 +225,6 @@ class Scraper:
         return product_id
 
     def _warn(self, e: Exception):
-        import warnings
-
         warnings.warn(f'Exception raised when processing "{self.string}":\n{e}')
 
 
@@ -341,10 +374,11 @@ class StudioMatcher(Scraper):
             url = "https://www.1pondo.tv"
             source = "1pondo.tv"
 
+        data = session.get(
+            f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json",
+            timeout=HTTP_TIMEOUT,
+        )
         try:
-            data = session.get(
-                f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json"
-            )
             data.raise_for_status()
             data = data.json()
             return ScrapeResult(
@@ -353,7 +387,7 @@ class StudioMatcher(Scraper):
                 publish_date=str_to_epoch(data["Release"]),
                 source=source,
             )
-        except RequestException:
+        except HTTPError:
             pass
         except (ValueError, KeyError) as e:
             self._warn(e)
@@ -535,28 +569,29 @@ class FC2(Scraper):
         )
 
     def _javdb(self):
+
+        data = session.get(
+            f"https://javdb.com/videos/search_autocomplete.json?q={self.keyword}",
+            timeout=HTTP_TIMEOUT,
+        )
         try:
-            data = session.get(
-                f"https://javdb.com/videos/search_autocomplete.json?q={self.keyword}",
-            ).json()
-        except (RequestException, ValueError):
+            data.raise_for_status()
+        except HTTPError:
             return
 
+        data = data.json()
         mask = self._get_keyword_mask()
-        try:
-            for item in data:
-                if not mask(item["number"]):
-                    continue
-                if item["title"].endswith("..."):
-                    return
-                return ScrapeResult(
-                    product_id=item["number"],
-                    title=re_sub(r"^\s*\[.*?\]\s*", "", item["title"]),
-                    publish_date=str_to_epoch(item["meta"].rpartition("發布時間:")[2]),
-                    source="javdb.com",
-                )
-        except KeyError as e:
-            self._warn(e)
+        for item in data:
+            if not mask(item["number"]):
+                continue
+            if item["title"].endswith("..."):
+                return
+            return ScrapeResult(
+                product_id=item["number"],
+                title=re_sub(r"^\s*\[.*?\]\s*", "", item["title"]),
+                publish_date=str_to_epoch(item["meta"].rpartition("發布時間:")[2]),
+                source="javdb.com",
+            )
 
 
 class Heydouga(Scraper):
@@ -665,23 +700,24 @@ class SM_Miracle(Scraper):
 
         uid = "e" + self.match["sm"]
         self.keyword = f"sm-miracle-{uid}"
+
+        data = session.get(
+            f"http://sm-miracle.com/movie/{uid}.dat",
+            timeout=HTTP_TIMEOUT,
+        )
         try:
-            res = session.get(f"http://sm-miracle.com/movie/{uid}.dat")
-            res.raise_for_status()
-        except RequestException:
+            data.raise_for_status()
+        except HTTPError:
             return
 
-        try:
-            return ScrapeResult(
-                product_id=self.keyword,
-                title=re_search(
-                    r'[{,]\s*title\s*:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)\s*[,}]',
-                    res.content.decode(errors="ignore"),
-                )["title"],
-                source=self.source,
-            )
-        except TypeError as e:
-            self._warn(e)
+        return ScrapeResult(
+            product_id=self.keyword,
+            title=re_search(
+                r'[{,]\s*title\s*:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)\s*[,}]',
+                data.content.decode(errors="ignore"),
+            )["title"],
+            source=self.source,
+        )
 
 
 class H4610(Scraper):
@@ -744,9 +780,15 @@ class Kin8(Scraper):
             return
 
         title = xpath(
-            'normalize-space(.//div[@id="sub_main"]/p[contains(@class,"sub_title")])'
+            'normalize-space(.//div[@id="sub_main"]'
+            '/p[contains(@class, "sub_title")])'
         )(tree)
-        title = title.partition("限定配信 ")
+        try:
+            title = title.partition("限定配信 ")
+        except AttributeError as e:
+            self._warn(e)
+            return
+
         date = xpath(
             'string(.//div[@id="main"]/div[contains(@id,"detail_box")]'
             '//td[contains(.,"更新日")]/following-sibling::td[contains(.,"20")])'
@@ -890,7 +932,7 @@ class DateSearcher:
                 source=cls.source,
             )
         except ValueError:
-            pass
+            warnings.warn(f"invalid date string: '{match[0]}'")
 
 
 def _load_json_ld(tree: HtmlElement):

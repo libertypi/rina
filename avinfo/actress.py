@@ -8,6 +8,9 @@ from typing import Iterator
 from urllib.parse import quote, urljoin
 
 from avinfo._utils import (
+    SEP_CHANGED,
+    SEP_FAILED,
+    SEP_SUCCESS,
     HtmlElement,
     color_printer,
     date_searcher,
@@ -15,9 +18,6 @@ from avinfo._utils import (
     re_compile,
     re_search,
     re_sub,
-    sep_changed,
-    sep_failed,
-    sep_success,
     xpath,
 )
 
@@ -170,18 +170,17 @@ class AVRevolution(Wiki):
         tree = get_tree(
             f"http://neo-adultmovie-revolution.com/db/jyoyuu_betumei_db/?q={keyword}"
         )
-        try:
-            tree = xpath(
-                './/div[@class="container"]'
-                '/div[contains(@class,"row") and @style and div[1]/a]'
-            )(tree)
-        except TypeError:
+        if tree is None:
             return
 
         title_seen = result = None
         alias_xp = xpath('div[3]/div/text()[not(contains(., "別名無"))]')
 
-        for row in tree:
+        for row in xpath(
+            './/div[@class="container"]'
+            '/div[contains(@class,"row") and @style and div[1]/a]'
+        )(tree):
+
             try:
                 a = row.find("div[1]/a[@href]")
                 title = clean_name(a.text_content())
@@ -265,7 +264,8 @@ class Msin(Wiki):
     def _query(cls, keyword: str):
 
         tree = get_tree(
-            f"https://db.msin.jp/search/actress?str={keyword}", encoding="auto"
+            f"https://db.msin.jp/search/actress?str={keyword}",
+            encoding="auto",
         )
         if tree is None:
             return
@@ -490,11 +490,11 @@ class Actress:
 
     def print(self):
         if self.status == "ok":
-            print(sep_success, self.report, sep="", end="")
+            print(SEP_SUCCESS, self.report, sep="\n")
         elif self.status == "changed":
-            color_printer(sep_changed, self.report, color="yellow", sep="", end="")
+            color_printer(SEP_CHANGED, self.report, red=False, sep="\n")
         else:
-            color_printer(sep_failed, self.report, color="red", sep="", end="")
+            color_printer(SEP_FAILED, self.report, sep="\n")
 
     @property
     def report(self):
@@ -505,11 +505,11 @@ class Actress:
                 if v:
                     if isinstance(v, tuple):
                         v = iter(v)
-                        log.append(f'{k + ":":>10} {next(v)}\n')
-                        log.extend(f'{"":>10} {i}\n' for i in v)
+                        log.append(f'{k + ":":>10} {next(v)}')
+                        log.extend(f'{"":>10} {i}' for i in v)
                     else:
-                        log.append(f'{k + ":":>10} {v}\n')
-            report = self._report = "".join(log)
+                        log.append(f'{k + ":":>10} {v}')
+            report = self._report = "\n".join(log)
         return report
 
 
@@ -541,7 +541,7 @@ def _list_dir(top_dir: Path) -> Iterator[Path]:
                 except OSError:
                     pass
     except OSError as e:
-        color_printer(f'Error occured scanning "{top_dir}": {e}', color="red")
+        color_printer(f'Error occured scanning "{top_dir}": {e}')
 
     yield top_dir
 
