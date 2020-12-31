@@ -13,15 +13,14 @@ from avinfo._utils import (
 
 
 def parse_args():
-    def target_func(target: str):
+    def normalize_target(target: str):
 
         path = Path(target)
-        if path.exists():
-            return path
-
-        if target == path.name:
-            return target
-
+        try:
+            return path.resolve(strict=True)
+        except (FileNotFoundError, RuntimeError):
+            if path.name == target:
+                return target
         raise argparse.ArgumentTypeError(f'"{target}" is unreachable')
 
     parser = argparse.ArgumentParser(
@@ -82,7 +81,7 @@ def parse_args():
     )
     parser.add_argument(
         "target",
-        type=target_func,
+        type=normalize_target,
         help="the target, be it a directory, a file, or a keyword",
     )
 
@@ -110,9 +109,7 @@ def parse_args():
     return args, target_type
 
 
-def printProgressBar(
-    iteration, total, prefix="Progress", suffix="Complete", length=SEP_WIDTH, fill="█"
-):
+def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=SEP_WIDTH, fill="█"):
     percent = f"{100 * (iteration / float(total)):.1f}"
     filledLength = int(length * iteration // total)
     bar = f'{fill * filledLength}{"-" * (length - filledLength)}'

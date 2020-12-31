@@ -205,33 +205,6 @@ def _get_namemax(path: Path):
     return 255
 
 
-def _walk_dir(
-    top_dir: Path, files_only: bool = False
-) -> Iterator[Tuple[Path, os.stat_result, bool]]:
-    """Recursively yield 3-tuples of (path, stat, is_dir) in a bottom-top order."""
-
-    try:
-        with os.scandir(top_dir) as it:
-            for entry in it:
-                if entry.name[0] in "#@.":
-                    continue
-                try:
-                    if entry.is_dir():
-                        yield from _walk_dir(entry)
-                    else:
-                        yield Path(entry), entry.stat(), False
-                except OSError:
-                    pass
-    except OSError as e:
-        warnings.warn(f'error occurred scanning "{top_dir}": {e}')
-
-    if not files_only:
-        try:
-            yield Path(top_dir), top_dir.stat(), True
-        except OSError:
-            pass
-
-
 def from_string(string: str):
     """Analyze a string, returns an AVString object."""
 
@@ -250,8 +223,7 @@ def from_string(string: str):
 def from_path(path: Path, stat: os.stat_result = None, namemax: int = None):
     """Analyze a file, returns an AVFile object."""
 
-    if not isinstance(path, Path):
-        path = Path(path)
+    path = Path(path)
 
     try:
         result = scrape(path.stem)
@@ -272,76 +244,101 @@ def from_path(path: Path, stat: os.stat_result = None, namemax: int = None):
 def scan_dir(top_dir: Path) -> Iterator[AVFile]:
     """Recursively scans a dir, yields AVFile objects."""
 
-    video_ext = {
-        ".3gp",
-        ".asf",
-        ".avi",
-        ".bdmv",
-        ".flv",
-        ".iso",
-        ".m2ts",
-        ".m2v",
-        ".m4p",
-        ".m4v",
-        ".mkv",
-        ".mov",
-        ".mp2",
-        ".mp4",
-        ".mpeg",
-        ".mpg",
-        ".mpv",
-        ".mts",
-        ".mxf",
-        ".rm",
-        ".rmvb",
-        ".ts",
-        ".vob",
-        ".webm",
-        ".wmv",
+    videoext = {
+        "3gp",
+        "asf",
+        "avi",
+        "bdmv",
+        "flv",
+        "iso",
+        "m2ts",
+        "m2v",
+        "m4p",
+        "m4v",
+        "mkv",
+        "mov",
+        "mp2",
+        "mp4",
+        "mpeg",
+        "mpg",
+        "mpv",
+        "mts",
+        "mxf",
+        "rm",
+        "rmvb",
+        "ts",
+        "vob",
+        "webm",
+        "wmv",
     }
+
+    def probe_video(path):
+        try:
+            with os.scandir(path) as it:
+                for entry in it:
+                    name = entry.name
+                    if name[0] in "#@.":
+                        continue
+                    try:
+                        if entry.is_dir():
+                            yield from probe_video(entry)
+                        elif name.rpartition(".")[2].lower() in videoext:
+                            yield entry.path, entry.stat()
+                    except OSError:
+                        pass
+        except OSError as e:
+            warnings.warn(f'error occurred scanning "{top_dir}": {e}')
+
     namemax = _get_namemax(top_dir)
-    if not isinstance(top_dir, Path):
-        top_dir = Path(top_dir)
 
     with ThreadPoolExecutor(max_workers=None) as ex:
         for ft in as_completed(
             ex.submit(from_path, path, stat, namemax)
-            for path, stat, _ in _walk_dir(top_dir, files_only=True)
-            if path.suffix.lower() in video_ext
+            for path, stat in probe_video(top_dir)
         ):
             yield ft.result()
 
 
 def update_dir_mtime(top_dir: Path):
 
+    total = success = 0
+
+    def probe_dir(path, stat):
+
+        nonlocal total, success
+
+        total += 1
+        newest = 0
+        with os.scandir(path) as it:
+            for entry in it:
+                if entry.name[0] in "#@.":
+                    continue
+                if entry.is_dir():
+                    mtime = probe_dir(entry, entry.stat())
+                else:
+                    mtime = entry.stat().st_mtime
+                if mtime > newest:
+                    newest = mtime
+        if 0 < newest != stat.st_mtime:
+            try:
+                os.utime(path, (stat.st_atime, newest))
+            except OSError as e:
+                warnings.warn(f'error occurred touching "{path.name}": {e}')
+            else:
+                success += 1
+                print(
+                    f"{strftime(stat.st_mtime)}  ==>  {strftime(newest)}  {path.name}".format()
+                )
+        return newest
+
     print("Updating directory timestamps...")
 
     if not isinstance(top_dir, Path):
         top_dir = Path(top_dir)
 
-    records = {}
-    records_get = records.get
-    total = success = 0
-
-    for path, stat, is_dir in _walk_dir(top_dir, files_only=False):
-
-        mtime = stat.st_mtime
-        if is_dir:
-            total += 1
-            record = records_get(path)
-            if record and record != mtime:
-                try:
-                    os.utime(path, (stat.st_atime, record))
-                except OSError as e:
-                    warnings.warn(f'error occurred touching "{path.name}": {e}')
-                else:
-                    print(f"{strftime(mtime)}  ==>  {strftime(record)}  {path.name}")
-                    success += 1
-        else:
-            for parent in path.parents:
-                if mtime > records_get(parent, 0):
-                    records[parent] = mtime
-                if parent == top_dir:
-                    break
-
-    print(f"Finished. {total} dirs scanned, {success} modified.")
+    try:
+        probe_dir(top_dir, top_dir.stat())
+    except OSError as e:
+        warnings.warn(f"error occurred scanning {top_dir}: {e}")
+    else:
+        print(f"Finished. {total} dirs scanned, {success} modified.")
