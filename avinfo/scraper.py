@@ -195,8 +195,10 @@ class Scraper:
             except TypeError:
                 _trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
                 mask = self.keyword.translate(_trans_sep)
+
             mask = self._mask = re_compile(
-                r"\s*{}\s*".format(mask), flags=re.I
+                r"\s*{}\s*".format(mask),
+                flags=re.IGNORECASE,
             ).fullmatch
 
         return mask
@@ -219,7 +221,7 @@ class Scraper:
         return product_id
 
     def _warn(self, e: Exception):
-        warnings.warn(f'Exception raised when processing "{self.string}":\n{e}')
+        warnings.warn(f'exception raised when processing "{self.string}":\n{e}')
 
 
 class StudioMatcher(Scraper):
@@ -422,7 +424,8 @@ class StudioMatcher(Scraper):
         self.studio = "mura"
 
         tree = get_tree(
-            f"https://www.muramura.tv/moviepages/{self.keyword}/", encoding="euc-jp"
+            f"https://www.muramura.tv/moviepages/{self.keyword}/",
+            encoding="euc-jp",
         )
         if tree is None:
             return

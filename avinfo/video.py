@@ -159,8 +159,8 @@ class AVFile(AVString):
                     # counting from the end
                     seq = range(len(title) - 1, -1, -1)
                 else:
-                    # more to be deleted than keeped,
-                    # counting from the beginning
+                    # counting chars to be keeped would be more efficient,
+                    # count from the beginning
                     thresh = namemax - 1
                     seq = range(len(title))
 
@@ -178,7 +178,7 @@ class AVFile(AVString):
         return f"{self.product_id} {title}{suffix}"
 
     def apply(self):
-        """Apply changes (rename and change timestamp).
+        """Apply changes to file (rename and change timestamp).
 
         Returns the new path.
         """
@@ -222,7 +222,7 @@ def _walk_dir(
                 except OSError:
                     pass
     except OSError as e:
-        color_printer(f'Error occured scanning "{top_dir}": {e}')
+        color_printer(f'error occured scanning "{top_dir}": {e}')
 
     if not files_only:
         try:
@@ -332,7 +332,7 @@ def update_dir_mtime(top_dir: Path):
                 try:
                     os.utime(path, (stat.st_atime, record))
                 except OSError as e:
-                    color_printer(f'Error occured touching "{path.name}": {e}')
+                    color_printer(f'error occured touching "{path.name}": {e}')
                 else:
                     print(f"{strftime(mtime)}  ==>  {strftime(record)}  {path.name}")
                     success += 1

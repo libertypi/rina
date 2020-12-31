@@ -541,7 +541,7 @@ def _list_dir(top_dir: Path) -> Iterator[Path]:
                 except OSError:
                     pass
     except OSError as e:
-        color_printer(f'Error occured scanning "{top_dir}": {e}')
+        color_printer(f'error occured scanning "{top_dir}": {e}')
 
     yield top_dir
 
