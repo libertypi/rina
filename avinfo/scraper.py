@@ -102,7 +102,7 @@ class Scraper:
                 return result
 
         result = xpath(
-            'string(.//div[@class="search-header"]//li[@role="presentation"][1])'
+            'string(//div[@class="search-header"]//li[@role="presentation"][1])'
         )(tree)
         if re_search(r"\(.*?/\s*0+\s*\)", result):
             return
