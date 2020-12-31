@@ -95,23 +95,17 @@ class Scraper:
                 return
             ok = False
 
-        if ok or response.status_code == 404:
+        tree = html_fromstring(response.content)
+        if ok:
+            result = self._parse_javbus_search(tree)
+            if result or self.uncensored_only:
+                return result
 
-            tree = html_fromstring(response.content)
-
-            if ok:
-                result = self._parse_javbus_search(tree)
-                if result or self.uncensored_only:
-                    return result
-
-            result = xpath(
-                'string(.//div[@class = "search-header"]'
-                '//li[@role = "presentation"][1])'
-            )(tree)
-            if re_search(r"\(.*?/\s*0+\s*\)", result):
-                return
-            if not result:
-                warnings.warn("xpath for javbus header broken")
+        result = xpath(
+            'string(.//div[@class="search-header"]//li[@role="presentation"][1])'
+        )(tree)
+        if re_search(r"\(.*?/\s*0+\s*\)", result):
+            return
 
         tree = get_tree(f"https://www.javbus.com/search/{self.keyword}")
         if tree is not None:
@@ -120,9 +114,9 @@ class Scraper:
     def _parse_javbus_search(self, tree: HtmlElement):
 
         try:
-            tree = tree.find('.//div[@id="waterfall"]').iterfind(
-                './/a[@class="movie-box"]//span'
-            )
+            tree = tree.find(
+                './/div[@id="waterfall"]',
+            ).iterfind('.//a[@class="movie-box"]//span')
         except AttributeError as e:
             self._warn(e)
             return
