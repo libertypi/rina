@@ -221,7 +221,10 @@ class Scraper:
         return product_id
 
     def _warn(self, e: Exception):
-        warnings.warn(f'exception raised when processing "{self.string}":\n{e}')
+        warnings.warn(
+            f'error occurred while processing "{self.string}": {e}',
+            stacklevel=2,
+        )
 
 
 class StudioMatcher(Scraper):
@@ -233,18 +236,17 @@ class StudioMatcher(Scraper):
         d=r"(?:[12][0-9]|0[1-9]|3[01])",
         tail=r"-(?P<s2>[0-9]{2,4})(?:-(?P<s3>0[0-9]))?",
     )
-    _search_studio = re_compile(
-        r"""\b(?:
-        (?P<_carib>carib(?:bean(?:com)?)?|カリビアンコム)|  # 112220-001-carib
-        (?P<_caribpr>carib(?:bean(?:com)?)?pr|カリビアンコムプレミアム)|    # 101515_391-caribpr
-        (?P<_1pon>1pon(?:do)?|一本道)|  # 110411_209-1pon
-        (?P<_10mu>10mu(?:sume)?|天然むすめ)|    # 122812_01-10mu
-        (?P<_paco>paco(?:pacomama)?|パコパコママ)|  # 120618_394-paco
-        (?P<_mura>mura)(?:mura)?|   # 010216_333-mura
-        (?P<_mesubuta>mesubuta|メス豚)  # 160122_1020_01-mesubuta
-        )\b""",
-        flags=re.VERBOSE,
-    ).search
+    _studio_re = (
+        r"\b(?:"
+        r"(?P<_carib>carib(?:bean(?:com)?)?|カリビアンコム)|"  # 112220-001-carib
+        r"(?P<_caribpr>carib(?:bean(?:com)?)?pr|カリビアンコムプレミアム)|"  # 101515_391-caribpr
+        r"(?P<_1pon>1pon(?:do)?|一本道)|"  # 110411_209-1pon
+        r"(?P<_10mu>10mu(?:sume)?|天然むすめ)|"  # 122812_01-10mu
+        r"(?P<_paco>paco(?:pacomama)?|パコパコママ)|"  # 120618_394-paco
+        r"(?P<_mura>mura)(?:mura)?|"  # 010216_333-mura
+        r"(?P<_mesubuta>mesubuta|メス豚)"  # 160122_1020_01-mesubuta
+        r")\b"
+    )
     datefmt: str = "%m%d%y"
     studio: str = None
 
@@ -253,7 +255,7 @@ class StudioMatcher(Scraper):
         match = self.match
         self.keyword = f'{match["s1"]}_{match["s2"]}'
 
-        m = self.studio_match = self._search_studio(self.string)
+        m = self.studio_match = re_search(self._studio_re, self.string)
         if m:
             self._query = getattr(self, m.lastgroup)
         elif match["s3"] and match["s4"]:
@@ -304,7 +306,7 @@ class StudioMatcher(Scraper):
             elif "日期" in k:
                 date = get_value(p)
             elif "製作商" in k:
-                studio = self._search_studio(get_value(p))
+                studio = re_search(self._studio_re, get_value(p))
                 if product_id and date:
                     break
 
@@ -928,8 +930,8 @@ class DateSearcher:
                 publish_date=strptime(" ".join(match.group(i, i + 2, i + 3)), fmt),
                 source=cls.source,
             )
-        except ValueError:
-            warnings.warn(f"invalid date string: '{match[0]}'")
+        except ValueError as e:
+            warnings.warn(f"parsing date failed '{match[0]}': {e}")
 
 
 def _load_json_ld(tree: HtmlElement):
@@ -948,17 +950,14 @@ def _load_json_ld(tree: HtmlElement):
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
-    """Combine one or more scraper regexes to a single pattern, in strict order,
-    without duplicates.
-    """
+    """Combine one or more scraper regexes to a single pattern."""
 
-    item = {}
+    item = []
     for scraper in args:
         if isinstance(scraper.regex, str):
-            item[scraper.regex] = None
+            item.append(scraper.regex)
         else:
-            for k in scraper.regex:
-                item[k] = None
+            item.extend(scraper.regex)
 
     result = "|".join(item)
     assert "_" not in result, f'"_" in regex: {result}'

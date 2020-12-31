@@ -1,4 +1,5 @@
 import os
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator, Tuple
@@ -222,7 +223,7 @@ def _walk_dir(
                 except OSError:
                     pass
     except OSError as e:
-        color_printer(f'error occured scanning "{top_dir}": {e}')
+        warnings.warn(f'error occurred scanning "{top_dir}": {e}')
 
     if not files_only:
         try:
@@ -332,7 +333,7 @@ def update_dir_mtime(top_dir: Path):
                 try:
                     os.utime(path, (stat.st_atime, record))
                 except OSError as e:
-                    color_printer(f'error occured touching "{path.name}": {e}')
+                    warnings.warn(f'error occurred touching "{path.name}": {e}')
                 else:
                     print(f"{strftime(mtime)}  ==>  {strftime(record)}  {path.name}")
                     success += 1

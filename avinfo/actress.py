@@ -1,4 +1,5 @@
 import os
+import warnings
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -541,7 +542,7 @@ def _list_dir(top_dir: Path) -> Iterator[Path]:
                 except OSError:
                     pass
     except OSError as e:
-        color_printer(f'error occured scanning "{top_dir}": {e}')
+        warnings.warn(f'error occurred scanning "{top_dir}": {e}')
 
     yield top_dir
 
