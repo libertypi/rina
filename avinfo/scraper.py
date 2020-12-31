@@ -104,7 +104,7 @@ class Scraper:
         result = xpath(
             'string(//div[@class="search-header"]//li[@role="presentation"][1])'
         )(tree)
-        if re_search(r"\(.*?/\s*0+\s*\)", result):
+        if re_search(r"/\s*0+\s*\)", result):
             return
 
         tree = get_tree(f"https://www.javbus.com/search/{self.keyword}")
