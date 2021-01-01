@@ -328,7 +328,7 @@ def update_dir_mtime(top_dir: Path):
                 try:
                     os.utime(path, (stat.st_atime, newest))
                 except OSError as e:
-                    warnings.warn(f'error occurred touching "{path.name}": {e}')
+                    warnings.warn(f'error occurred touching "{path}": {e}')
                 else:
                     success += 1
                     print(
