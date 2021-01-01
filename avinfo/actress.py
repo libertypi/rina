@@ -537,20 +537,17 @@ def _list_dir(top_dir: Path) -> Iterator[Path]:
         with os.scandir(top_dir) as it:
             for entry in it:
                 try:
-                    if entry.name[0] not in "#@." and entry.is_dir():
+                    if entry.is_dir() and entry.name[0] not in "#@.":
                         yield Path(entry)
                 except OSError:
                     pass
     except OSError as e:
         warnings.warn(f'error occurred scanning "{top_dir}": {e}')
 
-    yield top_dir
+    yield top_dir if isinstance(top_dir, Path) else Path(top_dir)
 
 
 def scan_dir(top_dir: Path) -> Iterator[ActressFolder]:
-
-    if not isinstance(top_dir, Path):
-        top_dir = Path(top_dir)
 
     with ThreadPoolExecutor(
         max_workers=min(32, os.cpu_count() + 4) // 3

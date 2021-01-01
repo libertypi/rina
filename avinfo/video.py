@@ -220,8 +220,8 @@ def from_string(string: str):
     return AVString(string, result, error)
 
 
-def from_path(path: Path, stat: os.stat_result = None, namemax: int = None):
-    """Analyze a file, returns an AVFile object."""
+def from_path(path, stat: os.stat_result = None, namemax: int = None):
+    """Analyze a path, returns an AVFile object."""
 
     path = Path(path)
 
@@ -284,7 +284,7 @@ def scan_dir(top_dir: Path) -> Iterator[AVFile]:
                             yield from probe_video(entry)
                         else:
                             name = name.rpartition(".")
-                            if name[1] and name[2].lower() in videoext:
+                            if name[2].lower() in videoext and name[1]:
                                 yield entry.path, entry.stat()
                     except OSError:
                         pass
