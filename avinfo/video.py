@@ -281,7 +281,7 @@ def scan_dir(top_dir: Path) -> Iterator[AVFile]:
                         continue
                     try:
                         if entry.is_dir():
-                            yield from probe_video(entry)
+                            yield from probe_video(entry.path)
                         else:
                             name = name.rpartition(".")
                             if name[2].lower() in videoext and name[1]:

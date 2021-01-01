@@ -2,7 +2,7 @@ import os
 import re
 import subprocess
 import warnings
-from collections import defaultdict
+from collections import defaultdict, deque
 from os.path import abspath
 from os.path import join as joinpath
 from shutil import which
@@ -16,20 +16,26 @@ FFMPEG = "ffmpeg"
 
 class ConcatVideo:
 
-    __slots__ = ("output_path", "input_files", "report")
+    __slots__ = ("output_path", "input_files", "report", "applied")
 
     def __init__(self, output_path: str, input_files: tuple) -> None:
 
         self.output_path = output_path
         self.input_files = input_files
+        self.applied = False
 
-        self.report = "files ({}):\n{}\noutput preview:\n  {}".format(
+        self.report = "files ({}):\n  {}\noutput preview:\n  {}".format(
             len(input_files),
-            "\n".join(f"  {p}" for p in input_files),
+            "\n  ".join(input_files),
             output_path,
         )
 
     def apply(self):
+
+        if self.applied:
+            warnings.warn("alreadly applied")
+            return
+
         tmpfd, tmpfile = mkstemp()
         try:
             with os.fdopen(tmpfd, "w", encoding="utf-8") as f:
@@ -46,10 +52,28 @@ class ConcatVideo:
                     "-c",
                     "copy",
                     self.output_path,
-                )
+                ),
+                check=True,
             )
+        except subprocess.CalledProcessError as e:
+            warnings.warn(f"subprocess error: {e}")
+        else:
+            self.applied = True
         finally:
             os.unlink(tmpfile)
+
+    def remove_inputs(self):
+
+        if not self.applied:
+            return
+
+        for file in self.input_files:
+            try:
+                os.unlink(file)
+            except OSError as e:
+                warnings.warn(f'removing "{file}" failed: {e}')
+            else:
+                print("remove:", file)
 
 
 def find_consecutive_videos(top_dir):
@@ -57,7 +81,7 @@ def find_consecutive_videos(top_dir):
     # ffmpeg requires absolute path
     top_dir = abspath(top_dir)
     if not isinstance(top_dir, str):
-        raise TypeError(f"expect str or PathLike object")
+        raise TypeError("expect str or PathLike object")
 
     stack = [top_dir]
     files = {}
@@ -67,7 +91,7 @@ def find_consecutive_videos(top_dir):
         (?P<pre>.+?)
         (?P<sep>(?:[\s._-]+(?:part|chunk|vol|cd|dvd))?[\s._-]*)
         (?P<num>0*[1-9][0-9]*)\s*
-        (?P<ext>\.(?:mp4|wmv|avi|m[ko4]v|mpe?g))
+        (?P<ext>\.(?:mp4|wmv|avi|m[ko4]v))
         """,
         flags=re.VERBOSE | re.IGNORECASE,
     ).fullmatch
@@ -117,7 +141,7 @@ def main(top_dir, quiet: bool = False):
         print(f"{FFMPEG} not found.")
         return
 
-    result = []
+    result = deque()
     for video in find_consecutive_videos(top_dir):
         result.append(video)
         print(SEP_SLIM)
@@ -146,9 +170,11 @@ def main(top_dir, quiet: bool = False):
         choice = get_choice_as_int(dedent(msg), 3)
 
         if choice == 2:
+
+            n = len(result)
             msg = f"""\
                 {SEP_BOLD}
-                please select what to do with following files:
+                please select what to do with following ({{}} of {n}):
                 {SEP_SLIM}
                 {{}}
                 {SEP_SLIM}
@@ -158,17 +184,29 @@ def main(top_dir, quiet: bool = False):
             """
             msg = dedent(msg)
 
-            for i, video in enumerate(result):
-                choice = get_choice_as_int(msg.format(video.report), 3)
-                if choice == 2:
-                    result[i] = None
+            for i in range(1, n + 1):
+                video = result.popleft()
+                choice = get_choice_as_int(msg.format(i, video.report), 3)
+                if choice == 1:
+                    result.append(video)
                 elif choice == 3:
                     return
-
-            result = filter(None, result)
 
         elif choice == 3:
             return
 
     for video in result:
         video.apply()
+
+    if not quiet:
+        msg = f"""\
+        {SEP_BOLD}
+        delete all the successfully converted input files?
+        please check with caution.
+        1) yes
+        2) no
+        """
+        choice = get_choice_as_int(dedent(msg), 2)
+        if choice == 1:
+            for video in result:
+                video.remove_inputs()

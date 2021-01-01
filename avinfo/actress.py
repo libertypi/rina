@@ -537,8 +537,8 @@ def _list_dir(top_dir: Path) -> Iterator[Path]:
         with os.scandir(top_dir) as it:
             for entry in it:
                 try:
-                    if entry.is_dir() and entry.name[0] not in "#@.":
-                        yield Path(entry)
+                    if entry.name[0] not in "#@." and entry.is_dir():
+                        yield Path(entry.path)
                 except OSError:
                     pass
     except OSError as e:
