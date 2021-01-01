@@ -345,4 +345,4 @@ def update_dir_mtime(top_dir: Path):
     except OSError as e:
         warnings.warn(f"error occurred scanning {top_dir}: {e}")
     else:
-        print(f"Finished. {total} dirs scanned, {success} modified.")
+        print(f"Finished. {total} dirs scanned, {success} updated.")

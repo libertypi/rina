@@ -1,12 +1,13 @@
 import os
 import re
 import subprocess
+import warnings
 from collections import defaultdict
-from pathlib import Path
+from os.path import abspath
+from os.path import join as joinpath
 from shutil import which
 from tempfile import mkstemp
 from textwrap import dedent
-from typing import Tuple
 
 from avinfo._utils import SEP_BOLD, SEP_SLIM, get_choice_as_int
 
@@ -17,9 +18,11 @@ class ConcatVideo:
 
     __slots__ = ("output_path", "input_files", "report")
 
-    def __init__(self, output_path: Path, input_files: Tuple[Path]) -> None:
+    def __init__(self, output_path: str, input_files: tuple) -> None:
+
         self.output_path = output_path
         self.input_files = input_files
+
         self.report = "files ({}):\n{}\noutput preview:\n  {}".format(
             len(input_files),
             "\n".join(f"  {p}" for p in input_files),
@@ -49,55 +52,66 @@ class ConcatVideo:
             os.unlink(tmpfile)
 
 
-def find_consecutive_videos(top_dir: Path):
+def find_consecutive_videos(top_dir):
 
-    try:
-        top_dir = top_dir.resolve()
-    except AttributeError:
-        top_dir = Path(top_dir).resolve()
+    # ffmpeg requires absolute path
+    top_dir = abspath(top_dir)
+    if not isinstance(top_dir, str):
+        raise TypeError(f"expect str or PathLike object")
 
-    file_set = set()
+    stack = [top_dir]
+    files = {}
     groups = defaultdict(dict)
     matcher = re.compile(
         r"""
         (?P<pre>.+?)
         (?P<sep>(?:[\s._-]+(?:part|chunk|vol|cd|dvd))?[\s._-]*)
-        (?P<num>0*[1-9][0-9]*)
-        (?P<ext>\.(?:mp4|wmv|avi|mkv|mov))
+        (?P<num>0*[1-9][0-9]*)\s*
+        (?P<ext>\.(?:mp4|wmv|avi|m[ko4]v|mpe?g))
         """,
         flags=re.VERBOSE | re.IGNORECASE,
     ).fullmatch
 
-    for root, _, files in os.walk(top_dir):
+    while stack:
+
+        root = stack.pop()
+
+        try:
+            with os.scandir(root) as it:
+                for entry in it:
+                    name = entry.name
+                    if name[0] in "#@.":
+                        continue
+                    try:
+                        if entry.is_dir():
+                            stack.append(entry.path)
+                        else:
+                            files[name] = entry.path
+                    except OSError:
+                        pass
+        except OSError as e:
+            warnings.warn(f"error occurred scanning {root}: {e}")
 
         for m in filter(None, map(matcher, files)):
             groups[(m["pre"], m["sep"], m["ext"].lower())][int(m["num"])] = m.string
-        if not groups:
-            continue
-
-        joinpath = Path(root).joinpath
 
         for k, v in groups.items():
-
             n = len(v)
             if 1 < n == max(v):
-                output_name = k[0] + k[2]
-
-                if not file_set:
-                    file_set.update(files)
-                if output_name in file_set:
+                name = k[0] + k[2]
+                if name in files:
                     continue
 
                 yield ConcatVideo(
-                    output_path=joinpath(output_name),
-                    input_files=tuple(joinpath(v[i]) for i in range(1, n + 1)),
+                    output_path=joinpath(root, name),
+                    input_files=tuple(files[v[i]] for i in range(1, n + 1)),
                 )
 
-        file_set.clear()
+        files.clear()
         groups.clear()
 
 
-def main(top_dir: Path, quiet: bool = False):
+def main(top_dir, quiet: bool = False):
 
     if which(FFMPEG) is None:
         print(f"{FFMPEG} not found.")
