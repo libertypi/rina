@@ -61,9 +61,9 @@ def find_consecutive_videos(top_dir: Path):
     matcher = re.compile(
         r"""
         (?P<pre>.+?)
-        (?P<sep>(?:[\s._-]+(?:chunk|vol|cd|dvd))?[\s._-]*)
+        (?P<sep>(?:[\s._-]+(?:part|chunk|vol|cd|dvd))?[\s._-]*)
         (?P<num>0*[1-9][0-9]*)
-        (?P<ext>\.(?:mp4|wmv|avi|mkv))
+        (?P<ext>\.(?:mp4|wmv|avi|mkv|mov))
         """,
         flags=re.VERBOSE | re.IGNORECASE,
     ).fullmatch

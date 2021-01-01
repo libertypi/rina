@@ -16,11 +16,13 @@ def parse_args():
     def normalize_target(target: str):
 
         path = Path(target)
+
         try:
             return path.resolve(strict=True)
         except (FileNotFoundError, RuntimeError):
             if path.name == target:
                 return target
+
         raise argparse.ArgumentTypeError(f'"{target}" is unreachable')
 
     parser = argparse.ArgumentParser(
@@ -109,7 +111,9 @@ def parse_args():
     return args, target_type
 
 
-def printProgressBar(iteration, total, prefix="Progress", suffix="Complete", length=SEP_WIDTH, fill="█"):
+def printProgressBar(
+    iteration, total, prefix="Progress", suffix="Complete", length=SEP_WIDTH, fill="█"
+):
     percent = f"{100 * (iteration / float(total)):.1f}"
     filledLength = int(length * iteration // total)
     bar = f'{fill * filledLength}{"-" * (length - filledLength)}'

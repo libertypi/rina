@@ -272,7 +272,7 @@ def scan_dir(top_dir: Path) -> Iterator[AVFile]:
         "wmv",
     }
 
-    def probe_video(path):
+    def probe_video(path) -> Iterator[Tuple[str, os.stat_result]]:
         try:
             with os.scandir(path) as it:
                 for entry in it:
@@ -282,8 +282,10 @@ def scan_dir(top_dir: Path) -> Iterator[AVFile]:
                     try:
                         if entry.is_dir():
                             yield from probe_video(entry)
-                        elif name.rpartition(".")[2].lower() in videoext:
-                            yield entry.path, entry.stat()
+                        else:
+                            name = name.rpartition(".")
+                            if name[1] and name[2].lower() in videoext:
+                                yield entry.path, entry.stat()
                     except OSError:
                         pass
         except OSError as e:
@@ -303,7 +305,7 @@ def update_dir_mtime(top_dir: Path):
 
     total = success = 0
 
-    def probe_dir(path, stat):
+    def probe_dir(path):
 
         nonlocal total, success
 
@@ -314,30 +316,32 @@ def update_dir_mtime(top_dir: Path):
                 if entry.name[0] in "#@.":
                     continue
                 if entry.is_dir():
-                    mtime = probe_dir(entry, entry.stat())
+                    mtime = probe_dir(entry)
                 else:
                     mtime = entry.stat().st_mtime
                 if mtime > newest:
                     newest = mtime
-        if 0 < newest != stat.st_mtime:
-            try:
-                os.utime(path, (stat.st_atime, newest))
-            except OSError as e:
-                warnings.warn(f'error occurred touching "{path.name}": {e}')
-            else:
-                success += 1
-                print(
-                    f"{strftime(stat.st_mtime)}  ==>  {strftime(newest)}  {path.name}".format()
-                )
+
+        if newest:
+            stat = path.stat()
+            if newest != stat.st_mtime:
+                try:
+                    os.utime(path, (stat.st_atime, newest))
+                except OSError as e:
+                    warnings.warn(f'error occurred touching "{path.name}": {e}')
+                else:
+                    success += 1
+                    print(
+                        f"{strftime(stat.st_mtime)}  ==>  {strftime(newest)}  {path.name}"
+                    )
         return newest
 
     print("Updating directory timestamps...")
 
     if not isinstance(top_dir, Path):
         top_dir = Path(top_dir)
-
     try:
-        probe_dir(top_dir, top_dir.stat())
+        probe_dir(top_dir)
     except OSError as e:
         warnings.warn(f"error occurred scanning {top_dir}: {e}")
     else:
