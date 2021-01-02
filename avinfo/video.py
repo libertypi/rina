@@ -172,17 +172,20 @@ class AVFile(AVString):
     def apply(self):
         """Apply changes to file (rename and change timestamp).
 
+        If no change was necessary, skips silently.
         Returns the new path.
         """
         path = self.target
 
-        if self.new_name is not None:
-            new = path.with_name(self.new_name)
-            os.rename(path, new)
-            path = new
+        if self.status == "changed":
 
-        if self._atime is not None:
-            os.utime(path, (self._atime, self.publish_date))
+            if self.new_name:
+                new = path.with_name(self.new_name)
+                os.rename(path, new)
+                path = new
+
+            if self._atime:
+                os.utime(path, (self._atime, self.publish_date))
 
         return path
 
