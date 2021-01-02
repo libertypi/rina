@@ -41,22 +41,12 @@ class ConcatVideo:
             with os.fdopen(tmpfd, "w", encoding="utf-8") as f:
                 f.writelines(f"file '{p}'\n" for p in self.input_files)
             subprocess.run(
-                (
-                    FFMPEG,
-                    "-f",
-                    "concat",
-                    "-safe",
-                    "0",
-                    "-i",
-                    tmpfile,
-                    "-c",
-                    "copy",
-                    self.output_path,
-                ),
+                (FFMPEG, "-f", "concat", "-safe", "0", "-i", tmpfile, "-c",
+                 "copy", self.output_path),
                 check=True,
             )
         except subprocess.CalledProcessError as e:
-            warnings.warn(f"subprocess error: {e}")
+            warnings.warn(f"{FFMPEG} error: {e}")
         else:
             self.applied = True
         finally:
@@ -84,7 +74,7 @@ def find_consecutive_videos(top_dir):
         raise TypeError("expect str or PathLike object")
 
     stack = [top_dir]
-    files = {}
+    names = set()
     groups = defaultdict(dict)
     matcher = re.compile(
         r"""
@@ -99,40 +89,46 @@ def find_consecutive_videos(top_dir):
     while stack:
 
         root = stack.pop()
+        names.clear()
+        groups.clear()
 
         try:
             with os.scandir(root) as it:
+
                 for entry in it:
+
                     name = entry.name
                     if name[0] in "#@.":
                         continue
-                    try:
-                        if entry.is_dir():
-                            stack.append(entry.path)
-                        else:
-                            files[name] = entry.path
-                    except OSError:
-                        pass
+                    names.add(name)
+
+                    if entry.is_dir(follow_symlinks=False):
+                        stack.append(entry.path)
+                    else:
+                        m = matcher(name)
+                        if m:
+                            groups[(
+                                m["pre"],
+                                m["sep"],
+                                m["ext"].lower(),
+                            )][int(m["num"])] = entry.path
+
         except OSError as e:
             warnings.warn(f"error occurred scanning {root}: {e}")
-
-        for m in filter(None, map(matcher, files)):
-            groups[(m["pre"], m["sep"], m["ext"].lower())][int(m["num"])] = m.string
+            continue
 
         for k, v in groups.items():
             n = len(v)
             if 1 < n == max(v):
+
                 name = k[0] + k[2]
-                if name in files:
+                if name in names:
                     continue
 
                 yield ConcatVideo(
-                    output_path=joinpath(root, name),
-                    input_files=tuple(files[v[i]] for i in range(1, n + 1)),
+                    joinpath(root, name),
+                    tuple(v[i] for i in range(1, n + 1)),
                 )
-
-        files.clear()
-        groups.clear()
 
 
 def main(top_dir, quiet: bool = False):
@@ -156,8 +152,7 @@ def main(top_dir, quiet: bool = False):
             SEP_BOLD,
             sum(len(v.input_files) for v in result),
             len(result),
-        )
-    )
+        ))
 
     if not quiet:
         msg = f"""\

@@ -3,40 +3,22 @@ import sys
 from pathlib import Path
 from textwrap import dedent
 
-from avinfo._utils import (
-    SEP_BOLD,
-    SEP_SLIM,
-    SEP_WIDTH,
-    color_printer,
-    get_choice_as_int,
-)
+from avinfo._utils import (SEP_BOLD, SEP_SLIM, SEP_WIDTH, color_printer,
+                           get_choice_as_int)
 
 
 def parse_args():
-    def normalize_target(target: str):
-
-        path = Path(target)
-
-        try:
-            return path.resolve(strict=True)
-        except (FileNotFoundError, RuntimeError):
-            if path.name == target:
-                return target
-
-        raise argparse.ArgumentTypeError(f'"{target}" is unreachable')
 
     parser = argparse.ArgumentParser(
         prog="avinfo",
         description="The ultimate AV detector.",
-        epilog=dedent(
-            """\
+        epilog=dedent("""\
             examples:
               %(prog)s /mnt/dir           -> recursively scrape all videos in "dir"
               %(prog)s -a /mnt/dir        -> scan actress bio from folder names under "dir"
               %(prog)s -v heyzo-2288.mp4  -> scrape a single file
               %(prog)s 和登こころ         -> search for a particular actress
-            """
-        ),
+            """),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
@@ -83,7 +65,7 @@ def parse_args():
     )
     parser.add_argument(
         "target",
-        type=normalize_target,
+        type=_normalize_target,
         help="the target, be it a directory, a file, or a keyword",
     )
 
@@ -103,7 +85,8 @@ def parse_args():
             args.mode = "video"
 
     elif args.mode == "actress" and target_type == "file":
-        parser.error(f"in {args.mode} mode, the target should be a dir or a keyword.")
+        parser.error(
+            f"in {args.mode} mode, the target should be a dir or a keyword.")
 
     elif args.mode in ("concat", "dir") and target_type != "dir":
         parser.error(f"in {args.mode} mode, the target should be a directory.")
@@ -111,13 +94,23 @@ def parse_args():
     return args, target_type
 
 
-def printProgressBar(
-    iteration, total, prefix="Progress", suffix="Complete", length=SEP_WIDTH, fill="█"
-):
+def _normalize_target(target: str):
+
+    path = Path(target)
+    try:
+        return path.resolve(strict=True)
+    except (FileNotFoundError, RuntimeError):
+        if path.name == target:
+            return target
+    raise argparse.ArgumentTypeError(f'"{target}" is unreachable')
+
+
+def printProgressBar(iteration, total, length=SEP_WIDTH, fill="█"):
+
     percent = f"{100 * (iteration / float(total)):.1f}"
     filledLength = int(length * iteration // total)
     bar = f'{fill * filledLength}{"-" * (length - filledLength)}'
-    print(f"\r{prefix} |{bar}| {percent}% {suffix}", end="\r")
+    print(f"\rProgress |{bar}| {percent}% Complete", end="\r")
     if iteration == total:
         print()
 

@@ -1,5 +1,4 @@
 import os
-import warnings
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -8,26 +7,15 @@ from pathlib import Path
 from typing import Iterator
 from urllib.parse import quote, urljoin
 
-from avinfo._utils import (
-    SEP_CHANGED,
-    SEP_FAILED,
-    SEP_SUCCESS,
-    HtmlElement,
-    color_printer,
-    date_searcher,
-    get_tree,
-    re_compile,
-    re_search,
-    re_sub,
-    xpath,
-)
+from avinfo._utils import (SEP_CHANGED, SEP_FAILED, SEP_SUCCESS, HtmlElement,
+                           color_printer, date_searcher, get_tree, re_compile,
+                           re_search, re_sub, xpath)
 
 __all__ = ("scan_dir",)
 
 _is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
 _name_finder = re_compile(
-    r"(?:^|[】」』｝）》\])]){}(?:$|[【「『｛（《\[(])".format(_is_cjk_name)
-).search
+    r"(?:^|[】」』｝）》\])]){}(?:$|[【「『｛（《\[(])".format(_is_cjk_name)).search
 _is_cjk_name = re_compile(_is_cjk_name).fullmatch
 _name_cleaner = re_compile(r"\d+歳|[\s 　]").sub
 split_name = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
@@ -51,6 +39,7 @@ class SearchResult:
 
 
 class Wiki:
+
     @classmethod
     def search(cls, keyword: str):
 
@@ -84,6 +73,7 @@ class Wiki:
 
 
 class Wikipedia(Wiki):
+
     @staticmethod
     def _query(keyword: str):
 
@@ -92,7 +82,8 @@ class Wikipedia(Wiki):
             return
 
         name = tree.findtext('.//*[@id="firstHeading"]')
-        box = tree.find('.//div[@id="mw-content-text"]//table[@class="infobox"]')
+        box = tree.find(
+            './/div[@id="mw-content-text"]//table[@class="infobox"]')
         if not name or box is None:
             return
 
@@ -111,12 +102,16 @@ class Wikipedia(Wiki):
 
 
 class MinnanoAV(Wiki):
+
     @classmethod
     def _query(cls, keyword: str):
 
         tree = get_tree(
             "http://www.minnano-av.com/search_result.php",
-            params={"search_scope": "actress", "search_word": keyword},
+            params={
+                "search_scope": "actress",
+                "search_word": keyword
+            },
         )
         if tree is None:
             return
@@ -134,7 +129,8 @@ class MinnanoAV(Wiki):
 
         birth = None
         alias = []
-        for td in tree.iterfind('.//div[@class="act-profile"]/table//td[span][p]'):
+        for td in tree.iterfind(
+                './/div[@class="act-profile"]/table//td[span][p]'):
             title = td.findtext("span")
             if "別名" in title:
                 alias.append(td.findtext("p"))
@@ -148,11 +144,9 @@ class MinnanoAV(Wiki):
         """Return if there's only one match."""
 
         result = None
-        for a in xpath(
-            './/section[@id="main-area"]'
-            '//table[contains(@class, "actress")]'
-            '//td[not(contains(., "重複"))]/h2/a[@href]'
-        )(tree):
+        for a in xpath('.//section[@id="main-area"]'
+                       '//table[contains(@class, "actress")]'
+                       '//td[not(contains(., "重複"))]/h2/a[@href]')(tree):
             if match_name(keyword, a.text):
                 href = a.get("href").partition("?")[0]
                 if not result:
@@ -165,6 +159,7 @@ class MinnanoAV(Wiki):
 
 
 class AVRevolution(Wiki):
+
     @staticmethod
     def _query(keyword: str):
 
@@ -178,9 +173,8 @@ class AVRevolution(Wiki):
         alias_xp = xpath('div[3]/div/text()[not(contains(., "別名無"))]')
 
         for row in xpath(
-            './/div[@class="container"]'
-            '/div[contains(@class,"row") and @style and div[1]/a]'
-        )(tree):
+                './/div[@class="container"]'
+                '/div[contains(@class,"row") and @style and div[1]/a]')(tree):
 
             try:
                 a = row.find("div[1]/a[@href]")
@@ -204,12 +198,14 @@ class AVRevolution(Wiki):
 
 
 class Seesaawiki(Wiki):
+
     @staticmethod
     def _query(keyword: str):
 
         try:
             stack = [
-                "https://seesaawiki.jp/av_neme/d/" + quote(keyword, encoding="euc-jp")
+                "https://seesaawiki.jp/av_neme/d/" +
+                quote(keyword, encoding="euc-jp")
             ]
         except UnicodeEncodeError:
             return
@@ -223,10 +219,8 @@ class Seesaawiki(Wiki):
             if not (text and re_search(r"(女優名|名前).*?変更", text)):
                 break
 
-            url = xpath(
-                'string(.//div[@id="content_block_1-body" '
-                'and contains(., "移動")]/span/a/@href)'
-            )(tree)
+            url = xpath('string(.//div[@id="content_block_1-body" '
+                        'and contains(., "移動")]/span/a/@href)')(tree)
             if url:
                 url = urljoin(tree.base_url, url)
                 if url not in stack:
@@ -234,7 +228,8 @@ class Seesaawiki(Wiki):
                     continue
             return
 
-        name = tree.findtext('.//div[@id="page-header-inner"]/div[@class="title"]//h2')
+        name = tree.findtext(
+            './/div[@id="page-header-inner"]/div[@class="title"]//h2')
         if not name:
             return
 
@@ -242,10 +237,8 @@ class Seesaawiki(Wiki):
         if box is None:
             return SearchResult(name=name)
         if box.tag == "table":
-            box = (
-                (tr.find("th").text_content(), tr.find("td").text_content())
-                for tr in box.iterfind(".//tr[th][td]")
-            )
+            box = ((tr.find("th").text_content(), tr.find("td").text_content())
+                   for tr in box.iterfind(".//tr[th][td]"))
         else:
             box = (i.split("：", 1) for i in box.text.splitlines() if "：" in i)
 
@@ -261,6 +254,7 @@ class Seesaawiki(Wiki):
 
 
 class Msin(Wiki):
+
     @classmethod
     def _query(cls, keyword: str):
 
@@ -274,15 +268,15 @@ class Msin(Wiki):
         if "/actress?str=" in tree.base_url:
             return cls._scan_search_page(keyword, tree)
 
-        tree = tree.find(
-            './/div[@id="content"]/div[@id="actress_view"]//div[@class="act_ditail"]'
-        )
+        tree = tree.find('.//div[@id="content"]/div[@id="actress_view"]'
+                         '//div[@class="act_ditail"]')
         try:
             name = clean_name(tree.findtext('.//span[@class="mv_name"]'))
         except (AttributeError, TypeError):
             return
 
-        xp = xpath("string(div[contains(text(), $title)]/following-sibling::span)")
+        xp = xpath(
+            "string(div[contains(text(), $title)]/following-sibling::span)")
         alias = split_name(xp(tree, title="別名"))
 
         if match_name(keyword, name, *alias):
@@ -297,9 +291,8 @@ class Msin(Wiki):
 
         result = None
         for div in tree.iterfind(
-            './/div[@id="content"]//div[@class="actress_info_find"]'
-            '/div[@class="act_ditail"]'
-        ):
+                './/div[@id="content"]//div[@class="actress_info_find"]'
+                '/div[@class="act_ditail"]'):
             name = div.findtext('div[@class="act_name"]/a')
             if not name:
                 continue
@@ -321,24 +314,23 @@ class Msin(Wiki):
 
 
 class Manko(Wiki):
+
     @staticmethod
     def _query(keyword: str):
 
-        tree = get_tree(f"http://mankowomiseruavzyoyu.blog.fc2.com/?q={keyword}")
+        tree = get_tree(
+            f"http://mankowomiseruavzyoyu.blog.fc2.com/?q={keyword}")
         if tree is None:
             return
 
         result = None
-        name_xp = xpath(
-            'string(tr/td[@align="center" or @align="middle"]'
-            "/*[self::font or self::span]//text())"
-        )
+        name_xp = xpath('string(tr/td[@align="center" or @align="middle"]'
+                        "/*[self::font or self::span]//text())")
         info_xp = xpath("string(tr[td[1][contains(text(), $title)]]/td[2])")
 
         for tbody in tree.iterfind(
-            './/div[@id="center"]//div[@class="ently_body"]'
-            '/div[@class="ently_text"]//tbody'
-        ):
+                './/div[@id="center"]//div[@class="ently_body"]'
+                '/div[@class="ently_text"]//tbody'):
 
             name = clean_name(name_xp(tbody))
             if not name:
@@ -358,6 +350,7 @@ class Manko(Wiki):
 
 
 class Etigoya(Wiki):
+
     @staticmethod
     def _query(keyword: str):
 
@@ -366,9 +359,8 @@ class Etigoya(Wiki):
             return
 
         result = None
-        for text in xpath(
-            './/div[@id="main"]/div[@class="content"]' '//li/a/text()[contains(., "＝")]'
-        )(tree):
+        for text in xpath('.//div[@id="main"]/div[@class="content"]'
+                          '//li/a/text()[contains(., "＝")]')(tree):
             alias = text.split("＝")
             if match_name(keyword, *alias):
                 if result:
@@ -377,7 +369,8 @@ class Etigoya(Wiki):
         return result
 
 
-_WIKI_LIST = (Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Msin, Manko, Etigoya)
+_WIKI_LIST = (Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Msin, Manko,
+              Etigoya)
 
 
 class Actress:
@@ -434,7 +427,9 @@ class Actress:
             keyword = max(pool, key=unvisited_get)
             visited[keyword] = unvisited.pop(keyword)
 
-            ft_to_weight = {ex.submit(f, keyword): i for i, f in weight_to_func.items()}
+            ft_to_weight = {
+                ex.submit(f, keyword): i for i, f in weight_to_func.items()
+            }
 
             for ft in as_completed(ft_to_weight):
 
@@ -461,8 +456,7 @@ class Actress:
         report = self._report
         report["Visited"] = ", ".join(visited)
         report["Unvisited"] = ", ".join(
-            sorted(unvisited, key=unvisited_get, reverse=True)
-        )
+            sorted(unvisited, key=unvisited_get, reverse=True))
         name, report["Name"] = self._sort_search_result(nameDict)
         birth, report["Birth"] = self._sort_search_result(birthDict)
 
@@ -483,10 +477,8 @@ class Actress:
 
         return (
             result[0][0],
-            tuple(
-                f'{k} ({", ".join(_WIKI_LIST[i].__name__ for i in v)})'
-                for k, v in result
-            ),
+            tuple(f'{k} ({", ".join(_WIKI_LIST[i].__name__ for i in v)})'
+                  for k, v in result),
         )
 
     def print(self):
@@ -530,34 +522,20 @@ class ActressFolder(Actress):
             os.rename(self.path, self.path.with_name(self.result))
 
 
-def _list_dir(top_dir: Path) -> Iterator[Path]:
-    """List dir paths under top."""
-
-    try:
-        with os.scandir(top_dir) as it:
-            for entry in it:
-                try:
-                    if entry.name[0] not in "#@." and entry.is_dir():
-                        yield Path(entry.path)
-                except OSError:
-                    pass
-    except OSError as e:
-        warnings.warn(f'error occurred scanning "{top_dir}": {e}')
-
-    yield top_dir
-
-
 def scan_dir(top_dir: Path) -> Iterator[ActressFolder]:
 
     if not isinstance(top_dir, Path):
         top_dir = Path(top_dir)
 
-    with ThreadPoolExecutor(
-        max_workers=min(32, os.cpu_count() + 4) // 3
-    ) as outer_ex, ThreadPoolExecutor(max_workers=None) as inner_ex:
+    outer_max = min(32, (os.cpu_count() or 1) + 4) // 3
+    with ThreadPoolExecutor(outer_max) as outer, ThreadPoolExecutor() as inner:
 
-        for ft in as_completed(
-            outer_ex.submit(ActressFolder, path, inner_ex)
-            for path in _list_dir(top_dir)
-        ):
+        pool = [
+            outer.submit(ActressFolder, Path(entry.path), inner)
+            for entry in os.scandir(top_dir)
+            if entry.is_dir() and entry.name[0] not in "#@."
+        ]
+        pool.append(outer.submit(ActressFolder, top_dir, inner))
+
+        for ft in as_completed(pool):
             yield ft.result()

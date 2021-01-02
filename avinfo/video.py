@@ -1,5 +1,6 @@
 import os
 import warnings
+from os import scandir
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator, Tuple
@@ -21,15 +22,8 @@ _fn_regex = None
 
 class AVString:
 
-    __slots__ = (
-        "target",
-        "product_id",
-        "title",
-        "publish_date",
-        "source",
-        "status",
-        "_report",
-    )
+    __slots__ = ("target", "product_id", "title", "publish_date", "source",
+                 "status", "_report")
 
     def __init__(self, target: str, result: ScrapeResult, error: str):
 
@@ -77,8 +71,7 @@ class AVString:
         report = self._report
         if isinstance(report, dict):
             report = self._report = "\n".join(
-                f'{k + ":":>10} {v}' for k, v in report.items() if v
-            )
+                f'{k + ":":>10} {v}' for k, v in report.items() if v)
         return report
 
 
@@ -87,14 +80,12 @@ class AVFile(AVString):
     __slots__ = ("new_name", "_atime")
     target: Path
 
-    def __init__(
-        self,
-        target: Path,
-        result: ScrapeResult,
-        error: str,
-        stat: os.stat_result = None,
-        namemax: int = None,
-    ):
+    def __init__(self,
+                 target: Path,
+                 result: ScrapeResult,
+                 error: str,
+                 stat: os.stat_result = None,
+                 namemax: int = None):
 
         super().__init__(target, result, error)
         self.new_name = self._atime = None
@@ -196,15 +187,6 @@ class AVFile(AVString):
         return path
 
 
-def _get_namemax(path: Path):
-    if os.name == "posix":
-        try:
-            return os.statvfs(path).f_namemax
-        except OSError:
-            pass
-    return 255
-
-
 def from_string(string: str):
     """Analyze a string, returns an AVString object."""
 
@@ -244,96 +226,92 @@ def from_path(path, stat: os.stat_result = None, namemax: int = None):
 def scan_dir(top_dir: Path) -> Iterator[AVFile]:
     """Recursively scans a dir, yields AVFile objects."""
 
-    videoext = {
-        "3gp",
-        "asf",
-        "avi",
-        "bdmv",
-        "flv",
-        "iso",
-        "m2ts",
-        "m2v",
-        "m4p",
-        "m4v",
-        "mkv",
-        "mov",
-        "mp2",
-        "mp4",
-        "mpeg",
-        "mpg",
-        "mpv",
-        "mts",
-        "mxf",
-        "rm",
-        "rmvb",
-        "ts",
-        "vob",
-        "webm",
-        "wmv",
+    ext = {
+        "3gp", "asf", "avi", "bdmv", "flv", "iso", "m2ts", "m2v", "m4p", "m4v",
+        "mkv", "mov", "mp2", "mp4", "mpeg", "mpg", "mpv", "mts", "mxf", "rm",
+        "rmvb", "ts", "vob", "webm", "wmv"
     }
+    namemax = _get_namemax(top_dir)
 
-    def probe_video(path) -> Iterator[Tuple[str, os.stat_result]]:
+    with ThreadPoolExecutor(max_workers=None) as ex:
+        for ft in as_completed(
+                ex.submit(from_path, path, stat, namemax)
+                for path, stat in _probe_files(top_dir, ext)):
+            yield ft.result()
+
+
+def _probe_files(path, ext: set):
+
+    stack = [path]
+    while stack:
+        path = stack.pop()
         try:
-            with os.scandir(path) as it:
+            with scandir(path) as it:
                 for entry in it:
                     name = entry.name
                     if name[0] in "#@.":
                         continue
                     try:
-                        if entry.is_dir():
-                            yield from probe_video(entry.path)
+                        if entry.is_dir(follow_symlinks=False):
+                            stack.append(entry.path)
                         else:
                             name = name.rpartition(".")
-                            if name[2].lower() in videoext and name[1]:
+                            if name[2].lower() in ext and name[1]:
                                 yield entry.path, entry.stat()
                     except OSError:
                         pass
         except OSError as e:
-            warnings.warn(f'error occurred scanning "{top_dir}": {e}')
+            warnings.warn(f'error occurred scanning "{path}": {e}')
 
-    namemax = _get_namemax(top_dir)
 
-    with ThreadPoolExecutor(max_workers=None) as ex:
-        for ft in as_completed(
-            ex.submit(from_path, path, stat, namemax)
-            for path, stat in probe_video(top_dir)
-        ):
-            yield ft.result()
+def _get_namemax(path: Path):
+    if os.name == "posix":
+        try:
+            return os.statvfs(path).f_namemax
+        except OSError as e:
+            warnings.warn(f"getting filesystem namemax failed: {e}")
+    return 255
 
 
 def update_dir_mtime(top_dir: Path):
 
     total = success = 0
 
-    def probe_dir(path):
+    def probe_dir(root: Path):
 
         nonlocal total, success
 
         total += 1
         newest = 0
-        with os.scandir(path) as it:
+        dirs = []
+
+        with scandir(root) as it:
             for entry in it:
                 if entry.name[0] in "#@.":
                     continue
-                if entry.is_dir():
-                    mtime = probe_dir(entry)
+                if entry.is_dir(follow_symlinks=False):
+                    dirs.append(entry)
                 else:
-                    mtime = entry.stat().st_mtime
-                if mtime > newest:
-                    newest = mtime
+                    mtime = entry.stat(follow_symlinks=False).st_mtime
+                    if mtime > newest:
+                        newest = mtime
+
+        for entry in dirs:
+            mtime = probe_dir(entry)
+            if mtime > newest:
+                newest = mtime
 
         if newest:
-            stat = path.stat()
+            stat = root.stat()
             if newest != stat.st_mtime:
                 try:
-                    os.utime(path, (stat.st_atime, newest))
+                    os.utime(root, (stat.st_atime, newest))
                 except OSError as e:
-                    warnings.warn(f'error occurred touching "{path}": {e}')
+                    warnings.warn(f'error occurred touching "{root}": {e}')
                 else:
                     success += 1
-                    print(
-                        f"{strftime(stat.st_mtime)}  ==>  {strftime(newest)}  {path.name}"
-                    )
+                    print("{}  ==>  {}  {}".format(strftime(stat.st_mtime),
+                                                   strftime(newest), root.name))
         return newest
 
     print("Updating directory timestamps...")

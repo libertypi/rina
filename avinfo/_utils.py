@@ -33,11 +33,10 @@ date_searcher = re_compile(
 
 def _init_session(retries: int = 5, backoff: float = 0.3):
     session = Session()
-    session.headers.update(
-        {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"
-        }
-    )
+    session.headers.update({
+        "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"
+    })
     adapter = HTTPAdapter(max_retries=Retry(retries, backoff_factor=backoff))
     session.mount("http://", adapter)
     session.mount("https://", adapter)
@@ -88,7 +87,8 @@ def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
 
 def strptime(string: str, fmt: str) -> float:
     """Parse a string acroding to a format, returns epoch in UTC."""
-    return datetime.strptime(string, fmt).replace(tzinfo=timezone.utc).timestamp()
+    return datetime.strptime(string,
+                             fmt).replace(tzinfo=timezone.utc).timestamp()
 
 
 def strftime(epoch: float, fmt: str = "%F") -> Optional[str]:
