@@ -292,7 +292,7 @@ def update_dir_mtime(top_dir: Path):
                 if entry.is_dir(follow_symlinks=False):
                     dirs.append(entry)
                 else:
-                    mtime = entry.stat(follow_symlinks=False).st_mtime
+                    mtime = entry.stat().st_mtime
                     if mtime > newest:
                         newest = mtime
 
