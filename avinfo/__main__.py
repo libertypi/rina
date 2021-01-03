@@ -99,10 +99,13 @@ def _normalize_target(target: str):
     path = Path(target)
     try:
         return path.resolve(strict=True)
-    except (FileNotFoundError, RuntimeError):
-        if path.name == target:
-            return target
-    raise argparse.ArgumentTypeError(f'"{target}" is unreachable')
+    except FileNotFoundError:
+        if len(path.parts) == 1:
+            return path.stem
+        msg = f'"{target}" not found'
+    except (OSError, RuntimeError) as e:
+        msg = str(e)
+    raise argparse.ArgumentTypeError(msg)
 
 
 def printProgressBar(iteration, total, length=SEP_WIDTH, fill="█"):

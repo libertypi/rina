@@ -1,19 +1,12 @@
 import os
 import warnings
-from os import scandir
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from os import scandir
 from pathlib import Path
-from typing import Iterator, Tuple
+from typing import Iterator
 
-from avinfo._utils import (
-    SEP_CHANGED,
-    SEP_FAILED,
-    SEP_SUCCESS,
-    color_printer,
-    re_compile,
-    re_search,
-    strftime,
-)
+from avinfo._utils import (SEP_CHANGED, SEP_FAILED, SEP_SUCCESS, color_printer,
+                           re_compile, re_search, strftime)
 from avinfo.scraper import ScrapeResult, _has_word, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")

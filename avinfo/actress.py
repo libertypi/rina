@@ -518,8 +518,13 @@ class ActressFolder(Actress):
             self.status = "changed"
 
     def apply(self):
+
+        path = self.path
         if self.status == "changed":
-            os.rename(self.path, self.path.with_name(self.result))
+            new = path.with_name(self.result)
+            os.rename(path, new)
+            path = new
+        return path
 
 
 def scan_dir(top_dir: Path) -> Iterator[ActressFolder]:
