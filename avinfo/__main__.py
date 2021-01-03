@@ -160,7 +160,7 @@ def process_scan(scan, mode: str, quiet: bool):
     print(f"{SEP_BOLD}\nApplying changes...")
 
     failed.clear()
-    for obj in progressbar(changed):
+    for obj in progress(changed):
         try:
             obj.apply()
         except OSError as e:
@@ -171,17 +171,17 @@ def process_scan(scan, mode: str, quiet: bool):
         color_printer("Error:", e)
 
 
-def progressbar(sequence, length: int = SEP_WIDTH, fill: str = "█"):
+def progress(sequence, width: int = SEP_WIDTH):
     '''Make an iterator that returns values from the input sequence while
-    printing progress bar.'''
+    printing a progress bar.'''
 
     total = len(sequence)
     bar = '\rProgress |{}{}| {:.1%} Complete'.format
 
     for i, obj in enumerate(sequence, 1):
         yield obj
-        n = i * length // total
-        print(bar(fill * n, "-" * (length - n), i / total), end="\r")
+        n = i * width // total
+        print(bar("█" * n, "-" * (width - n), i / total), end="\r")
     print()
 
 
