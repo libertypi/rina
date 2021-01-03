@@ -10,7 +10,6 @@ from avinfo._utils import (SEP_BOLD, SEP_SLIM, SEP_WIDTH, color_printer,
 def parse_args():
 
     parser = argparse.ArgumentParser(
-        prog="avinfo",
         description="The ultimate AV detector.",
         epilog=dedent("""\
             examples:
