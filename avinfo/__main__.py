@@ -52,7 +52,7 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="dir",
-        help="update dir's mtime to the newest file inside (target: dir)",
+        help="update dir mtime to the newest file inside (target: dir)",
     )
 
     parser.add_argument(
