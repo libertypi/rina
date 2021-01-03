@@ -175,7 +175,7 @@ def progress(sequence, width: int = SEP_WIDTH):
     printing a progress bar.'''
 
     total = len(sequence)
-    bar = '\rProgress |{}{}| {:.1%} Complete'.format
+    bar = "Progress |{}{}| {:.1%} Complete".format
 
     for i, obj in enumerate(sequence, 1):
         yield obj
