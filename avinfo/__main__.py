@@ -97,7 +97,7 @@ def parse_args():
 def _normalize_target(target: str):
 
     if not target.strip():
-        raise argparse.ArgumentTypeError("empty target")
+        raise argparse.ArgumentTypeError("empty argument")
 
     path = Path(target)
     try:
@@ -108,16 +108,6 @@ def _normalize_target(target: str):
         raise argparse.ArgumentTypeError(e)
     except (OSError, RuntimeError) as e:
         raise argparse.ArgumentTypeError(e)
-
-
-def printProgressBar(iteration, total, length=SEP_WIDTH, fill="█"):
-
-    percent = f"{100 * (iteration / float(total)):.1f}"
-    filledLength = int(length * iteration // total)
-    bar = f'{fill * filledLength}{"-" * (length - filledLength)}'
-    print(f"\rProgress |{bar}| {percent}% Complete", end="\r")
-    if iteration == total:
-        print()
 
 
 def process_scan(scan, mode: str, quiet: bool):
@@ -169,19 +159,30 @@ def process_scan(scan, mode: str, quiet: bool):
                 obj.print()
 
     print(f"{SEP_BOLD}\nApplying changes...")
-    printProgressBar(0, total_changed)
 
     failed.clear()
-    for i, obj in enumerate(changed, 1):
+    bar = print_progressbar(total_changed)
+    for obj in changed:
         try:
             obj.apply()
         except OSError as e:
             failed.append((obj.path, e))
-        printProgressBar(i, total_changed)
+        next(bar)
 
     for path, e in failed:
         color_printer("Target:", path)
         color_printer("Error:", e)
+
+
+def print_progressbar(total: int, length: int = SEP_WIDTH, fill: str = "█"):
+
+    bar = '\rProgress |{}{}| {:.1%} Complete'.format
+    for i in range(1, total + 1):
+        n = i * length // total
+        print(bar(fill * n, "-" * (length - n), i / total), end="\r")
+        if i == total:
+            print()
+        yield i
 
 
 def main():
