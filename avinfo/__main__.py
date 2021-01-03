@@ -125,12 +125,11 @@ def process_scan(scan, mode: str, quiet: bool):
         elif obj.status == "failed":
             failed.append(obj)
 
-    total_changed = len(changed)
     print(SEP_BOLD)
     print(f"{mode} scan finished.")
 
-    msg = f"Total: {total}. Changed: {total_changed}. Failed: {len(failed)}."
-    if not total_changed:
+    msg = f"Total: {total}. Changed: {len(changed)}. Failed: {len(failed)}."
+    if not changed:
         print(msg)
         print("No change can be made.")
         return
@@ -161,28 +160,29 @@ def process_scan(scan, mode: str, quiet: bool):
     print(f"{SEP_BOLD}\nApplying changes...")
 
     failed.clear()
-    bar = print_progressbar(total_changed)
-    for obj in changed:
+    for obj in progressbar(changed):
         try:
             obj.apply()
         except OSError as e:
             failed.append((obj.path, e))
-        next(bar)
 
     for path, e in failed:
         color_printer("Target:", path)
         color_printer("Error:", e)
 
 
-def print_progressbar(total: int, length: int = SEP_WIDTH, fill: str = "█"):
+def progressbar(sequence, length: int = SEP_WIDTH, fill: str = "█"):
+    '''Make an iterator that returns values from the input sequence while
+    printing progress bar.'''
 
+    total = len(sequence)
     bar = '\rProgress |{}{}| {:.1%} Complete'.format
-    for i in range(1, total + 1):
+
+    for i, obj in enumerate(sequence, 1):
+        yield obj
         n = i * length // total
         print(bar(fill * n, "-" * (length - n), i / total), end="\r")
-        if i == total:
-            print()
-        yield i
+    print()
 
 
 def main():
