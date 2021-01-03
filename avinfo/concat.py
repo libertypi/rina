@@ -3,7 +3,7 @@ import os.path as op
 import re
 import subprocess
 import warnings
-from collections import defaultdict, deque
+from collections import defaultdict
 from shutil import which
 from tempfile import mkstemp
 from textwrap import dedent
@@ -69,7 +69,6 @@ def find_consecutive_videos(root):
 
     # ffmpeg requires absolute path
     root = op.abspath(root)
-    assert isinstance(root, str), "expect str or PathLike object"
 
     stack = [root]
     names = set()
@@ -135,7 +134,7 @@ def main(top_dir, quiet: bool = False):
         print(f"{FFMPEG} not found.")
         return
 
-    result = deque()
+    result = []
     for video in find_consecutive_videos(top_dir):
         result.append(video)
         print(SEP_SLIM)
@@ -164,10 +163,9 @@ def main(top_dir, quiet: bool = False):
 
         if choice == 2:
 
-            n = len(result)
             msg = f"""\
                 {SEP_BOLD}
-                please select what to do with following ({{}} of {n}):
+                please select what to do with following ({{}} of {len(result)}):
                 {SEP_SLIM}
                 {{}}
                 {SEP_SLIM}
@@ -177,13 +175,13 @@ def main(top_dir, quiet: bool = False):
             """
             msg = dedent(msg)
 
-            for i in range(1, n + 1):
-                video = result.popleft()
-                choice = get_choice_as_int(msg.format(i, video.report), 3)
-                if choice == 1:
-                    result.append(video)
+            for i, video in enumerate(result):
+                choice = get_choice_as_int(msg.format(i + 1, video.report), 3)
+                if choice == 2:
+                    result[i] = None
                 elif choice == 3:
                     return
+            result[:] = filter(None, result)
 
         elif choice == 3:
             return
