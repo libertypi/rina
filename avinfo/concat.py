@@ -1,10 +1,9 @@
 import os
+import os.path as op
 import re
 import subprocess
 import warnings
 from collections import defaultdict, deque
-from os.path import abspath
-from os.path import join as joinpath
 from shutil import which
 from tempfile import mkstemp
 from textwrap import dedent
@@ -66,14 +65,13 @@ class ConcatVideo:
                 print("remove:", file)
 
 
-def find_consecutive_videos(top_dir):
+def find_consecutive_videos(root):
 
     # ffmpeg requires absolute path
-    top_dir = abspath(top_dir)
-    if not isinstance(top_dir, str):
-        raise TypeError("expect str or PathLike object")
+    root = op.abspath(root)
+    assert isinstance(root, str), "expect str or PathLike object"
 
-    stack = [top_dir]
+    stack = [root]
     names = set()
     groups = defaultdict(dict)
     matcher = re.compile(
@@ -126,7 +124,7 @@ def find_consecutive_videos(top_dir):
                     continue
 
                 yield ConcatVideo(
-                    joinpath(root, name),
+                    op.join(root, name),
                     tuple(v[i] for i in range(1, n + 1)),
                 )
 

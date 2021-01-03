@@ -236,13 +236,13 @@ def scan_dir(top_dir: Path) -> Iterator[AVFile]:
             yield ft.result()
 
 
-def _probe_files(path, ext: set):
+def _probe_files(root, ext: set):
 
-    stack = [path]
+    stack = [root]
     while stack:
-        path = stack.pop()
+        root = stack.pop()
         try:
-            with scandir(path) as it:
+            with scandir(root) as it:
                 for entry in it:
                     name = entry.name
                     if name[0] in "#@.":
@@ -257,7 +257,7 @@ def _probe_files(path, ext: set):
                     except OSError:
                         pass
         except OSError as e:
-            warnings.warn(f'error occurred scanning "{path}": {e}')
+            warnings.warn(f'error occurred scanning "{root}": {e}')
 
 
 def _get_namemax(path: Path):

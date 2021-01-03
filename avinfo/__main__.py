@@ -96,11 +96,14 @@ def parse_args():
 
 def _normalize_target(target: str):
 
+    if not target.strip():
+        raise argparse.ArgumentTypeError("empty target")
+
     path = Path(target)
     try:
         return path.resolve(strict=True)
     except FileNotFoundError as e:
-        if len(path.parts) == 1:
+        if path.name == target:
             return path.stem
         raise argparse.ArgumentTypeError(e)
     except (OSError, RuntimeError) as e:
