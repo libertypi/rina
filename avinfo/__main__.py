@@ -39,14 +39,6 @@ def parse_args():
         help="detect actress bio (target: dir, keyword)",
     )
     group.add_argument(
-        "-c",
-        "--concat",
-        dest="mode",
-        action="store_const",
-        const="concat",
-        help="find and concat consecutive videos (target: dir)",
-    )
-    group.add_argument(
         "-d",
         "--dir",
         dest="mode",
@@ -54,7 +46,21 @@ def parse_args():
         const="dir",
         help="update dir mtime to the newest file inside (target: dir)",
     )
+    group.add_argument(
+        "-c",
+        "--concat",
+        dest="mode",
+        action="store_const",
+        const="concat",
+        help="find and concat consecutive videos (target: dir)",
+    )
 
+    parser.add_argument(
+        "--ffmpeg",
+        dest="ffmpeg",
+        action="store",
+        help="ffmpeg executable, for concat mode (default: search PATH)",
+    )
     parser.add_argument(
         "-q",
         "--quiet",
@@ -62,6 +68,7 @@ def parse_args():
         action="store_true",
         help="apply changes without prompting (default: %(default)s)",
     )
+
     parser.add_argument(
         "target",
         type=_normalize_target,
@@ -124,8 +131,7 @@ def process_scan(scan, mode: str, quiet: bool):
         elif obj.status == "failed":
             failed.append(obj)
 
-    print(SEP_BOLD)
-    print(f"{mode} scan finished.")
+    print(f"{SEP_BOLD}\n{mode} scan finished.")
 
     msg = f"Total: {total}. Changed: {len(changed)}. Failed: {len(failed)}."
     if not changed:
@@ -181,7 +187,9 @@ def progress(sequence, width: int = SEP_WIDTH):
         yield obj
         n = i * width // total
         print(bar("█" * n, "-" * (width - n), i / total), end="\r")
-    print()
+
+    if total:
+        print()
 
 
 def main():
@@ -216,7 +224,7 @@ def main():
     elif mode == "concat":
         from avinfo import concat
 
-        concat.main(target, quiet=args.quiet)
+        concat.main(target, ffmpeg=args.ffmpeg, quiet=args.quiet)
 
     else:
         from avinfo import video

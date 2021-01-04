@@ -20,7 +20,7 @@ SEP_FAILED = "FAILED".center(SEP_WIDTH, "-")
 SEP_CHANGED = "CHANGED".center(SEP_WIDTH, "-")
 HTTP_TIMEOUT = (7, 28)
 
-date_searcher = re.compile(
+date_searcher = re_compile(
     r"""(?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
     (?:(?P<han>年)|(?P<sep>[／/.－-]))\s*
     (?P<m>[1１][0-2０-２]|[0０]?[1-9１-９])\s*

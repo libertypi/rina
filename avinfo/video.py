@@ -1,5 +1,5 @@
 import os
-import warnings
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from os import scandir
 from pathlib import Path
@@ -257,7 +257,7 @@ def _probe_files(root, ext: set):
                     except OSError:
                         pass
         except OSError as e:
-            warnings.warn(f'error occurred scanning "{root}": {e}')
+            print(f'error occurred scanning "{root}": {e}', file=sys.stderr)
 
 
 def _get_namemax(path: Path):
@@ -265,6 +265,7 @@ def _get_namemax(path: Path):
         try:
             return os.statvfs(path).f_namemax
         except OSError as e:
+            import warnings
             warnings.warn(f"getting filesystem namemax failed: {e}")
     return 255
 
@@ -303,7 +304,7 @@ def update_dir_mtime(top_dir: Path):
                 try:
                     os.utime(root, (stat.st_atime, newest))
                 except OSError as e:
-                    warnings.warn(f'error occurred touching "{root}": {e}')
+                    print(e, file=sys.stderr)
                 else:
                     success += 1
                     print("{}  ==>  {}  {}".format(strftime(stat.st_mtime),
@@ -317,6 +318,6 @@ def update_dir_mtime(top_dir: Path):
     try:
         probe_dir(top_dir)
     except OSError as e:
-        warnings.warn(f"error occurred scanning {top_dir}: {e}")
+        print(f"error occurred scanning {top_dir}: {e}", file=sys.stderr)
     else:
         print(f"Finished. {total} dirs scanned, {success} updated.")

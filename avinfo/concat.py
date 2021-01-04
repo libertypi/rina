@@ -2,7 +2,7 @@ import os
 import os.path as op
 import re
 import subprocess
-import warnings
+import sys
 from collections import defaultdict
 from shutil import which
 from tempfile import mkstemp
@@ -29,23 +29,23 @@ class ConcatVideo:
             output_path,
         )
 
-    def apply(self):
+    def apply(self, ffmpeg: str = FFMPEG):
 
         if self.applied:
-            warnings.warn("alreadly applied")
             return
 
         tmpfd, tmpfile = mkstemp()
         try:
             with os.fdopen(tmpfd, "w", encoding="utf-8") as f:
                 f.writelines(f"file '{p}'\n" for p in self.input_files)
+
             subprocess.run(
-                (FFMPEG, "-f", "concat", "-safe", "0", "-i", tmpfile, "-c",
+                (ffmpeg, "-f", "concat", "-safe", "0", "-i", tmpfile, "-c",
                  "copy", self.output_path),
                 check=True,
             )
         except subprocess.CalledProcessError as e:
-            warnings.warn(f"{FFMPEG} error: {e}")
+            print(e, file=sys.stderr)
         else:
             self.applied = True
         finally:
@@ -60,7 +60,7 @@ class ConcatVideo:
             try:
                 os.unlink(file)
             except OSError as e:
-                warnings.warn(f'removing "{file}" failed: {e}')
+                print(e, file=sys.stderr)
             else:
                 print("remove:", file)
 
@@ -71,7 +71,7 @@ def find_consecutive_videos(root):
     root = op.abspath(root)
 
     stack = [root]
-    names = set()
+    seen = set()
     groups = defaultdict(dict)
     matcher = re.compile(
         r"""
@@ -86,7 +86,7 @@ def find_consecutive_videos(root):
     while stack:
 
         root = stack.pop()
-        names.clear()
+        seen.clear()
         groups.clear()
 
         try:
@@ -97,7 +97,7 @@ def find_consecutive_videos(root):
                     name = entry.name
                     if name[0] in "#@.":
                         continue
-                    names.add(name)
+                    seen.add(name)
 
                     if entry.is_dir(follow_symlinks=False):
                         stack.append(entry.path)
@@ -111,7 +111,7 @@ def find_consecutive_videos(root):
                             )][int(m["num"])] = entry.path
 
         except OSError as e:
-            warnings.warn(f"error occurred scanning {root}: {e}")
+            print(e, file=sys.stderr)
             continue
 
         for k, v in groups.items():
@@ -119,7 +119,7 @@ def find_consecutive_videos(root):
             if 1 < n == max(v):
 
                 name = k[0] + k[2]
-                if name in names:
+                if name in seen:
                     continue
 
                 yield ConcatVideo(
@@ -128,10 +128,15 @@ def find_consecutive_videos(root):
                 )
 
 
-def main(top_dir, quiet: bool = False):
+def main(top_dir, ffmpeg: str, quiet: bool):
 
-    if which(FFMPEG) is None:
-        print(f"{FFMPEG} not found.")
+    ffmpeg = which(ffmpeg or FFMPEG)
+    if ffmpeg is None:
+        print(
+            "Error: ffmpeg not found. "
+            "Please make sure it is in PATH, "
+            "or passed via --ffmpeg argument.",
+            file=sys.stderr)
         return
 
     result = []
@@ -187,7 +192,7 @@ def main(top_dir, quiet: bool = False):
             return
 
     for video in result:
-        video.apply()
+        video.apply(ffmpeg)
 
     if not quiet:
         msg = f"""\
