@@ -20,13 +20,13 @@ SEP_FAILED = "FAILED".center(SEP_WIDTH, "-")
 SEP_CHANGED = "CHANGED".center(SEP_WIDTH, "-")
 HTTP_TIMEOUT = (7, 28)
 
-date_searcher = re_compile(
-    r"""(?P<y>(?:19|20)[0-9]{2})\s*
+date_searcher = re.compile(
+    r"""(?P<y>(?:19|20|１９|２０)\d{2})\s*
     (?:(?P<han>年)|(?P<sep>[/.-]))\s*
-    (?P<m>1[0-2]|0?[1-9])\s*
+    (?P<m>[1１][0-2０-２]|[0０]?[1-9１-９])\s*
     (?(han)月|(?P=sep))\s*
-    (?P<d>[12][0-9]|3[01]|0?[1-9])
-    (?(han)\s*日|(?=$|[^0-9]))""",
+    (?P<d>[12１２][0-9０-９]|[3３][01０１]|[0０]?[1-9１-９])
+    (?(han)\s*日|(?=$|\D))""",
     flags=re.VERBOSE,
 ).search
 

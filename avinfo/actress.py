@@ -60,11 +60,11 @@ class Wiki:
                 result.alias.add(name)
             result.name = name
 
-        birth = result.birth
-        if birth:
-            result.birth = f'{birth["y"]}-{birth["m"].zfill(2)}-{birth["d"].zfill(2)}'
+        b = result.birth
+        if b:
+            result.birth = f'{int(b["y"])}-{int(b["m"]):02d}-{int(b["d"]):02d}'
 
-        if name or birth or result.alias:
+        if name or b or result.alias:
             return result
 
     @classmethod
