@@ -18,7 +18,7 @@ _name_finder = re_compile(
     r"(?:^|[】」』｝）》\])]){}(?:$|[【「『｛（《\[(])".format(_is_cjk_name)).search
 _is_cjk_name = re_compile(_is_cjk_name).fullmatch
 _name_cleaner = re_compile(r"\d+歳|[\s 　]").sub
-split_name = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
+split_names = re_compile(r"\s*[\n、/／●・,＝=]\s*").split
 
 
 @lru_cache(maxsize=256)
@@ -96,7 +96,7 @@ class Wikipedia(Wiki):
             if not birth and "生年月日" in k:
                 birth = date_searcher("".join(xp(tr)))
             elif "別名" in k:
-                alias.extend(j for i in xp(tr) for j in split_name(i))
+                alias.extend(j for i in xp(tr) for j in split_names(i))
 
         return SearchResult(name=name, birth=birth, alias=alias)
 
@@ -248,7 +248,7 @@ class Seesaawiki(Wiki):
             if not birth and "生年月日" in k:
                 birth = date_searcher(v)
             elif re_search(r"旧名|別名|名前|女優名", k):
-                stack.extend(split_name(v))
+                stack.extend(split_names(v))
 
         return SearchResult(name=name, birth=birth, alias=stack)
 
@@ -277,7 +277,7 @@ class Msin(Wiki):
 
         xp = xpath(
             "string(div[contains(text(), $title)]/following-sibling::span)")
-        alias = split_name(xp(tree, title="別名"))
+        alias = split_names(xp(tree, title="別名"))
 
         if match_name(keyword, name, *alias):
             return SearchResult(
@@ -298,7 +298,7 @@ class Msin(Wiki):
                 continue
 
             alias = div.findtext('div[@class="act_anotherName"]')
-            alias = split_name(alias) if alias else ()
+            alias = split_names(alias) if alias else ()
 
             if match_name(keyword, name, *alias):
                 if result:
@@ -336,7 +336,7 @@ class Manko(Wiki):
             if not name:
                 continue
 
-            alias = split_name(info_xp(tbody, title="別名"))
+            alias = split_names(info_xp(tbody, title="別名"))
             if match_name(keyword, name, *alias):
                 if result:
                     return

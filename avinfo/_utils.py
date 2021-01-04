@@ -21,8 +21,8 @@ SEP_CHANGED = "CHANGED".center(SEP_WIDTH, "-")
 HTTP_TIMEOUT = (7, 28)
 
 date_searcher = re.compile(
-    r"""(?P<y>(?:19|20|１９|２０)\d{2})\s*
-    (?:(?P<han>年)|(?P<sep>[/.-]))\s*
+    r"""(?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
+    (?:(?P<han>年)|(?P<sep>[／/.－-]))\s*
     (?P<m>[1１][0-2０-２]|[0０]?[1-9１-９])\s*
     (?(han)月|(?P=sep))\s*
     (?P<d>[12１２][0-9０-９]|[3３][01０１]|[0０]?[1-9１-９])
