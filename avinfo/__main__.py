@@ -78,14 +78,14 @@ def parse_args():
     args = parser.parse_args()
 
     if isinstance(args.target, str):
-        target_type = "str"
+        target_type = "keyword"
     elif args.target.is_dir():
         target_type = "dir"
     else:
         target_type = "file"
 
     if not args.mode:
-        if target_type == "str" and not any(map(str.isascii, args.target)):
+        if target_type == "keyword" and not any(map(str.isascii, args.target)):
             args.mode = "actress"
         else:
             args.mode = "video"
@@ -212,7 +212,7 @@ def main():
     if mode == "actress":
         from avinfo import actress
 
-        if target_type == "str":
+        if target_type == "keyword":
             actress.Actress(target).print()
         else:
             process_scan(
@@ -229,7 +229,7 @@ def main():
     else:
         from avinfo import video
 
-        if target_type == "str":
+        if target_type == "keyword":
             video.from_string(target).print()
             return
 
