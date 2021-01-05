@@ -73,8 +73,8 @@ class Scraper:
 
         result.title = title
         result.product_id = self._process_product_id(product_id)
-        assert isinstance(result.publish_date,
-                          float) or result.publish_date is None
+        assert (isinstance(result.publish_date, float) or
+                result.publish_date is None)
 
         return result
 
@@ -261,7 +261,7 @@ class StudioMatcher(Scraper):
         if result and (result.source.startswith("jav") or
                        not result.publish_date):
             try:
-                result.publish_date = strptime(self.match["s1"], self.datefmt)
+                result.publish_date = strptime(match["s1"], self.datefmt)
             except ValueError as e:
                 self._warn(e)
         return result
