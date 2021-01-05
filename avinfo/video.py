@@ -222,22 +222,21 @@ def from_path(path, stat: os.stat_result = None, namemax: int = None):
 def scan_dir(top_dir: Path) -> Iterator[AVFile]:
     """Recursively scans a dir, yields AVFile objects."""
 
+    namemax = _get_namemax(top_dir)
+
+    with ThreadPoolExecutor() as ex:
+        for ft in as_completed(
+                ex.submit(from_path, path, stat, namemax)
+                for path, stat in _probe_videos(top_dir)):
+            yield ft.result()
+
+
+def _probe_videos(root):
     ext = {
         "3gp", "asf", "avi", "bdmv", "flv", "iso", "m2ts", "m2v", "m4p", "m4v",
         "mkv", "mov", "mp2", "mp4", "mpeg", "mpg", "mpv", "mts", "mxf", "rm",
         "rmvb", "ts", "vob", "webm", "wmv"
     }
-    namemax = _get_namemax(top_dir)
-
-    with ThreadPoolExecutor(max_workers=None) as ex:
-        for ft in as_completed(
-                ex.submit(from_path, path, stat, namemax)
-                for path, stat in _probe_files(top_dir, ext)):
-            yield ft.result()
-
-
-def _probe_files(root, ext: set):
-
     stack = [root]
     while stack:
         root = stack.pop()
