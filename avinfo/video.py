@@ -252,7 +252,7 @@ def _probe_files(root, ext: set):
                             stack.append(entry.path)
                         else:
                             name = name.rpartition(".")
-                            if name[2].lower() in ext and name[1]:
+                            if name[0] and name[2].lower() in ext:
                                 yield entry.path, entry.stat()
                     except OSError:
                         pass

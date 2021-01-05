@@ -18,7 +18,7 @@ SEP_SLIM = "-" * SEP_WIDTH
 SEP_SUCCESS = "SUCCESS".center(SEP_WIDTH, "-")
 SEP_FAILED = "FAILED".center(SEP_WIDTH, "-")
 SEP_CHANGED = "CHANGED".center(SEP_WIDTH, "-")
-HTTP_TIMEOUT = (7, 28)
+HTTP_TIMEOUT = (6.1, 27)
 
 date_searcher = re_compile(
     r"""(?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
@@ -68,8 +68,7 @@ def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
     :param encoding: None (feed bytes to lxml), "auto" (detect by requests), or any
     encodings
     """
-    kwargs.setdefault("timeout", HTTP_TIMEOUT)
-    response = session.get(url, **kwargs)
+    response = session.get(url, timeout=HTTP_TIMEOUT, **kwargs)
     try:
         response.raise_for_status()
     except HTTPError:
