@@ -259,14 +259,19 @@ def _probe_videos(root):
             print(f'error occurred scanning "{root}": {e}', file=sys.stderr)
 
 
-def _get_namemax(path: Path):
-    if os.name == "posix":
+if os.name == "posix":
+
+    def _get_namemax(path: Path):
         try:
             return os.statvfs(path).f_namemax
         except OSError as e:
             import warnings
             warnings.warn(f"getting filesystem namemax failed: {e}")
-    return 255
+            return 255
+else:
+
+    def _get_namemax(path: Path):
+        return 255
 
 
 def update_dir_mtime(top_dir: Path):
