@@ -1,7 +1,6 @@
 import argparse
 import sys
 from pathlib import Path
-from textwrap import dedent
 
 from avinfo._utils import (SEP_BOLD, SEP_SLIM, SEP_WIDTH, color_printer,
                            get_choice_as_int)
@@ -11,13 +10,12 @@ def parse_args():
 
     parser = argparse.ArgumentParser(
         description="The ultimate AV detector.",
-        epilog=dedent("""\
-            examples:
-              %(prog)s /mnt/dir           -> recursively scrape all videos in "dir"
-              %(prog)s -a /mnt/dir        -> scan actress bio from folder names under "dir"
-              %(prog)s -v heyzo-2288.mp4  -> scrape a single file
-              %(prog)s 和登こころ         -> search for a particular actress
-            """),
+        epilog=
+        ('examples:\n'
+         '  %(prog)s /mnt/dir           -> recursively scrape all videos in "dir"\n'
+         '  %(prog)s -a /mnt/dir        -> scan actress bio from folder names under "dir"\n'
+         '  %(prog)s -v heyzo-2288.mp4  -> scrape a single file\n'
+         '  %(prog)s 和登こころ         -> search for a particular actress'),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
@@ -142,17 +140,13 @@ def process_scan(scan, mode: str, quiet: bool):
     if quiet:
         print(msg)
     else:
-        msg = f"""\
-            {SEP_BOLD}
-            {msg}
-            Please choose an option:
-            1) apply changes
-            2) reload changes
-            3) reload failures
-            4) quit
-        """
-        msg = dedent(msg)
-
+        msg = (f"{SEP_BOLD}\n"
+               f"{msg}\n"
+               "Please choose an option:\n"
+               "1) apply changes\n"
+               "2) reload changes\n"
+               "3) reload failures\n"
+               "4) quit\n")
         while True:
             choice = get_choice_as_int(msg, 4)
             if choice == 1:

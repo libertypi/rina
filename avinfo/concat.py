@@ -6,7 +6,6 @@ import sys
 from collections import defaultdict
 from shutil import which
 from tempfile import mkstemp
-from textwrap import dedent
 
 from avinfo._utils import SEP_BOLD, SEP_SLIM, get_choice_as_int
 
@@ -157,28 +156,23 @@ def main(top_dir, ffmpeg: str, quiet: bool):
         ))
 
     if not quiet:
-        msg = f"""\
-            {SEP_BOLD}
-            please choose an option:
-            1) apply all
-            2) select items
-            3) quit
-        """
-        choice = get_choice_as_int(dedent(msg), 3)
+        msg = (f"{SEP_BOLD}\n"
+               "please choose an option:\n"
+               "1) apply all\n"
+               "2) select items\n"
+               "3) quit\n")
+        choice = get_choice_as_int(msg, 3)
 
         if choice == 2:
-
-            msg = f"""\
-                {SEP_BOLD}
-                please select what to do with following ({{}} of {len(result)}):
-                {SEP_SLIM}
-                {{}}
-                {SEP_SLIM}
-                1) select
-                2) skip
-                3) quit
-            """
-            msg = dedent(msg)
+            msg = (
+                f"{SEP_BOLD}\n"
+                f"please select what to do with following ({{}} of {len(result)}):\n"
+                f"{SEP_SLIM}\n"
+                "{}\n"
+                f"{SEP_SLIM}\n"
+                "1) select\n"
+                "2) skip\n"
+                "3) quit\n")
 
             for i, video in enumerate(result):
                 choice = get_choice_as_int(msg.format(i + 1, video.report), 3)
@@ -195,14 +189,12 @@ def main(top_dir, ffmpeg: str, quiet: bool):
         video.apply(ffmpeg)
 
     if not quiet:
-        msg = f"""\
-        {SEP_BOLD}
-        delete all the successfully converted input files?
-        please check with caution.
-        1) yes
-        2) no
-        """
-        choice = get_choice_as_int(dedent(msg), 2)
+        msg = (f"{SEP_BOLD}\n"
+               "delete all the successfully converted input files?\n"
+               "please check with caution.\n"
+               "1) yes\n"
+               "2) no\n")
+        choice = get_choice_as_int(msg, 2)
         if choice == 1:
             for video in result:
                 video.remove_inputs()
