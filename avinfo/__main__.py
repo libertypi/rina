@@ -175,15 +175,15 @@ def progress(sequence, width: int = SEP_WIDTH):
     printing a progress bar.'''
 
     total = len(sequence)
-    bar = "Progress |{}{}| {:.1%} Complete".format
+    if not total:
+        return
 
+    bar = "Progress |{}{}| {:.1%} Complete".format
     for i, obj in enumerate(sequence, 1):
         yield obj
         n = i * width // total
         print(bar("█" * n, "-" * (width - n), i / total), end="\r")
-
-    if total:
-        print()
+    print()
 
 
 def main():
