@@ -278,7 +278,7 @@ def update_dir_mtime(top_dir: Path):
 
     total = success = 0
 
-    def probe_dir(root: Path):
+    def probe_dir(root):
 
         nonlocal total, success
 
@@ -311,8 +311,9 @@ def update_dir_mtime(top_dir: Path):
                     print(e, file=sys.stderr)
                 else:
                     success += 1
-                    print("{}  ==>  {}  {}".format(strftime(stat.st_mtime),
-                                                   strftime(newest), root.name))
+                    print("{} => {}: {}".format(strftime(stat.st_mtime),
+                                                strftime(newest),
+                                                os.fspath(root)))
         return newest
 
     print("Updating directory timestamps...")
