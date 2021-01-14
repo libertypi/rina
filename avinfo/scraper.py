@@ -30,7 +30,7 @@ session.cookies.set_cookie(
     create_cookie(domain="www.javbus.com", name="existmag", value="all"))
 _subspace = re_compile(r"\s+").sub
 _subbraces = re_compile(r"[\s()\[\].-]+").sub
-_valid_id = re_compile(r"[A-Za-z0-9]+(?:[._-]?[A-Za-z0-9]+)*").fullmatch
+_valid_id = re_compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
 _has_word = re_compile(r"\w").search
 _trans_sep = None
 
