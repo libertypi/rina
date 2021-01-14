@@ -67,9 +67,7 @@ class ConcatVideo:
 def find_consecutive_videos(root):
 
     # ffmpeg requires absolute path
-    root = op.abspath(root)
-
-    stack = [root]
+    stack = [op.abspath(root)]
     seen = set()
     groups = defaultdict(dict)
     matcher = re.compile(
