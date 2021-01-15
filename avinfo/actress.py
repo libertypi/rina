@@ -15,7 +15,7 @@ __all__ = ("scan_dir",)
 
 _is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
 _name_finder = re_compile(
-    r"(?:^|[】」』｝）》\])]){}(?:$|[【「『｛（《\[(])".format(_is_cjk_name)).search
+    rf"(?:^|[】」』｝）》\])]){_is_cjk_name}(?:$|[【「『｛（《\[(])").search
 _is_cjk_name = re_compile(_is_cjk_name).fullmatch
 _name_cleaner = re_compile(r"\d+歳|[\s 　]").sub
 split_names = re_compile(r"\s*[\n、/／●・,＝=]\s*").split

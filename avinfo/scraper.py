@@ -193,10 +193,8 @@ class Scraper:
                 _trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
                 mask = self.keyword.translate(_trans_sep)
 
-            mask = self._mask = re_compile(
-                r"\s*{}\s*".format(mask),
-                flags=re.IGNORECASE,
-            ).fullmatch
+            mask = self._mask = re_compile(rf"\s*{mask}\s*",
+                                           flags=re.I).fullmatch
 
         return mask
 
