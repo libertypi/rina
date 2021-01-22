@@ -5,11 +5,10 @@ from functools import lru_cache
 from re import compile as re_compile
 from typing import Optional
 
+import requests
 from lxml.etree import XPath
-from lxml.html import HtmlElement
-from lxml.html import fromstring as html_fromstring
-from requests import HTTPError, Session
-from requests.adapters import HTTPAdapter
+from lxml.html import HtmlElement, fromstring as html_fromstring
+from requests import HTTPError
 from urllib3 import Retry
 
 SEP_WIDTH = 50
@@ -32,12 +31,13 @@ date_searcher = re_compile(
 
 
 def _init_session(retries: int = 5, backoff: float = 0.3):
-    session = Session()
+    session = requests.Session()
     session.headers.update({
         "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"
     })
-    adapter = HTTPAdapter(max_retries=Retry(retries, backoff_factor=backoff))
+    adapter = requests.adapters.HTTPAdapter(
+        max_retries=Retry(retries, backoff_factor=backoff))
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     return session
