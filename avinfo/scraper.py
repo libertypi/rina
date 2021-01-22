@@ -908,13 +908,17 @@ def _load_json_ld(tree: HtmlElement):
     try:
         return json.loads(data)
     except ValueError:
-        repl = lambda m: f"{m[1]}:{json.dumps(m[2], ensure_ascii=False)}{m[3]}"
+        dumps = json.dumps
+        repl = lambda m: f"{m[1]}:{dumps(m[2], ensure_ascii=False)}{m[3]}"
         return json.loads(
             re_sub(r'("[^"]+")\s*:\s*"(.*?)"\s*([,}])', repl, data))
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
-    """Combine one or more scraper regexes to a single pattern."""
+    """Combine one or more scraper regexes to a single pattern.
+
+    After called, the regex attributes of input classes are deleted, to free
+    memory."""
 
     item = []
     for scraper in args:
@@ -922,6 +926,7 @@ def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
             item.append(scraper.regex)
         else:
             item.extend(scraper.regex)
+        del scraper.regex
 
     result = "|".join(item)
     assert "_" not in result, f'"_" in regex: {result}'
