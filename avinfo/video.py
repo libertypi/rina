@@ -1,7 +1,6 @@
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from os import scandir
 from pathlib import Path
 from typing import Iterator
 
@@ -241,7 +240,7 @@ def _probe_videos(root):
     while stack:
         root = stack.pop()
         try:
-            with scandir(root) as it:
+            with os.scandir(root) as it:
                 for entry in it:
                     name = entry.name
                     if name[0] in "#@.":
@@ -286,7 +285,7 @@ def update_dir_mtime(top_dir: Path):
         newest = 0
         dirs = []
 
-        with scandir(root) as it:
+        with os.scandir(root) as it:
             for entry in it:
                 if entry.name[0] in "#@.":
                     continue

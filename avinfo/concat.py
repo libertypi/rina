@@ -1,11 +1,11 @@
 import os
 import os.path as op
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from collections import defaultdict
-from shutil import which
-from tempfile import mkstemp
 
 from avinfo._utils import SEP_BOLD, SEP_SLIM, get_choice_as_int
 
@@ -33,7 +33,7 @@ class ConcatVideo:
         if self.applied:
             return
 
-        tmpfd, tmpfile = mkstemp()
+        tmpfd, tmpfile = tempfile.mkstemp()
         try:
             with os.fdopen(tmpfd, "w", encoding="utf-8") as f:
                 f.writelines(f"file '{p}'\n" for p in self.input_files)
@@ -127,7 +127,7 @@ def find_consecutive_videos(root):
 
 def main(top_dir, ffmpeg: str, quiet: bool):
 
-    ffmpeg = which(ffmpeg or FFMPEG)
+    ffmpeg = shutil.which(ffmpeg or FFMPEG)
     if ffmpeg is None:
         print(
             "Error: ffmpeg not found. "

@@ -22,7 +22,7 @@ _subspace = re_compile(r"\s+").sub
 _subbraces = re_compile(r"[\s()\[\].-]+").sub
 _valid_id = re_compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
 _has_word = re_compile(r"\w").search
-_trans_sep = None
+_trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
 
 
 @dataclass
@@ -173,19 +173,11 @@ class Scraper:
 
     def _get_keyword_mask(self):
 
-        global _trans_sep
-
         mask = self._mask
         if not mask:
-            try:
-                mask = self.keyword.translate(_trans_sep)
-            except TypeError:
-                _trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
-                mask = self.keyword.translate(_trans_sep)
-
-            mask = self._mask = re_compile(rf"\s*{mask}\s*",
-                                           flags=re.I).fullmatch
-
+            mask = self._mask = re_compile(
+                rf"\s*{self.keyword.translate(_trans_sep)}\s*",
+                flags=re.I).fullmatch
         return mask
 
     def _process_product_id(self, product_id: str) -> str:
@@ -908,8 +900,7 @@ def _load_json_ld(tree: HtmlElement):
     try:
         return json.loads(data)
     except ValueError:
-        dumps = json.dumps
-        repl = lambda m: f"{m[1]}:{dumps(m[2], ensure_ascii=False)}{m[3]}"
+        repl = lambda m: f"{m[1]}:{json.dumps(m[2], ensure_ascii=False)}{m[3]}"
         return json.loads(
             re_sub(r'("[^"]+")\s*:\s*"(.*?)"\s*([,}])', repl, data))
 
@@ -917,8 +908,8 @@ def _load_json_ld(tree: HtmlElement):
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
     """Combine one or more scraper regexes to a single pattern.
 
-    After called, the regex attributes of input classes are deleted, to free
-    memory."""
+    After called, the `regex` attributes of input classes are deleted in order to
+    free some memory."""
 
     item = []
     for scraper in args:
