@@ -1,33 +1,23 @@
+import json
 import re
 import warnings
 from dataclasses import dataclass
-from json import dumps as json_dumps
-from json import loads as json_loads
 from random import choice as random_choice
 from typing import Optional
 from urllib.parse import urljoin
 
-from requests.cookies import create_cookie
+import requests
 
-from avinfo._utils import (
-    HTTP_TIMEOUT,
-    HtmlElement,
-    HTTPError,
-    get_tree,
-    html_fromstring,
-    re_compile,
-    re_search,
-    re_sub,
-    session,
-    str_to_epoch,
-    strptime,
-    xpath,
-)
+from avinfo._utils import (HTTP_TIMEOUT, HtmlElement, HTTPError, get_tree,
+                           html_fromstring, re_compile, re_search, re_sub,
+                           session, str_to_epoch, strptime, xpath)
 
 __all__ = ("scrape",)
 
 session.cookies.set_cookie(
-    create_cookie(domain="www.javbus.com", name="existmag", value="all"))
+    requests.cookies.create_cookie(domain="www.javbus.com",
+                                   name="existmag",
+                                   value="all"))
 _subspace = re_compile(r"\s+").sub
 _subbraces = re_compile(r"[\s()\[\].-]+").sub
 _valid_id = re_compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
@@ -916,10 +906,10 @@ def _load_json_ld(tree: HtmlElement):
     data = re_sub(r"[\t\n\r\f\v]", "",
                   tree.findtext('.//script[@type="application/ld+json"]'))
     try:
-        return json_loads(data)
+        return json.loads(data)
     except ValueError:
-        repl = lambda m: f"{m[1]}:{json_dumps(m[2], ensure_ascii=False)}{m[3]}"
-        return json_loads(
+        repl = lambda m: f"{m[1]}:{json.dumps(m[2], ensure_ascii=False)}{m[3]}"
+        return json.loads(
             re_sub(r'("[^"]+")\s*:\s*"(.*?)"\s*([,}])', repl, data))
 
 
