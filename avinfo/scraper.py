@@ -6,9 +6,18 @@ from random import choice as random_choice
 from typing import Optional
 from urllib.parse import urljoin
 
+from requests.cookies import create_cookie
+
+from avinfo._mgs import mgs_map as _mgs_map
 from avinfo._utils import (HTTP_TIMEOUT, HtmlElement, HTTPError, get_tree,
                            html_fromstring, re_compile, re_search, re_sub,
                            session, str_to_epoch, strptime, xpath)
+
+session.cookies.set_cookie(
+    create_cookie(domain="www.javbus.com", name="existmag", value="all"))
+session.cookies.set_cookie(
+    create_cookie(domain="mgstage.com", name="adc", value="1"))
+del create_cookie
 
 __all__ = ("scrape",)
 
@@ -808,71 +817,40 @@ class OneKGiri(Scraper):
 class PatternSearcher(Scraper):
 
     __slots__ = ()
-    regex = (r"(?P<pre>[0-9]{,3})"
-             r"(?P<uid>[a-z]{2,10})"
-             r"(?P<mgs>-)?(?P<dmm>0{2,})?"
-             r"(?P<num>(?(dmm)[0-9]{3,8}|[0-9]{2,8}))"
-             r"(?P<sfx>[hm]hb{,2})?")
+    regex = r"[0-9]{,3}(?P<uid>[a-z]{2,10})-?(?P<z>0)*(?P<num>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:[hm]hb{,2})?"
 
-    def _query(self) -> Optional[ScrapeResult]:
+    def _query(self):
 
         m = self.match
-        uid = m["uid"].upper()
-        num = m["num"]
-        self.keyword = f"{uid}-{num}"
+        uid = m["uid"]
+        self.keyword = f'{uid.upper()}-{m["num"]}'
 
-        if 3 <= len(uid) <= 5 and 3 <= len(num) <= 4:
-            if m["dmm"]:
-                return self._dmm()
-            elif m["mgs"] and not m["sfx"]:
-                return self._mgs()
+        if uid in _mgs_map:
+            number = _mgs_map[uid] + self.keyword
+            tree = get_tree(
+                f"https://www.mgstage.com/product/product_detail/{number}/")
+            if tree is None or number not in tree.base_url:
+                return
 
-    def _dmm(self):
+            tree = tree.find('.//article[@id="center_column"]'
+                             '/div[@class="common_detail_cover"]')
+            try:
+                title = re_sub(r"^(\s*【.*?】)+|【.*?映像付】|\+\d+分\b", "",
+                               tree.findtext("h1"))
+            except (AttributeError, TypeError) as e:
+                self._warn(e)
+                return
 
-        number = "".join(self.match.group("pre", "uid", "dmm", "num"))
-        tree = get_tree(
-            f"https://www.dmm.co.jp/digital/videoa/-/detail/=/cid={number}/")
-
-        if tree is not None:
-            xp = xpath('string(//td[@id="mu"]//table//table'
-                       '//td[contains(., $title)]'
+            xp = xpath('string(.//table/tr/th[contains(., $title)]'
                        '/following-sibling::td[contains(., "20")])')
             date = xp(tree, title="発売日") or xp(tree, title="開始日")
 
             return ScrapeResult(
                 product_id=self.keyword,
-                title=tree.findtext('.//h1[@id="title"]'),
+                title=title,
                 publish_date=str_to_epoch(date),
-                source="dmm.co.jp",
+                source="mgstage.com",
             )
-
-    def _mgs(self):
-
-        number = "".join(self.match.group("pre", "uid", "mgs", "num")).upper()
-        tree = get_tree(
-            f"https://www.mgstage.com/product/product_detail/{number}/")
-        if tree is None or number not in tree.base_url:
-            return
-
-        tree = tree.find('.//article[@id="center_column"]'
-                         '/div[@class="common_detail_cover"]')
-        try:
-            title = re_sub(r"^(\s*【.*?】)+|【.*?映像付】|\+\d+分\b", "",
-                           tree.findtext("h1"))
-        except (AttributeError, TypeError) as e:
-            self._warn(e)
-            return
-
-        xp = xpath('string(.//table/tr/th[contains(., $title)]'
-                   '/following-sibling::td[contains(., "20")])')
-        date = xp(tree, title="発売日") or xp(tree, title="開始日")
-
-        return ScrapeResult(
-            product_id=self.keyword,
-            title=title,
-            publish_date=str_to_epoch(date),
-            source="mgstage.com",
-        )
 
 
 class DateSearcher:
@@ -1005,18 +983,6 @@ def scrape(string: str) -> Optional[ScrapeResult]:
         return DateSearcher.search(match)
 
 
-def _set_cookies():
-
-    from requests.cookies import create_cookie
-    set_cookie = session.cookies.set_cookie
-    set_cookie(
-        create_cookie(domain="www.javbus.com", name="existmag", value="all"))
-    set_cookie(
-        create_cookie(domain="dmm.co.jp", name="age_check_done", value="1"))
-    set_cookie(create_cookie(domain="mgstage.com", name="adc", value="1"))
-
-
-_set_cookies()
 _search_map = {
     "studio": StudioMatcher,
     "heyzo": Heyzo,
