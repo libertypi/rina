@@ -1016,6 +1016,7 @@ def _set_cookies():
     set_cookie(create_cookie(domain="mgstage.com", name="adc", value="1"))
 
 
+_set_cookies()
 _search_map = {
     "studio": StudioMatcher,
     "heyzo": Heyzo,
@@ -1049,4 +1050,3 @@ _clean_re = re_compile(
     """,
     flags=re.VERBOSE,
 ).sub
-_set_cookies()
