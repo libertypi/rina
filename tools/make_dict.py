@@ -105,7 +105,7 @@ def _get_mgs_result(local: bool):
     return result
 
 
-def _scan_mgs(url, max_pages=50):
+def _scan_mgs(url):
     """input in initial url, output trees of maker pages."""
 
     domain = "https://www.mgstage.com/"
@@ -154,7 +154,7 @@ def _scan_mgs(url, max_pages=50):
             yield tree
 
             if last.isdigit():
-                last = min(int(last), max_pages) + 1
+                last = int(last) + 1
                 url = tree.base_url
                 pool.extend(
                     ex.submit(get_tree, f"{url}&page={i}")
