@@ -17,7 +17,7 @@ SEP_SLIM = "-" * SEP_WIDTH
 SEP_SUCCESS = "SUCCESS".center(SEP_WIDTH, "-")
 SEP_FAILED = "FAILED".center(SEP_WIDTH, "-")
 SEP_CHANGED = "CHANGED".center(SEP_WIDTH, "-")
-HTTP_TIMEOUT = (6.1, 27)
+HTTP_TIMEOUT = (6.1, 30)
 
 date_searcher = re_compile(
     r"""(?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
@@ -37,7 +37,9 @@ def _init_session(retries: int = 5, backoff: float = 0.1):
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0"
     })
     adapter = requests.adapters.HTTPAdapter(
-        max_retries=Retry(retries, backoff_factor=backoff))
+        max_retries=Retry(total=retries,
+                          status_forcelist=frozenset((500, 502, 503, 504)),
+                          backoff_factor=backoff))
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     return session
