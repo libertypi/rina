@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# This script is intended to generate avinfo/_mgs.py
+# run `make_dict.py -h` for help
+
 import json
 import re
 import sys
@@ -70,7 +73,11 @@ def parse_args():
     return parser.parse_args()
 
 
-def _get_mgs_result(local: bool):
+def get_mgs_result(local: bool) -> list:
+    """Get MGS scrape result from web or json.
+    
+    Returns: a list of 3-items dict
+    """
 
     json_file = FILE.with_name("mgs_scan.json")
     if local:
@@ -97,8 +104,8 @@ def _get_mgs_result(local: bool):
         "pre": k[1],
         "freq": len(v)
     } for k, v in result.items()]
-    result.sort(key=itemgetter("freq", "pre"))
 
+    result.sort(key=itemgetter("freq"), reverse=True)
     with open(json_file, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=4)
 
@@ -168,11 +175,13 @@ def main():
 
     args = parse_args()
 
-    result = _get_mgs_result(args.local)
-    uniq_count = len(result)
+    result = get_mgs_result(args.local)
+    uniq_ids = sum(map(itemgetter("freq"), result))
+    uniq_prefix = len(result)
 
-    result = {d["pre"]: d["num"] for d in result}
-    result = list(result.items())
+    result.sort(key=itemgetter("freq"))
+    result[:] = {d["pre"]: d["num"] for d in result}.items()
+
     start = (len(result) - args.size) if args.size > 0 else 0
     if start > 0:
         result = result[start:]
@@ -182,21 +191,23 @@ def main():
     digit_len = set(map(len, result.values()))
 
     print(result)
-    print(f"\nUnique prefixes: {uniq_count}\n"
-          f"Dict size (old): {len(mgs_map)}\n"
-          f"Dict size (new): {len(result)}\n"
-          f"Prefix digit range: {{{min(digit_len) or ''},{max(digit_len)}}}")
+    print(f"\nUnique IDs: {uniq_ids}",
+          f"Unique prefixes: {uniq_prefix}",
+          f"Prefix digit range: {{{min(digit_len) or ''},{max(digit_len)}}}",
+          f"Dict size (old): {len(mgs_map)}",
+          f"Dict size (new): {len(result)}",
+          sep="\n")
 
     if result == mgs_map:
         print("Dictionary is up to date.")
         return
 
     print("Writing changes to file...")
-    with open(FILE.parent.parent.joinpath("avinfo", "_mgs.py"),
+    indent = " " * 4
+    with open(FILE.parent.parent.joinpath("avinfo/_mgs.py"),
               mode="w",
               encoding="utf-8") as f:
         f.write("mgs_map = {\n")
-        indent = " " * 4
         f.writelines(f'{indent}"{k}": "{v}",\n' for k, v in result.items())
         f.write("}\n")
     print("Done.")
