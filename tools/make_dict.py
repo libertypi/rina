@@ -101,10 +101,11 @@ def _get_mgs_result(local: bool):
 
     with open(json_file, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=4)
+
     return result
 
 
-def _scan_mgs(url, max_pages=25):
+def _scan_mgs(url, max_pages=50):
     """input in initial url, output trees of maker pages."""
 
     domain = "https://www.mgstage.com/"
@@ -170,26 +171,20 @@ def main():
     result = _get_mgs_result(args.local)
     uniq_count = len(result)
 
+    result = {d["pre"]: d["num"] for d in result}
+    result = list(result.items())
     start = (len(result) - args.size) if args.size > 0 else 0
     if start > 0:
-        i = result[start]["freq"]
-        for start in range(start, 0, -1):
-            j = result[start - 1]["freq"]
-            if j < i:
-                break
-            i = j
         result = result[start:]
 
-    min_freq = result[0]["freq"]
-    result = {d["pre"]: d["num"] for d in result}
-    result = dict(sorted(result.items(), key=itemgetter(1, 0)))
+    result.sort(key=itemgetter(1, 0))
+    result = dict(result)
     digit_len = set(map(len, result.values()))
 
     print(result)
     print(f"\nUnique prefixes: {uniq_count}\n"
-          f"Dict length (old): {len(mgs_map)}\n"
-          f"Dict length (new): {len(result)} (max: {args.size})\n"
-          f"Minimum frequency: {min_freq}\n"
+          f"Dict size (old): {len(mgs_map)}\n"
+          f"Dict size (new): {len(result)}\n"
           f"Prefix digit range: {{{min(digit_len) or ''},{max(digit_len)}}}")
 
     if result == mgs_map:
