@@ -189,7 +189,7 @@ def main():
     print(f"\nUnique prefixes: {uniq_count}\n"
           f"Dict length (old): {len(mgs_map)}\n"
           f"Dict length (new): {len(result)} (max: {args.size})\n"
-          f"Minimun frequency: {min_freq}\n"
+          f"Minimum frequency: {min_freq}\n"
           f"Prefix digit range: {{{min(digit_len) or ''},{max(digit_len)}}}")
 
     if result == mgs_map:
