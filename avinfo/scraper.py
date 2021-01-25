@@ -817,7 +817,7 @@ class OneKGiri(Scraper):
 class PatternSearcher(Scraper):
 
     __slots__ = ()
-    regex = r"[0-9]{,3}(?P<uid>[a-z]{2,10})-?(?P<z>0)*(?P<num>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:[hm]hb{,2})?"
+    regex = r"[0-9]{,5}(?P<uid>[a-z]{2,10})-?(?P<z>0)*(?P<num>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:[hm]hb{,2})?"
 
     def _query(self):
 
@@ -835,7 +835,7 @@ class PatternSearcher(Scraper):
             tree = tree.find('.//article[@id="center_column"]'
                              '/div[@class="common_detail_cover"]')
             try:
-                title = re_sub(r"^(\s*【.*?】)+|【.*?映像付】|\+\d+分\b", "",
+                title = re_sub(r"^(\s*【.*?】)+|【[^】]*映像付】|\+\d+分\b", "",
                                tree.findtext("h1"))
             except (AttributeError, TypeError) as e:
                 self._warn(e)

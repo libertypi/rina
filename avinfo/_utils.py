@@ -30,7 +30,7 @@ date_searcher = re_compile(
 ).search
 
 
-def _init_session(retries: int = 5, backoff: float = 0.3):
+def _init_session(retries: int = 5, backoff: float = 0.1):
     session = requests.Session()
     session.headers.update({
         "User-Agent":
