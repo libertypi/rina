@@ -203,8 +203,8 @@ def main():
     # [0]: prefix, [1]: digit
     if args.freq:
         data = sorted(map(itemgetter(1, 0), group.items()))
-        i = bisect_left(data, (args.freq,))
-        data[:] = map(itemgetter(1), data[i:])
+        data = data[bisect_left(data, (args.freq,)):]
+        data[:] = map(itemgetter(1), data)
     else:
         data = sorted(group, key=group.get)
 
