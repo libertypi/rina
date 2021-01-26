@@ -186,15 +186,15 @@ def main():
     for i in data:
         result[i[2], i[3].lower()].add(int(i[4]))
 
-    # [0]: frequency, [1]: digit, [2]: prefix
-    result = [(len(v), k[0], k[1]) for k, v in result.items()]
-    uniq_ids = sum(map(itemgetter(0), result))
+    # [0]: prefix, [1]: digit, [2]: frequency
+    result = [(k[1], k[0], len(v)) for k, v in result.items()]
+    uniq_ids = sum(map(itemgetter(2), result))
     uniq_prefix = len(result)
 
     # eliminate same prefix with different digits
     # [0]: prefix, [1]: digit
-    result.sort()
-    result[:] = {t[2]: t[1] for t in result}.items()
+    result.sort(key=itemgetter(2))
+    result[:] = dict(map(itemgetter(0, 1), result)).items()
 
     i = (len(result) - args.size) if args.size > 0 else 0
     if i > 0:
