@@ -225,10 +225,13 @@ def main():
         data = data[bisect_left(data, args.freq, group):]
     elif 0 < args.size < len(data):
         data = data[len(data) - args.size:]
-    min_freq = group[data[0]] if data else None
+    if not data:
+        print("Empty result.", file=sys.stderr)
+        return
 
-    data.sort(key=itemgetter(1, 0))
+    min_freq = group[data[0]]
     digit_len = frozenset(map(len, map(itemgetter(1), data)))
+    data.sort(key=itemgetter(1, 0))
 
     print(f"Unique IDs: {sum(group.values())}",
           f"Unique prefixes: {len(group)}",
