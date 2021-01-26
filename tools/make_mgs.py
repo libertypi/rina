@@ -10,7 +10,6 @@ import json
 import re
 import sys
 from argparse import ArgumentParser
-from bisect import bisect_left
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -179,6 +178,20 @@ def _get_product_trees():
             yield tree
 
 
+def bisect_left(a: list, x: int, d: dict) -> int:
+    """Simple bisect Algorithm taking key values from dict."""
+
+    lo = 0
+    hi = len(a)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if d[a[mid]] < x:
+            lo = mid + 1
+        else:
+            hi = mid
+    return lo
+
+
 def main():
 
     args = parse_args()
@@ -196,25 +209,22 @@ def main():
     for i in data:
         group[i[3].lower(), i[2]].add(int(i[4]))
 
-    # key: (prefix, digit), val: frequency
+    # (prefix, digit): frequency
     group = dict(zip(group, map(len, group.values())))
 
-    # data: list of tuples sorted by frequency
+    # list of tuples sorted by frequency
     # [0]: prefix, [1]: digit
-    if args.freq:
-        data = sorted(map(itemgetter(1, 0), group.items()))
-        data = data[bisect_left(data, (args.freq,)):]
-        data[:] = map(itemgetter(1), data)
-    else:
-        data = sorted(group, key=group.get)
+    data = sorted(group, key=group.get)
 
-    # eliminate same prefix with different digits
+    # for prefixes with multiple digits
     # keep the most frequent one
     data[:] = dict(data).items()
 
-    if not args.freq and 0 < args.size < len(data):
+    # trim the result by frequency or size
+    if args.freq is not None:
+        data = data[bisect_left(data, args.freq, group):]
+    elif 0 < args.size < len(data):
         data = data[len(data) - args.size:]
-
     min_freq = group[data[0]] if data else None
 
     data.sort(key=itemgetter(1, 0))
