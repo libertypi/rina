@@ -151,11 +151,11 @@ def _get_product_trees():
             makers.difference_update(visited)
             pool.extend(ex.submit(get_tree, u) for u in makers)
             visited.update(makers)
-        del makers, visited
+        del visited
 
-        fts = as_completed(pool)
+        makers = as_completed(pool)
         pool = []
-        for tree in fts:
+        for tree in makers:
             tree = tree.result()
             try:
                 url = tree.base_url
