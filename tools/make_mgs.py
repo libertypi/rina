@@ -178,18 +178,40 @@ def _get_product_trees():
             yield tree
 
 
-def bisect_left(a: list, x: int, d: dict) -> int:
-    """Simple bisect Algorithm taking key values from dict."""
+def trim(a: list, size: int, thresh: int, d: dict):
+    """Filter and trim a pre-sorted 2-tuple list `a` to `size` or `thresh`. 
 
-    lo = 0
-    hi = len(a)
-    while lo < hi:
-        mid = (lo + hi) // 2
-        if d[a[mid]] < x:
-            lo = mid + 1
-        else:
-            hi = mid
-    return lo
+    This is to remove the items with same key([0]) but different values([1]),
+    keeps only the first one. Requires `a` to be pre-sorted by values in `d`, in
+    reversed order. The output is ensured to have the same order as input.
+
+    If `thresh` is not None, the output will be trimed to the value read from
+    `d`. Otherwise, to the size of `size`.
+    """
+
+    tmp = {}
+    setdefault = tmp.setdefault
+
+    if thresh is not None:
+        # use bisect to find the cut
+        lo = 0
+        hi = len(a)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if thresh > d[a[mid]]:
+                hi = mid
+            else:
+                lo = mid + 1
+        for k, v in a[:lo]:
+            if setdefault(k, v) == v:
+                yield k, v
+    else:
+        for k, v in a:
+            if setdefault(k, v) == v:
+                size -= 1
+                if size < 0:
+                    break
+                yield k, v
 
 
 def main():
@@ -214,22 +236,18 @@ def main():
 
     # list of tuples sorted by frequency
     # [0]: prefix, [1]: digit
-    data = sorted(group, key=group.get)
+    data = sorted(group, key=group.get, reverse=True)
 
-    # for prefixes with multiple digits
-    # keep the most frequent one
-    data[:] = dict(data).items()
-
-    # trim the result by frequency or size
-    if args.freq is not None:
-        data = data[bisect_left(data, args.freq, group):]
-    elif 0 < args.size < len(data):
-        data = data[len(data) - args.size:]
+    # remove repeat prefixes and trim the result
+    data[:] = trim(a=data,
+                   size=args.size if args.size > 0 else len(data),
+                   thresh=args.freq,
+                   d=group)
     if not data:
         print("Empty result.", file=sys.stderr)
         return
 
-    min_freq = group[data[0]]
+    min_freq = group[data[-1]]
     digit_len = frozenset(map(len, map(itemgetter(1), data)))
     data.sort(key=itemgetter(1, 0))
 
