@@ -16,7 +16,6 @@ from datetime import datetime
 from itertools import chain
 from operator import itemgetter
 from pathlib import Path
-from typing import Dict, List, Tuple
 from urllib.parse import urljoin
 
 import requests
@@ -97,8 +96,8 @@ def get_tree(url: str):
         return fromstring(response.content, base_url=response.url)
 
 
-def scrape_mgs():
-    """Scrape product ids from web, yields match objects."""
+def scrape():
+    """Scrape product ids, yields match objects."""
 
     result = set()
     result_add = result.add
@@ -181,44 +180,6 @@ def _get_product_trees():
             yield tree
 
 
-def trim(d: Dict[Tuple[str, str], int],
-         size: int,
-         freq: int = None) -> List[Tuple[str, str]]:
-    """Trim the 2-tuple dict keys to `size` or `freq`, in most frequent first
-    bases. Return a list of dict keys in most frequent first order.
-
-    If `freq` is not None, `size` is ignored.
-
-    For the 2-tuples in output list, eliminate keys([0]) with multiple
-    values([1]), keeps only the most frequent one.
-    """
-
-    a = sorted(d, key=d.get, reverse=True)
-    tmp = {}
-    setdefault = tmp.setdefault
-    if freq is not None:
-        lo = 0
-        hi = len(a)
-        while lo < hi:
-            mid = (lo + hi) // 2
-            if freq > d[a[mid]]:
-                hi = mid
-            else:
-                lo = mid + 1
-        for k, v in a[:lo]:
-            setdefault(k, v)
-    elif size < 0:
-        raise ValueError("size must be non-negative")
-    else:
-        for k, v in a:
-            if not size:
-                break
-            if setdefault(k, v) == v:
-                size -= 1
-    a[:] = tmp.items()
-    return a
-
-
 def main():
 
     args = parse_args()
@@ -228,7 +189,7 @@ def main():
             data = json.load(f)
         data = filter(None, map(re.compile(RE_ID).fullmatch, data))
     else:
-        data = scrape_mgs()
+        data = scrape()
 
     group = defaultdict(set)
     for i in data:
@@ -239,23 +200,55 @@ def main():
 
     # list of tuples
     # [0]: prefix, [1]: digit
-    data = trim(group, args.size if args.size > 0 else len(group), args.freq)
+    data = sorted(group)
+    data.sort(key=group.get, reverse=True)
+
+    # Trim the 2-tuple list to `size` or `freq`. For the prefixes with multiple
+    # digits, keep the most frequent one.
+    tmp = {}
+    setdefault = tmp.setdefault
+    if args.freq is None:
+        size = args.size if args.size > 0 else len(data)
+        for k, v in data:
+            if setdefault(k, v) == v:
+                size -= 1
+                if not size:
+                    break
+    else:
+        freq = args.freq
+        lo = 0
+        hi = len(data)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if freq > group[data[mid]]:
+                hi = mid
+            else:
+                lo = mid + 1
+        for k, v in data[:lo]:
+            setdefault(k, v)
+    data[:] = tmp.items()
+
     if not data:
         print("Empty result.", file=sys.stderr)
         return
 
+    cover_item = sum(map(group.get, data))
+    uniq_id = sum(group.values())
     min_freq = group[data[-1]]
-    digit_len = frozenset(map(len, map(itemgetter(1), data)))
+    digit_len = frozenset(map(len, tmp.values()))
+    prefix_len = frozenset(map(len, tmp))
+    print(
+        f"Entries: {cover_item} / {uniq_id} ({cover_item / uniq_id:.1%})",
+        f"Prefixes: {len(data)} / {len(group)} ({len(data) / len(group):.1%})",
+        f"Minimum frequency: {min_freq}",
+        f'Pre-digit length: {{{min(digit_len) or ""},{max(digit_len)}}}',
+        f'Prefix length: {{{min(prefix_len)},{max(prefix_len)}}}',
+        f"Dict size (old): {len(mgs_map)}",
+        f"Dict size (new): {len(data)}",
+        sep="\n")
+    del group, tmp, setdefault
+
     data.sort(key=itemgetter(1, 0))
-
-    print(f"Unique IDs: {sum(group.values())}",
-          f"Unique prefixes: {len(group)}",
-          f'Prefix digit range: {{{min(digit_len) or ""},{max(digit_len)}}}',
-          f"Dict size (old): {len(mgs_map)}",
-          f"Dict size (new): {len(data)}",
-          f"Minimum frequency: {min_freq}",
-          sep="\n")
-
     if data == list(mgs_map.items()):
         print(f"{PY_FILE.name} is up to date.")
         return
