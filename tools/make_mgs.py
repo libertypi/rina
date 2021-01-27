@@ -16,6 +16,7 @@ from datetime import datetime
 from itertools import chain
 from operator import itemgetter
 from pathlib import Path
+from typing import Dict, List, Tuple
 from urllib.parse import urljoin
 
 import requests
@@ -33,6 +34,7 @@ del path
 from avinfo._mgs import mgs_map
 
 ENTRY_PAGE = "https://www.mgstage.com/ppv/makers.php?id=osusume"
+RE_ID = r"(([0-9]*)([A-Za-z]{2,10})-([0-9]{2,8}))"
 
 
 def parse_args():
@@ -95,7 +97,7 @@ def get_tree(url: str):
         return fromstring(response.content, base_url=response.url)
 
 
-def scrape_mgs(matcher):
+def scrape_mgs():
     """Scrape product ids from web, yields match objects."""
 
     result = set()
@@ -105,6 +107,7 @@ def scrape_mgs(matcher):
         '//article[@id="center_column"]'
         '//div[@class="rank_list"]//li/h5/a/@href',
         smart_strings=False)
+    matcher = re.compile(rf"/{RE_ID}/?$").search
 
     data = chain.from_iterable(map(xp, _get_product_trees()))
     for m in filter(None, map(matcher, data)):
@@ -178,54 +181,54 @@ def _get_product_trees():
             yield tree
 
 
-def trim(a: list, size: int, thresh: int, d: dict):
-    """Filter and trim a pre-sorted 2-tuple list `a` to `size` or `thresh`. 
+def trim(d: Dict[Tuple[str, str], int],
+         size: int,
+         freq: int = None) -> List[Tuple[str, str]]:
+    """Trim the 2-tuple dict keys to `size` or `freq`, in most frequent first
+    bases. Return a list of dict keys in most frequent first order.
 
-    This is to remove the items with same key([0]) but different values([1]),
-    keeps only the first one. Requires `a` to be pre-sorted by values in `d`, in
-    reversed order. The output is ensured to have the same order as input.
+    If `freq` is not None, `size` is ignored.
 
-    If `thresh` is not None, the output will be trimed to the value read from
-    `d`. Otherwise, to the size of `size`.
+    For the 2-tuples in output list, eliminate keys([0]) with multiple
+    values([1]), keeps only the most frequent one.
     """
 
+    a = sorted(d, key=d.get, reverse=True)
     tmp = {}
     setdefault = tmp.setdefault
-
-    if thresh is not None:
-        # use bisect to find the cut
+    if freq is not None:
         lo = 0
         hi = len(a)
         while lo < hi:
             mid = (lo + hi) // 2
-            if thresh > d[a[mid]]:
+            if freq > d[a[mid]]:
                 hi = mid
             else:
                 lo = mid + 1
         for k, v in a[:lo]:
-            if setdefault(k, v) == v:
-                yield k, v
+            setdefault(k, v)
+    elif size < 0:
+        raise ValueError("size must be non-negative")
     else:
         for k, v in a:
+            if not size:
+                break
             if setdefault(k, v) == v:
                 size -= 1
-                if size < 0:
-                    break
-                yield k, v
+    a[:] = tmp.items()
+    return a
 
 
 def main():
 
     args = parse_args()
 
-    matcher = r"(([0-9]*)([A-Za-z]{2,10})-([0-9]{2,8}))"
     if args.local:
-        matcher = re.compile(matcher).fullmatch
         with open(JSON_FILE, "r", encoding="utf-8") as f:
-            data = filter(None, map(matcher, json.load(f)))
+            data = json.load(f)
+        data = filter(None, map(re.compile(RE_ID).fullmatch, data))
     else:
-        matcher = re.compile(rf"/{matcher}/?$").search
-        data = scrape_mgs(matcher)
+        data = scrape_mgs()
 
     group = defaultdict(set)
     for i in data:
@@ -234,15 +237,9 @@ def main():
     # (prefix, digit): frequency
     group = dict(zip(group, map(len, group.values())))
 
-    # list of tuples sorted by frequency
+    # list of tuples
     # [0]: prefix, [1]: digit
-    data = sorted(group, key=group.get, reverse=True)
-
-    # remove repeat prefixes and trim the result
-    data[:] = trim(a=data,
-                   size=args.size if args.size > 0 else len(data),
-                   thresh=args.freq,
-                   d=group)
+    data = trim(group, args.size if args.size > 0 else len(group), args.freq)
     if not data:
         print("Empty result.", file=sys.stderr)
         return
