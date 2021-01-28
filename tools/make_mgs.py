@@ -174,7 +174,6 @@ def bisect_slice(a: list, x, d: dict):
     return a[:lo]
 
 
-@profile
 def main():
 
     args = parse_args()
