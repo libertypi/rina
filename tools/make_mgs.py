@@ -3,9 +3,6 @@
 # This script is intended to generate avinfo/_mgs.py
 # run `make_dict.py -h` for help
 
-if __name__ != "__main__":
-    raise ImportError("This file should not be imported.")
-
 import json
 import re
 import sys
@@ -23,17 +20,7 @@ from lxml.etree import XPath
 from lxml.html import fromstring
 from urllib3 import Retry
 
-FILE = Path(__file__).resolve()
-JSON_FILE = FILE.with_name("mgs.json")
-path = FILE.parent.parent
-PY_FILE = path.joinpath("avinfo", "_mgs.py")
-sys.path.insert(0, str(path))
-del path
-
-from avinfo._mgs import mgs_map
-
 ENTRY_PAGE = "https://www.mgstage.com/ppv/makers.php?id=osusume"
-RE_ID = r"(([0-9]*)([A-Za-z]{2,10})-([0-9]{2,8}))"
 
 
 def parse_args():
@@ -64,7 +51,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def _init_session():
+def init_session():
     session = requests.Session()
     session.cookies.set_cookie(
         requests.cookies.create_cookie(domain="mgstage.com",
@@ -97,28 +84,7 @@ def get_tree(url: str):
 
 
 def scrape():
-    """Scrape product ids, yields match objects."""
-
-    result = set()
-    result_add = result.add
-
-    xp = XPath(
-        '//article[@id="center_column"]'
-        '//div[@class="rank_list"]//li/h5/a/@href',
-        smart_strings=False)
-    matcher = re.compile(rf"/{RE_ID}/?$").search
-
-    data = chain.from_iterable(map(xp, _get_product_trees()))
-    for m in filter(None, map(matcher, data)):
-        result_add(m[1])
-        yield m
-
-    with open(JSON_FILE, "w", encoding="utf-8") as f:
-        json.dump(sorted(result), f, separators=(",", ":"))
-
-
-def _get_product_trees():
-    """Yield trees of product pages."""
+    """Yield urls containing product ids."""
 
     xp_maker = XPath(
         '//div[@id="maker_list"]/div[@class="maker_list_box"]'
@@ -127,6 +93,10 @@ def _get_product_trees():
     xp_last = XPath(
         'string(//div[@class="pager_search_bottom"]'
         '//a[contains(., "最後")]/@href)',
+        smart_strings=False)
+    xp_id = XPath(
+        '//article[@id="center_column"]'
+        '//div[@class="rank_list"]//li/h5/a/@href',
         smart_strings=False)
 
     tree = get_tree(ENTRY_PAGE)
@@ -162,14 +132,13 @@ def _get_product_trees():
             except AttributeError:
                 continue
             print(f"Processing: {url}")
-            yield tree
-
             last = xp_last(tree).rpartition("page=")
             if last[0] and last[2].isdigit():
                 url = urljoin(url, last[0] + last[1])
                 last = int(last[2]) + 1
                 pool.extend(
                     ex.submit(get_tree, f"{url}{i}") for i in range(2, last))
+            yield from xp_id(tree)
 
         for tree in as_completed(pool):
             tree = tree.result()
@@ -177,14 +146,51 @@ def _get_product_trees():
                 print(f"Processing: {tree.base_url}")
             except AttributeError:
                 continue
-            yield tree
+            yield from xp_id(tree)
 
 
-def process(data, size: int, freq: int):
+def bisect_slice(a: list, x, d: dict):
+    """Slice a reversely sorted list `a` to the first element smaller than `x`,
+    value is read from `d`.
+    """
 
+    lo = 0
+    hi = len(a)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if x > d[a[mid]]:
+            hi = mid
+        else:
+            lo = mid + 1
+    return a[:lo]
+
+
+def main():
+
+    args = parse_args()
+
+    js_file = Path(__file__).resolve().with_name("mgs.json")
+    py_file = js_file.parent.parent.joinpath("avinfo", "_mgs.py")
+
+    regex = r"(([0-9]*)([A-Za-z]{2,10})-([0-9]{2,8}))"
     group = defaultdict(set)
-    for i in data:
-        group[i[3].lower(), i[2]].add(int(i[4]))
+
+    if args.local:
+        regex = re.compile(regex).fullmatch
+        with open(js_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for i in filter(None, map(regex, data)):
+            group[i[3].lower(), i[2]].add(int(i[4]))
+    else:
+        regex = re.compile(rf"/{regex}/?$").search
+        data = set()
+        add = data.add
+        for i in filter(None, map(regex, scrape())):
+            add(i[1])
+            group[i[3].lower(), i[2]].add(int(i[4]))
+        with open(js_file, "w", encoding="utf-8") as f:
+            json.dump(sorted(data), f, separators=(",", ":"))
+        del add
 
     # (prefix, digit): frequency
     group = dict(zip(group, map(len, group.values())))
@@ -198,36 +204,34 @@ def process(data, size: int, freq: int):
     # digits, keep the most frequent one.
     tmp = {}
     setdefault = tmp.setdefault
-    if freq is None:
-        if size <= 0:
-            size = len(data)
+    if args.freq is None:
+        i = args.size if args.size > 0 else len(data)
         for k, v in data:
             if setdefault(k, v) == v:
-                size -= 1
-                if not size:
+                i -= 1
+                if not i:
                     break
     else:
-        lo = 0
-        hi = len(data)
-        while lo < hi:
-            mid = (lo + hi) // 2
-            if freq > group[data[mid]]:
-                hi = mid
-            else:
-                lo = mid + 1
-        for k, v in data[:lo]:
+        for k, v in bisect_slice(data, args.freq, group):
             setdefault(k, v)
     data[:] = tmp.items()
-
     if not data:
         sys.exit("Empty result.")
 
-    cover_item = sum(map(group.get, data))
-    uniq_id = sum(group.values())
+    path = str(py_file.parent.parent)
+    if path not in sys.path:
+        sys.path.insert(0, path)
+    try:
+        from avinfo._mgs import mgs_map
+    except ImportError:
+        mgs_map = {}
+
+    used_entry = sum(map(group.get, data))
+    total_entry = sum(group.values())
     digit_len = frozenset(map(len, tmp.values()))
     prefix_len = frozenset(map(len, tmp))
     print(
-        f"Entries: {cover_item} / {uniq_id} ({cover_item / uniq_id:.1%})",
+        f"Entries: {used_entry} / {total_entry} ({used_entry / total_entry:.1%})",
         f"Prefixes: {len(data)} / {len(group)} ({len(data) / len(group):.1%})",
         f"Minimum frequency: {group[data[-1]]}",
         f'Pre-digit length: {{{min(digit_len) or ""},{max(digit_len)}}}',
@@ -237,30 +241,14 @@ def process(data, size: int, freq: int):
         sep="\n")
 
     data.sort(key=itemgetter(1, 0))
-    return data
-
-
-def main():
-
-    args = parse_args()
-
-    if args.local:
-        with open(JSON_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        data = filter(None, map(re.compile(RE_ID).fullmatch, data))
-    else:
-        data = scrape()
-
-    data = process(data, args.size, args.freq)
-
     if data == list(mgs_map.items()):
-        print(f"{PY_FILE.name} is up to date.")
+        print(f"{py_file.name} is up to date.")
         return
 
-    print(f"Writing changes to {PY_FILE.name}...")
+    print(f"Writing changes to {py_file.name}...")
     indent = " " * 4
-    with open(PY_FILE, "w", encoding="utf-8") as f:
-        f.write(f"# Generated by {FILE.name}\n"
+    with open(py_file, "w", encoding="utf-8") as f:
+        f.write(f"# Generated by {Path(__file__).name}\n"
                 f"# Dictionary size: {len(data)}\n"
                 f"# Update: {datetime.now().ctime()}\n\n")
         f.write("mgs_map = {\n")
@@ -269,5 +257,7 @@ def main():
     print("Done.")
 
 
-session = _init_session()
-main()
+session = init_session()
+
+if __name__ == "__main__":
+    main()
