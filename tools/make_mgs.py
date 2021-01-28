@@ -21,6 +21,7 @@ from lxml.html import fromstring
 from urllib3 import Retry
 
 ENTRY_PAGE = "https://www.mgstage.com/ppv/makers.php?id=osusume"
+session = None
 
 
 def parse_args():
@@ -85,6 +86,10 @@ def get_tree(url: str):
 
 def scrape():
     """Yield urls containing product ids."""
+
+    global session
+    if not session:
+        session = init_session()
 
     xp_maker = XPath(
         '//div[@id="maker_list"]/div[@class="maker_list_box"]'
@@ -256,8 +261,6 @@ def main():
         f.write("}\n")
     print("Done.")
 
-
-session = init_session()
 
 if __name__ == "__main__":
     main()
