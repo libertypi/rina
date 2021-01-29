@@ -57,6 +57,7 @@ def parse_args():
 
 
 def init_session():
+    global session
     session = requests.Session()
     session.cookies.set_cookie(
         requests.cookies.create_cookie(domain="mgstage.com",
@@ -67,18 +68,17 @@ def init_session():
                       'AppleWebKit/537.36 (KHTML, like Gecko) '
                       'Chrome/88.0.4324.104 Safari/537.36'
     })
-    adapter = requests.adapters.HTTPAdapter(
-        max_retries=Retry(total=5,
-                          status_forcelist=frozenset((500, 502, 503, 504)),
-                          backoff_factor=0.1))
+    retry = Retry(total=5,
+                  status_forcelist=frozenset((500, 502, 503, 504)),
+                  backoff_factor=0.2)
+    adapter = requests.adapters.HTTPAdapter(max_retries=retry)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    return session
 
 
 def get_tree(url: str):
     try:
-        response = session.get(url, timeout=(6.1, 60))
+        response = session.get(url, timeout=(9.1, 60))
         response.raise_for_status()
     except requests.HTTPError:
         pass
@@ -91,9 +91,8 @@ def get_tree(url: str):
 def scrape():
     """Yield urls containing product ids."""
 
-    global session
     if not session:
-        session = init_session()
+        init_session()
 
     xp_maker = XPath(
         '//div[@id="maker_list"]/div[@class="maker_list_box"]'
@@ -228,6 +227,7 @@ def main():
         from avinfo._mgs import mgs_map
     except ImportError:
         mgs_map = {}
+
     used_entry = sum(map(group.get, data))
     total_entry = sum(group.values())
     digit_len = frozenset(map(len, tmp.values()))
