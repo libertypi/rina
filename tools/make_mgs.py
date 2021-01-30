@@ -36,7 +36,7 @@ def parse_args():
         dest="size",
         action="store",
         type=int,
-        default=1024,
+        default=1365,
         help="cut the dict to this size, 0 for unlimited (default %(default)s)",
     )
     group.add_argument(
