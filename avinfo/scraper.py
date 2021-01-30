@@ -13,12 +13,6 @@ from avinfo._utils import (HTTP_TIMEOUT, HtmlElement, HTTPError, get_tree,
                            html_fromstring, re_compile, re_search, re_sub,
                            session, str_to_epoch, strptime, xpath)
 
-session.cookies.set_cookie(
-    create_cookie(domain="www.javbus.com", name="existmag", value="all"))
-session.cookies.set_cookie(
-    create_cookie(domain="mgstage.com", name="adc", value="1"))
-del create_cookie
-
 __all__ = ("scrape",)
 
 _subspace = re_compile(r"\s+").sub
@@ -26,6 +20,11 @@ _subbraces = re_compile(r"[\s()\[\].-]+").sub
 _valid_id = re_compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
 _has_word = re_compile(r"\w").search
 _trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
+session.cookies.set_cookie(
+    create_cookie(domain="www.javbus.com", name="existmag", value="all"))
+session.cookies.set_cookie(
+    create_cookie(domain="mgstage.com", name="adc", value="1"))
+del create_cookie
 
 
 @dataclass
@@ -372,25 +371,8 @@ class StudioMatcher(Scraper):
 
     def _paco(self):
         self.studio = "paco"
-
-        tree = get_tree(
-            f"https://www.pacopacomama.com/moviepages/{self.keyword}/",
-            encoding="euc-jp")
-        if tree is None:
-            return
-
-        tree = tree.find('.//div[@id="main"]')
-        try:
-            title = tree.findtext("h1")
-        except AttributeError as e:
-            self._warn(e)
-            return
-
-        date = tree.findtext('.//div[@class="detail-info"]//*[@class="date"]')
-        return ScrapeResult(
-            product_id=self.keyword,
-            title=title,
-            publish_date=str_to_epoch(date),
+        return self._1pon(
+            url="https://www.pacopacomama.com",
             source="pacopacomama.com",
         )
 
@@ -425,9 +407,7 @@ class StudioMatcher(Scraper):
 
     def _process_product_id(self, product_id: str) -> str:
 
-        result = [product_id]
-        if self.studio:
-            result.append(self.studio)
+        result = [product_id, self.studio] if self.studio else [product_id]
 
         i = self.match.end()
         if self.studio_match:
@@ -878,48 +858,39 @@ class DateSearcher:
                 ("yBd", "?"),  # (20)12March3
             ))
         fmt = {
-            "y":
-                r"(?:20)?([12][0-9])",
-            "Y":
-                r"(20[12][0-9])",
-            "m":
-                r"(1[0-2]|0?[1-9])",
-            "mm":
-                r"(1[0-2]|0[1-9])",
-            "d":
-                r"([12][0-9]|3[01]|0?[1-9])",
-            "dd":
-                r"([12][0-9]|3[01]|0[1-9])",
-            "b":
-                r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
-            "B":
-                r"(january|february|march|april|may|june|july|august|september|october|november|december)",
-        }
+            "y": r"(?:20)?([12][0-9])",
+            "Y": r"(20[12][0-9])",
+            "m": r"(1[0-2]|0?[1-9])",
+            "mm": r"(1[0-2]|0[1-9])",
+            "d": r"([12][0-9]|3[01]|0?[1-9])",
+            "dd": r"([12][0-9]|3[01]|0[1-9])",
+            "b": r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
+            "B": r"(january|february|march|april|may|june|july|august|september|october|november|december)",
+        } # yapf: disable
         regex = tuple(t.format_map(fmt) for t in template)
 
         fmt.clear()
         return regex, fmt
 
     regex, fmt = _init_regex()
+    del _init_regex
 
     @classmethod
-    def search(cls, match: re.Match):
+    def search(cls, m: re.Match):
 
         try:
-            fmt = cls.fmt[match.lastgroup]
+            fmt = cls.fmt[m.lastgroup]
         except KeyError:
-            fmt = cls.fmt[match.lastgroup] = " ".join(
-                "%" + f for f in match.lastgroup)
+            fmt = cls.fmt[m.lastgroup] = " ".join("%" + f for f in m.lastgroup)
 
-        i = match.lastindex + 1
+        i = m.lastindex + 1
         try:
             return ScrapeResult(
-                publish_date=strptime(" ".join(match.group(i, i + 2, i + 3)),
-                                      fmt),
+                publish_date=strptime(" ".join(m.group(i, i + 2, i + 3)), fmt),
                 source=cls.source,
             )
         except ValueError as e:
-            warnings.warn(f"parsing date failed '{match[0]}': {e}")
+            warnings.warn(f"parsing date failed '{m[0]}': {e}")
 
 
 def _load_json_ld(tree: HtmlElement):
@@ -967,20 +938,20 @@ def scrape(string: str) -> Optional[ScrapeResult]:
 
     string = _clean_re(" ", string.lower()).replace("_", "-")
 
-    match = _search_re(string)
-    if match:
-        result = _search_map[match.lastgroup](string, match).search()
+    m = _search_re(string)
+    if m:
+        result = _search_map[m.lastgroup](string, m).search()
         if result:
             return result
 
-    for match in _iter_re(string):
-        result = PatternSearcher(string, match).search()
+    for m in _iter_re(string):
+        result = PatternSearcher(string, m).search()
         if result:
             return result
 
-    match = _date_re(string)
-    if match:
-        return DateSearcher.search(match)
+    m = _date_re(string)
+    if m:
+        return DateSearcher.search(m)
 
 
 _search_map = {
