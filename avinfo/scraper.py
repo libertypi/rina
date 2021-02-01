@@ -2,13 +2,13 @@ import json
 import re
 import warnings
 from dataclasses import dataclass
+from pathlib import Path
 from random import choice as random_choice
 from typing import Optional
 from urllib.parse import urljoin
 
 from requests.cookies import create_cookie
 
-from avinfo._mgs import mgs_map as _mgs_map
 from avinfo._utils import (HTTP_TIMEOUT, HtmlElement, HTTPError, get_tree,
                            html_fromstring, re_compile, re_search, re_sub,
                            session, str_to_epoch, strptime, xpath)
@@ -799,14 +799,25 @@ class PatternSearcher(Scraper):
     __slots__ = ()
     regex = r"[0-9]{,5}(?P<uid>[a-z]{2,10})-?(?P<z>0)*(?P<num>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:[hm]hb{,2})?"
 
+    @classmethod
+    def _load_mgs(cls, fn: str = "mgs.json"):
+        with open(Path(__file__).with_name(fn), "r", encoding="utf-8") as f:
+            cls.mgs_get = json.load(f).get
+
     def _query(self):
 
         m = self.match
         uid = m["uid"]
         self.keyword = f'{uid.upper()}-{m["num"]}'
 
-        if uid in _mgs_map:
-            number = _mgs_map[uid] + self.keyword
+        try:
+            number = self.mgs_get(uid)
+        except AttributeError:
+            self._load_mgs()
+            number = self.mgs_get(uid)
+
+        if number is not None:
+            number += self.keyword
             tree = get_tree(
                 f"https://www.mgstage.com/product/product_detail/{number}/")
             if tree is None or number not in tree.base_url:

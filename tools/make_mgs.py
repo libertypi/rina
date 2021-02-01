@@ -20,10 +20,8 @@ from lxml.html import fromstring
 from urllib3 import Retry
 
 ENTRY_PAGE = "https://www.mgstage.com/ppv/makers.php?id=osusume"
-JS_FILE = Path(__file__).resolve().with_name("mgs.json")
-PY_FILE = JS_FILE.parent.parent
-sys.path.insert(0, str(PY_FILE))
-PY_FILE = PY_FILE.joinpath("avinfo", "_mgs.py")
+DATAFILE = Path(__file__).resolve().with_name("mgsdata.json")
+OUTPUT = DATAFILE.parent.parent.joinpath("avinfo", "mgs.json")
 session = None
 
 
@@ -181,7 +179,7 @@ def main():
 
     if args.local:
         regex = re.compile(regex).fullmatch
-        with open(JS_FILE, "r", encoding="utf-8") as f:
+        with open(DATAFILE, "r", encoding="utf-8") as f:
             data = json.load(f)
         for i in filter(None, map(regex, data)):
             group[i[3].lower(), i[2]].add(int(i[4]))
@@ -192,7 +190,7 @@ def main():
         for i in filter(None, map(regex, scrape())):
             add(i[1])
             group[i[3].lower(), i[2]].add(int(i[4]))
-        with open(JS_FILE, "w", encoding="utf-8") as f:
+        with open(DATAFILE, "w", encoding="utf-8") as f:
             json.dump(sorted(data), f, separators=(",", ":"))
         del add
 
@@ -227,33 +225,18 @@ def main():
     total_entry = sum(group.values())
     digit_len = frozenset(map(len, tmp.values()))
     prefix_len = frozenset(map(len, tmp))
-    info = (
-        f"Dictionary size: {size}",
-        f"Product coverage: {used_entry} / {total_entry} ({used_entry / total_entry:.1%})",
-        f"Prefix coverage: {size} / {len(group)} ({size / len(group):.1%})",
-        f"Minimum frequency: {group[data[-1]]}",
-        f"Key length: {{{min(prefix_len)},{max(prefix_len)}}}",
-        f'Value length: {{{min(digit_len) or ""},{max(digit_len)}}}',
-    )
-    for i in info:
-        print(i)
+    print(
+        f"Dictionary size: {size}\n"
+        f"Product coverage: {used_entry} / {total_entry} ({used_entry / total_entry:.1%})\n"
+        f"Prefix coverage: {size} / {len(group)} ({size / len(group):.1%})\n"
+        f"Minimum frequency: {group[data[-1]]}\n"
+        f"Key length: {{{min(prefix_len)},{max(prefix_len)}}}\n"
+        f'Value length: {{{min(digit_len) or ""},{max(digit_len)}}}',)
 
     data.sort(key=itemgetter(1, 0))
-    try:
-        from avinfo._mgs import mgs_map
-        if data == list(mgs_map.items()):
-            print(f"'{PY_FILE}' is up to date.")
-            return
-    except ImportError:
-        PY_FILE.parent.mkdir(exist_ok=True)
-
-    print(f"Writing '{PY_FILE}'...", end="", flush=True)
-    indent = " " * 4
-    with open(PY_FILE, "w", encoding="utf-8") as f:
-        f.writelines(f"# {i}\n" for i in info)
-        f.write("\nmgs_map = {\n")
-        f.writelines(f'{indent}"{k}": "{v}",\n' for k, v in data)
-        f.write("}\n")
+    print(f"Writing '{OUTPUT}'...", end="", flush=True)
+    with open(OUTPUT, "w", encoding="utf-8") as f:
+        json.dump(dict(data), f, separators=(",", ":"))
     print("done.")
 
 
