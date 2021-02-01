@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# This script is intended to generate avinfo/_mgs.py
+# This script is intended to generate avinfo/mgs.json
 # run `make_dict.py -h` for help
 
 import json
