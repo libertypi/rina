@@ -179,7 +179,7 @@ def main():
 
     if args.local:
         regex = re.compile(regex).fullmatch
-        with open(DATAFILE, "rb") as f:
+        with open(DATAFILE, "r", encoding="utf-8") as f:
             data = json.load(f)
         for i in filter(None, map(regex, data)):
             group[i[3].lower(), i[2]].add(int(i[4]))
@@ -231,12 +231,24 @@ def main():
         f"Prefix coverage: {size} / {len(group)} ({size / len(group):.1%})\n"
         f"Minimum frequency: {group[data[-1]]}\n"
         f"Key length: {{{min(prefix_len)},{max(prefix_len)}}}\n"
-        f'Value length: {{{min(digit_len) or ""},{max(digit_len)}}}',)
+        f'Value length: {{{min(digit_len) or ""},{max(digit_len)}}}')
 
     data.sort(key=itemgetter(1, 0))
+    data = dict(data)
+
+    try:
+        with open(OUTPUT, "r", encoding="utf-8") as f:
+            if json.load(f) == data:
+                print("Dictionary is up to date.")
+                return
+    except FileNotFoundError:
+        OUTPUT.parent.mkdir(exist_ok=True)
+    except ValueError:
+        pass
+
     print(f"Writing '{OUTPUT}'...", end="", flush=True)
     with open(OUTPUT, "w", encoding="utf-8") as f:
-        json.dump(dict(data), f, separators=(",", ":"))
+        json.dump(data, f, separators=(",", ":"))
     print("done.")
 
 
