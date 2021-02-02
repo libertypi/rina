@@ -75,14 +75,12 @@ def init_session():
 
 def get_tree(url: str):
     try:
-        response = session.get(url, timeout=(9.1, 60))
-        response.raise_for_status()
-    except requests.HTTPError:
-        pass
+        r = session.get(url, timeout=(9.1, 60))
+        r.raise_for_status()
     except requests.RequestException as e:
         print(e, file=sys.stderr)
     else:
-        return fromstring(response.content, base_url=response.url)
+        return fromstring(r.content, base_url=r.url)
 
 
 def scrape():
