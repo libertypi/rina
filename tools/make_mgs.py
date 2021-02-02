@@ -87,7 +87,6 @@ def get_tree(url: str):
 
 def scrape():
     """Yield urls containing product ids."""
-
     if not session:
         init_session()
 
@@ -158,7 +157,6 @@ def bisect_slice(a: list, x, d: dict):
     """Slice a reversely sorted list `a` to the first element whose value in `d`
     is smaller than `x`.
     """
-
     lo = 0
     hi = len(a)
     while lo < hi:
@@ -221,29 +219,26 @@ def main():
         sys.exit("Empty result.")
 
     size = len(data)
-    used_entry = sum(map(group.get, data))
     total_entry = sum(group.values())
-    digit_len = frozenset(map(len, tmp.values()))
-    prefix_len = frozenset(map(len, tmp))
+    used_entry = sum(map(group.get, data))
+    key_len = frozenset(map(len, tmp))
+    val_len = frozenset(map(len, tmp.values()))
     print(
         f"Dictionary size: {size}\n"
         f"Product coverage: {used_entry} / {total_entry} ({used_entry / total_entry:.1%})\n"
         f"Prefix coverage: {size} / {len(group)} ({size / len(group):.1%})\n"
         f"Minimum frequency: {group[data[-1]]}\n"
-        f"Key length: {{{min(prefix_len)},{max(prefix_len)}}}\n"
-        f'Value length: {{{min(digit_len) or ""},{max(digit_len)}}}')
+        f"Key length: {{{min(key_len)},{max(key_len)}}}\n"
+        f'Value length: {{{min(val_len) or ""},{max(val_len)}}}')
 
     data.sort(key=itemgetter(1, 0))
     data = dict(data)
-
     try:
         with open(OUTPUT, "r", encoding="utf-8") as f:
             if json.load(f) == data:
                 print("Dictionary is up to date.")
                 return
-    except FileNotFoundError:
-        OUTPUT.parent.mkdir(exist_ok=True)
-    except ValueError:
+    except (FileNotFoundError, ValueError):
         pass
 
     print(f"Writing '{OUTPUT}'...", end="", flush=True)
