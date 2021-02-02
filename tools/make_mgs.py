@@ -179,7 +179,7 @@ def main():
 
     if args.local:
         regex = re.compile(regex).fullmatch
-        with open(DATAFILE, "r", encoding="utf-8") as f:
+        with open(DATAFILE, "rb") as f:
             data = json.load(f)
         for i in filter(None, map(regex, data)):
             group[i[3].lower(), i[2]].add(int(i[4]))
