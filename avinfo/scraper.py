@@ -801,7 +801,7 @@ class PatternSearcher(Scraper):
 
     @classmethod
     def _load_mgs(cls, fn: str = "mgs.json"):
-        with open(Path(__file__).with_name(fn), "r", encoding="utf-8") as f:
+        with open(Path(__file__).with_name(fn), "rb") as f:
             cls.mgs_get = json.load(f).get
 
     def _query(self):
