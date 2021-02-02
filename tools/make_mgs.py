@@ -103,31 +103,28 @@ def scrape():
 
     tree = get_tree(ENTRY_PAGE)
     url = tree.base_url
-    makers = tree.xpath('//div[@id="maker_list"]/dl[@class="navi"]'
-                        '/dd/a/@href[contains(., "makers.php")]')
-    makers = {urljoin(url, u) for u in makers}
-    makers.discard(url)
+    results = tree.xpath('//div[@id="maker_list"]/dl[@class="navi"]'
+                         '/dd/a/@href[contains(., "makers.php")]')
+    results = {urljoin(url, u) for u in results}
+    results.discard(url)
 
     with ThreadPoolExecutor() as ex:
 
-        pool = []
-        visited = set()
-        for tree in chain(ex.map(get_tree, makers), (tree,)):
+        pool = {}
+        for tree in chain(ex.map(get_tree, results), (tree,)):
             try:
                 url = tree.base_url
             except AttributeError:
                 continue
             print(f"Scanning: {url}")
-            makers.clear()
-            makers.update(urljoin(url, u) for u in xp_maker(tree))
-            makers.difference_update(visited)
-            pool.extend(ex.submit(get_tree, u) for u in makers)
-            visited.update(makers)
-        del visited
+            for u in xp_maker(tree):
+                u = urljoin(url, u)
+                if u not in pool:
+                    pool[u] = ex.submit(get_tree, u)
 
-        makers = as_completed(pool)
+        results = as_completed(pool.values())
         pool = []
-        for tree in makers:
+        for tree in results:
             tree = tree.result()
             try:
                 url = tree.base_url
@@ -142,7 +139,9 @@ def scrape():
                     ex.submit(get_tree, f"{url}{i}") for i in range(2, last))
             yield from xp_id(tree)
 
-        for tree in as_completed(pool):
+        results = as_completed(pool)
+        del pool
+        for tree in results:
             tree = tree.result()
             try:
                 print(f"Processing: {tree.base_url}")
