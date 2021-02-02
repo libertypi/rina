@@ -532,7 +532,7 @@ def scan_dir(top_dir: Path) -> Iterator[ActressFolder]:
     if not isinstance(top_dir, Path):
         top_dir = Path(top_dir)
 
-    outer_max = min(32, (os.cpu_count() or 1) + 4) // 3
+    outer_max = min(32, (os.cpu_count() or 1) + 4) // 2
     with ThreadPoolExecutor(outer_max) as outer, ThreadPoolExecutor() as inner:
 
         pool = [
