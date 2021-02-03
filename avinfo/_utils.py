@@ -17,7 +17,7 @@ SEP_SLIM = "-" * SEP_WIDTH
 SEP_SUCCESS = "SUCCESS".center(SEP_WIDTH, "-")
 SEP_FAILED = "FAILED".center(SEP_WIDTH, "-")
 SEP_CHANGED = "CHANGED".center(SEP_WIDTH, "-")
-HTTP_TIMEOUT = (6.1, 30)
+HTTP_TIMEOUT = (9.1, 60)
 
 date_searcher = re_compile(
     r"""(?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
@@ -30,7 +30,7 @@ date_searcher = re_compile(
 ).search
 
 
-def _init_session(retries: int = 5, backoff: float = 0.1):
+def _init_session(retries: int = 5, backoff: float = 0.2):
     session = requests.Session()
     session.headers.update({
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) "
