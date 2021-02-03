@@ -87,7 +87,6 @@ def scrape():
     """Yield urls containing product ids."""
     if not session:
         init_session()
-
     xp_maker = XPath(
         '//div[@id="maker_list"]/div[@class="maker_list_box"]'
         '/dl/dt/a[2]/@href[contains(., "search.php")]',
@@ -192,13 +191,13 @@ def main():
     # (prefix, digit): frequency
     group = dict(zip(group, map(len, group.values())))
 
-    # list of tuples
+    # list of tuples, sorted reversely by frequency
     # [0]: prefix, [1]: digit
     data = sorted(group)
     data.sort(key=group.get, reverse=True)
 
-    # Trim the 2-tuple list to `size` or `freq`. For the prefixes with multiple
-    # digits, keep the most frequent one.
+    # Trim data to `size` or `freq`. For the prefixes with multiple digits, keep
+    # the most frequent one.
     tmp = {}
     setdefault = tmp.setdefault
     if args.freq is None:
