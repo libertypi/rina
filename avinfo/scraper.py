@@ -850,8 +850,8 @@ class DateSearcher:
 
     def _init_regex():
         template = [
-            r"(?P<{0}>{{{1}}}\s*?(?P<s{0}>[\s.-])\s*{{{2}}}\s*?(?P=s{0})\s*{{{3}}})"
-            .format(f, *f) for f in (
+            r"(?P<{0}>{{{0[0]}}}\s*?(?P<s{0}>[\s.-])\s*{{{0[1]}}}\s*?(?P=s{0})\s*{{{0[2]}}})"
+            .format(f) for f in (
                 "mdy",  # 10.15.(20)19
                 "ymd",  # (20)19.03.15
                 "dmy",  # 23.02.(20)19
@@ -859,8 +859,8 @@ class DateSearcher:
         ]
         template.append(r"(?P<Ymd>{Y}(){mm}{dd})")  # 20170102
         template.extend(
-            r"(?P<{0}>{{{1}}}\s*([.,-]?)\s*{{{2}}}\s*?[\s.,-]{4}\s*{{{3}}})".
-            format(f, *f, r) for f, r in (
+            r"(?P<{0}>{{{0[0]}}}\s*([.,-]?)\s*{{{0[1]}}}\s*?[\s.,-]{1}\s*{{{0[2]}}})"
+            .format(f, r) for f, r in (
                 ("dby", "?"),  # 23Jun(20)14
                 ("dBy", "?"),  # 19June(20)14
                 ("bdy", ""),  # Dec.23.(20)14
@@ -888,7 +888,6 @@ class DateSearcher:
 
     @classmethod
     def search(cls, m: re.Match):
-
         try:
             fmt = cls.fmt[m.lastgroup]
         except KeyError:
@@ -923,8 +922,8 @@ def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
     """Combine one or more scraper regexes to a single pattern.
 
     After called, the `regex` attributes of input classes are deleted in order to
-    free some memory."""
-
+    free some memory.
+    """
     item = []
     for scraper in args:
         if isinstance(scraper.regex, str):
