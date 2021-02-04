@@ -117,7 +117,6 @@ def normalize_target(target: str):
 
     if not target.strip():
         raise argparse.ArgumentTypeError("empty argument")
-
     path = Path(target)
     try:
         return path.resolve(strict=True)
@@ -143,7 +142,7 @@ def parse_date(date: str):
                 return (datetime.datetime.now() -
                         datetime.timedelta(**date)).timestamp()
         except ValueError as e:
-            raise argparse.ArgumentError(e)
+            raise argparse.ArgumentTypeError(e)
     raise argparse.ArgumentError()
 
 
