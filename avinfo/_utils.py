@@ -14,9 +14,9 @@ from urllib3 import Retry
 SEP_WIDTH = 50
 SEP_BOLD = "=" * SEP_WIDTH
 SEP_SLIM = "-" * SEP_WIDTH
-SEP_SUCCESS = "SUCCESS".center(SEP_WIDTH, "-")
-SEP_FAILED = "FAILED".center(SEP_WIDTH, "-")
-SEP_CHANGED = "CHANGED".center(SEP_WIDTH, "-")
+SEP_SUCCESS = " SUCCESS ".center(SEP_WIDTH, "-")
+SEP_FAILED = " FAILED ".center(SEP_WIDTH, "-")
+SEP_CHANGED = " CHANGED ".center(SEP_WIDTH, "-")
 HTTP_TIMEOUT = (9.1, 60)
 
 date_searcher = re_compile(

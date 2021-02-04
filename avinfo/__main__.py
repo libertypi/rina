@@ -11,14 +11,15 @@ from avinfo._utils import (SEP_BOLD, SEP_SLIM, SEP_WIDTH, color_printer,
 def parse_args():
 
     parser = argparse.ArgumentParser(
-        description="The ultimate AV detector.",
+        description=("The Ultimate AV Detector\n"
+                     "Author: David Pi <libertypi@gmail.com>"),
         epilog=
         ('examples:\n'
          '  %(prog)s /mnt/dir           -> recursively scrape all videos in "dir"\n'
          '  %(prog)s -a /mnt/dir        -> scan actress bio from folder names under "dir"\n'
          '  %(prog)s -v heyzo-2288.mp4  -> scrape a single file\n'
          '  %(prog)s 和登こころ         -> search for a particular actress'),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
 
     group = parser.add_mutually_exclusive_group()
@@ -28,7 +29,8 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="video",
-        help="scrape video information (target: dir, file, keyword)",
+        help=("video mode: (target: dir, file, keyword)\n"
+              "scrape video information"),
     )
     group.add_argument(
         "-a",
@@ -36,7 +38,8 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="actress",
-        help="search for actress biography (target: dir, keyword)",
+        help=("actress mode: (target: dir, keyword)\n"
+              "search for actress biography"),
     )
     group.add_argument(
         "-d",
@@ -44,7 +47,8 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="dir",
-        help="update dir mtime to the newest file inside (target: dir)",
+        help=("dir mode: (target: dir)\n"
+              "update dir mtime to the newest file inside"),
     )
     group.add_argument(
         "-c",
@@ -52,7 +56,8 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="concat",
-        help="recursively find and concatenate consecutive videos (target: dir)",
+        help=("concat mode: (target: dir)\n"
+              "recursively find and concatenate consecutive videos"),
     )
 
     parser.add_argument(
@@ -62,17 +67,16 @@ def parse_args():
         nargs="?",
         const="1D",
         type=parse_date,
-        help=
-        ("for video and actress mode, only scan files new than this period. "
-         "example: '1D2H3M4S' for 1 day 2 hours 3 minutes and 4 seconds (default: 1D)"
-        ),
+        help=(
+            "for video and actress mode, only scan files new than this time.\n"
+            "example: '1D2H3M4S' or 86400 (default: 1D)"),
     )
     parser.add_argument(
         "--ffmpeg",
         dest="ffmpeg",
         action="store",
         help=("for concat mode, "
-              "the path to ffmpeg executable which is not in PATH"),
+              "the path to ffmpeg executable (default: search PATH)"),
     )
     parser.add_argument(
         "-q",
@@ -220,20 +224,18 @@ def progress(sequence, width: int = SEP_WIDTH):
 
 def main():
 
-    print(SEP_SLIM)
-    for k in ("Adult Video Information Detector", "By David Pi"):
-        print(k.center(SEP_WIDTH))
-    print(SEP_SLIM)
-
     args, target_type = parse_args()
     target = args.target
     mode = args.mode
 
-    print("target:", target)
-    print("type:", target_type)
-    print("mode:", mode)
-    print(SEP_BOLD)
-    print("Task start...")
+    print(f"{SEP_SLIM}\n"
+          f'{"Adult Video Information Detector":^{SEP_WIDTH}}\n'
+          f'{"By David Pi":^{SEP_WIDTH}}\n'
+          f"{SEP_SLIM}\n"
+          f"target: {target}\n"
+          f"type: {target_type}, mode: {mode}\n"
+          f"{SEP_BOLD}\n"
+          "Task start...")
 
     if mode == "actress":
         from avinfo import actress
