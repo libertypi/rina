@@ -15,10 +15,10 @@ def parse_args():
                      "Author: David Pi <libertypi@gmail.com>"),
         epilog=
         ('examples:\n'
-         '  %(prog)s /mnt/dir           -> recursively scrape all videos in "dir"\n'
-         '  %(prog)s -a /mnt/dir        -> scan actress bio from folder names under "dir"\n'
-         '  %(prog)s -v heyzo-2288.mp4  -> scrape a single file\n'
-         '  %(prog)s 和登こころ         -> search for a particular actress'),
+         '  %(prog)s -n 12H /mnt/dir     -> scrape all videos newer than 12 hours in "dir"\n'
+         '  %(prog)s -a /mnt/dir         -> get actress bio from folder names under "dir"\n'
+         '  %(prog)s -vq heyzo-2288.mp4  -> scrape a single file and apply change\n'
+         '  %(prog)s 和登こころ          -> search for a particular actress'),
         formatter_class=argparse.RawTextHelpFormatter,
     )
 
@@ -42,15 +42,6 @@ def parse_args():
               "search for actress biography"),
     )
     group.add_argument(
-        "-d",
-        "--dir",
-        dest="mode",
-        action="store_const",
-        const="dir",
-        help=("dir mode: (target: dir)\n"
-              "update dir mtime to the newest file inside"),
-    )
-    group.add_argument(
         "-c",
         "--concat",
         dest="mode",
@@ -58,6 +49,15 @@ def parse_args():
         const="concat",
         help=("concat mode: (target: dir)\n"
               "recursively find and concatenate consecutive videos"),
+    )
+    group.add_argument(
+        "-d",
+        "--dir",
+        dest="mode",
+        action="store_const",
+        const="dir",
+        help=("dir mode: (target: dir)\n"
+              "update dir mtime to the newest file inside"),
     )
 
     parser.add_argument(
