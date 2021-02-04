@@ -67,9 +67,8 @@ def parse_args():
         nargs="?",
         const="1D",
         type=parse_date,
-        help=(
-            "for video and actress mode, only scan files new than this time.\n"
-            "value: seconds (86400) or date string (1D2H3M4S) (default: 1D)"),
+        help=("for video and actress mode, only scan files new than the time.\n"
+              "value: seconds (86400) or date string (1D2H3M4S) (default: 1D)"),
     )
     parser.add_argument(
         "--ffmpeg",
@@ -145,7 +144,7 @@ def parse_date(date: str):
             if any(date.values()):
                 return (datetime.datetime.now() -
                         datetime.timedelta(**date)).timestamp()
-        except ValueError as e:
+        except (ValueError, OverflowError) as e:
             raise argparse.ArgumentTypeError(e)
     raise argparse.ArgumentError()
 
