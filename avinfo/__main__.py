@@ -69,7 +69,7 @@ def parse_args():
         type=parse_date,
         help=(
             "for video and actress mode, only scan files new than this time.\n"
-            "example: '1D2H3M4S' or 86400 (default: 1D)"),
+            "value: seconds (86400) or date string (1D2H3M4S) (default: 1D)"),
     )
     parser.add_argument(
         "--ffmpeg",
