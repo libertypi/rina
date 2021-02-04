@@ -218,15 +218,20 @@ def from_path(path, stat: os.stat_result = None, namemax: int = None):
     )
 
 
-def scan_dir(top_dir: Path) -> Iterator[AVFile]:
+def scan_dir(top_dir: Path, newer: float = None) -> Iterator[AVFile]:
     """Recursively scans a dir, yields AVFile objects."""
 
     namemax = _get_namemax(top_dir)
 
     with ThreadPoolExecutor() as ex:
-        for ft in as_completed(
-                ex.submit(from_path, path, stat, namemax)
-                for path, stat in _probe_videos(top_dir)):
+        if newer is None:
+            ft = (ex.submit(from_path, path, stat, namemax)
+                  for path, stat in _probe_videos(top_dir))
+        else:
+            ft = (ex.submit(from_path, path, stat, namemax)
+                  for path, stat in _probe_videos(top_dir)
+                  if stat.st_mtime >= newer)
+        for ft in as_completed(ft):
             yield ft.result()
 
 

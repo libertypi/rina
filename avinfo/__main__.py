@@ -1,4 +1,6 @@
 import argparse
+import datetime
+import re
 import sys
 from pathlib import Path
 
@@ -26,7 +28,7 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="video",
-        help="scrape video info (target: dir, file, keyword)",
+        help="scrape video information (target: dir, file, keyword)",
     )
     group.add_argument(
         "-a",
@@ -34,7 +36,7 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="actress",
-        help="detect actress bio (target: dir, keyword)",
+        help="search for actress biography (target: dir, keyword)",
     )
     group.add_argument(
         "-d",
@@ -50,14 +52,27 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="concat",
-        help="find and concat consecutive videos (target: dir)",
+        help="recursively find and concatenate consecutive videos (target: dir)",
     )
 
+    parser.add_argument(
+        "-n",
+        dest="newer",
+        action="store",
+        nargs="?",
+        const="1D",
+        type=parse_date,
+        help=
+        ("for video and actress mode, only scan files new than this period. "
+         "example: '1D2H3M4S' for 1 day 2 hours 3 minutes and 4 seconds (default: 1D)"
+        ),
+    )
     parser.add_argument(
         "--ffmpeg",
         dest="ffmpeg",
         action="store",
-        help="ffmpeg executable, for concat mode (default: search PATH)",
+        help=("for concat mode, "
+              "the path to ffmpeg executable which is not in PATH"),
     )
     parser.add_argument(
         "-q",
@@ -66,11 +81,11 @@ def parse_args():
         action="store_true",
         help="apply changes without prompting (default: %(default)s)",
     )
-
     parser.add_argument(
         "target",
-        type=_normalize_target,
-        help="the target, be it a directory, a file, or a keyword",
+        type=normalize_target,
+        help=("the target, be it a directory, a file, "
+              "or a keyword (mode-dependent)"),
     )
 
     args = parser.parse_args()
@@ -98,7 +113,7 @@ def parse_args():
     return args, target_type
 
 
-def _normalize_target(target: str):
+def normalize_target(target: str):
 
     if not target.strip():
         raise argparse.ArgumentTypeError("empty argument")
@@ -112,6 +127,24 @@ def _normalize_target(target: str):
         raise argparse.ArgumentTypeError(e)
     except (OSError, RuntimeError) as e:
         raise argparse.ArgumentTypeError(e)
+
+
+def parse_date(date: str):
+
+    date = re.fullmatch(
+        r"\s*(?:(?P<days>\d+)D)?"
+        r"\s*(?:(?P<hours>\d+)H)?"
+        r"\s*(?:(?P<minutes>\d+)[MT])?"
+        r"\s*(?:(?P<seconds>\d+)S?)?\s*", date, re.IGNORECASE)
+    if date:
+        date = {k: int(v) for k, v in date.groupdict(0).items()}
+        try:
+            if any(date.values()):
+                return (datetime.datetime.now() -
+                        datetime.timedelta(**date)).timestamp()
+        except ValueError as e:
+            raise argparse.ArgumentError(e)
+    raise argparse.ArgumentError()
 
 
 def process_scan(scan, mode: str, quiet: bool):
@@ -210,7 +243,7 @@ def main():
             actress.Actress(target).print()
         else:
             process_scan(
-                actress.scan_dir(target),
+                actress.scan_dir(target, args.newer),
                 mode=mode,
                 quiet=args.quiet,
             )
@@ -230,7 +263,7 @@ def main():
         if mode == "video":
 
             if target_type == "dir":
-                scan = video.scan_dir(target)
+                scan = video.scan_dir(target, args.newer)
             else:
                 scan = (video.from_path(target),)
 

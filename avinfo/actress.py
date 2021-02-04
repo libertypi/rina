@@ -527,18 +527,18 @@ class ActressFolder(Actress):
         return path
 
 
-def scan_dir(top_dir: Path) -> Iterator[ActressFolder]:
+def scan_dir(top_dir: Path, newer: float = None) -> Iterator[ActressFolder]:
 
     if not isinstance(top_dir, Path):
         top_dir = Path(top_dir)
 
     outer_max = min(32, (os.cpu_count() or 1) + 4) // 2
     with ThreadPoolExecutor(outer_max) as outer, ThreadPoolExecutor() as inner:
-
         pool = [
             outer.submit(ActressFolder, Path(entry.path), inner)
             for entry in os.scandir(top_dir)
-            if entry.is_dir() and entry.name[0] not in "#@."
+            if entry.is_dir() and entry.name[0] not in "#@." and
+            (newer is None or entry.stat().st_mtime >= newer)
         ]
         pool.append(outer.submit(ActressFolder, top_dir, inner))
 
