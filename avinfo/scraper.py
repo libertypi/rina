@@ -982,14 +982,12 @@ _iter_re = _combine_scraper_regex(PatternSearcher).finditer
 _date_re = _combine_scraper_regex(DateSearcher).search
 _clean_re = re_compile(
     r"""
-    \s*\[(?:[a-z0-9.-]+\.[a-z]{2,4}|f?hd)\]\s*|
+    \s*\[(?:[a-z0-9.-]+\.[a-z]{2,4}|f?hd|jav)\]\s*|
     (?:[\s\[_-]+|\b)(?:    
-    [a-z0-9.-]+\.[a-z]{2,4}@|
-    (?:[a-z]+2048|hotavxxx|nyap2p)\.com|
-    168x|44x|3xplanet|sogclub|
-    sis001|sexinsex|thz|dioguitar23|
-    uncensored|nodrm|fhd|
-    tokyo[\s_-]?hot|1000[\s_-]?giri
+        (?:[a-z]+2048|\d+sht)\.[a-z]{2,4}|
+        (?:hotavxxx|nyap2p|168x|44x|3xplanet|sogclub|sis001|sexinsex|thz)(?:\.[a-z]{2,4})?|
+        [a-z0-9.-]+\.[a-z]{2,4}@|
+        dioguitar23|uncensored|nodrm|fhd|tokyo[\s_-]?hot|1000[\s_-]?giri
     )(?:[\s\]_-]+|\b)|
     \s+
     """,
