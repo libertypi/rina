@@ -59,16 +59,11 @@ class Scraper:
                 except TypeError:
                     continue
                 if _valid_id(product_id) and _has_word(title):
-                    break
-        else:
-            return
-
-        result.title = title
-        result.product_id = self._process_product_id(product_id)
-        assert (isinstance(result.publish_date, float) or
-                result.publish_date is None)
-
-        return result
+                    result.title = title
+                    result.product_id = self._process_id(product_id)
+                    assert (isinstance(result.publish_date, float) or
+                            result.publish_date is None)
+                    return result
 
     def _query(self) -> Optional[ScrapeResult]:
         pass
@@ -88,7 +83,7 @@ class Scraper:
 
         tree = html_fromstring(response.content)
         if ok:
-            result = self._parse_javbus_search(tree)
+            result = self._parse_javbus(tree)
             if result or self.uncensored_only:
                 return result
 
@@ -99,9 +94,9 @@ class Scraper:
 
         tree = get_tree(f"https://www.javbus.com/search/{self.keyword}")
         if tree is not None:
-            return self._parse_javbus_search(tree)
+            return self._parse_javbus(tree)
 
-    def _parse_javbus_search(self, tree: HtmlElement):
+    def _parse_javbus(self, tree: HtmlElement):
 
         try:
             tree = tree.find('.//div[@id="waterfall"]').iterfind(
@@ -182,11 +177,14 @@ class Scraper:
                 flags=re.I).fullmatch
         return mask
 
-    def _process_product_id(self, product_id: str) -> str:
+    def _process_id(self, product_id: str) -> str:
 
         m = self.match
         suffix = re_search(
-            r"^\s*((f?hd|sd|cd|dvd|vol|[hm]hb|part)\s?|(216|108|72|48)0p\s)*(?P<s>[1-9][0-9]?|[a-d])\b",
+            r"^\s*(?:"
+            r"(?:f?hd|sd|cd|dvd|vol|[hm]hb|part)\s?|"
+            r"(?:216|108|72|48)0p\s"
+            r")*(?P<s>[1-9][0-9]?|[a-d])\b",
             _subbraces(" ", self.string[m.end(m.lastindex):]),
         )
 
@@ -214,7 +212,7 @@ class StudioMatcher(Scraper):
         d=r"(?:[12][0-9]|0[1-9]|3[01])",
         tail=r"-(?P<s2>[0-9]{2,4})(?:-(?P<s3>0[0-9]))?",
     )
-    _studio_re = (
+    _std_re = (
         r"\b(?:"
         r"(?P<_carib>carib(?:bean(?:com)?)?|カリビアンコム)|"  # 112220-001-carib
         r"(?P<_caribpr>carib(?:bean(?:com)?)?pr|カリビアンコムプレミアム)|"  # 101515_391-caribpr
@@ -232,7 +230,7 @@ class StudioMatcher(Scraper):
         match = self.match
         self.keyword = f'{match["s1"]}_{match["s2"]}'
 
-        m = self.studio_match = re_search(self._studio_re, self.string)
+        m = self.studio_match = re_search(self._std_re, self.string)
         if m:
             self._query = getattr(self, m.lastgroup)
         elif match["s3"] and match["s4"]:
@@ -280,7 +278,7 @@ class StudioMatcher(Scraper):
             elif "日期" in k:
                 date = get_value(p)
             elif "製作商" in k:
-                studio = re_search(self._studio_re, get_value(p))
+                studio = re_search(self._std_re, get_value(p))
                 if product_id and date:
                     break
 
@@ -405,7 +403,7 @@ class StudioMatcher(Scraper):
         if self.match["s3"]:
             self.keyword = "_".join(self.match.group("s1", "s2", "s3"))
 
-    def _process_product_id(self, product_id: str) -> str:
+    def _process_id(self, product_id: str) -> str:
 
         result = [product_id, self.studio] if self.studio else [product_id]
 
