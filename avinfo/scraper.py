@@ -672,28 +672,20 @@ class H4610(Scraper):
         if tree is None:
             return
 
+        title = tree.findtext(
+            './/div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span')
         try:
-            data = _load_json_ld(tree)
-            return ScrapeResult(
-                product_id=self.keyword,
-                title=data["name"],
-                publish_date=str_to_epoch(data["dateCreated"]),
-                source=f"{m1}.com",
-            )
-        except TypeError:
-            pass
-        except (ValueError, KeyError) as e:
-            self._warn(e)
-
-        date = xpath('string(.//div[@id="movieInfo"]//section'
-                     '//dt[contains(., "公開日")]'
-                     '/following-sibling::dd[contains(., "20")])')(tree)
+            date = _load_json_ld(tree)["dateCreated"]
+        except (TypeError, ValueError, KeyError) as e:
+            date = xpath('string(.//div[@id="movieInfo"]//section'
+                         '//dt[contains(., "公開日")]'
+                         '/following-sibling::dd[contains(., "20")])')(tree)
+            if isinstance(e, (ValueError, KeyError)):
+                self._warn(e)
 
         return ScrapeResult(
             product_id=self.keyword,
-            title=tree.findtext(
-                './/div[@id="moviePlay"]//div[@class="moviePlay_title"]/h1/span'
-            ),
+            title=title,
             publish_date=str_to_epoch(date),
             source=f"{m1}.com",
         )
