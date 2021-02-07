@@ -12,22 +12,22 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import chain
 from operator import itemgetter
 from pathlib import Path
+from typing import Optional
 from urllib.parse import urljoin
 
 import requests
 from lxml.etree import XPath
-from lxml.html import fromstring
+from lxml.html import HtmlElement, fromstring
 from urllib3 import Retry
 
-ENTRY_PAGE = "https://www.mgstage.com/ppv/makers.php?id=osusume"
-DATAFILE = Path(__file__).resolve().with_name("mgsdata.json")
-OUTPUT = DATAFILE.parent.parent.joinpath("avinfo", "mgs.json")
+STDERR = sys.stderr
 session = None
 
 
 def parse_args():
 
     parser = ArgumentParser()
+
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         "-s",
@@ -35,7 +35,7 @@ def parse_args():
         action="store",
         type=int,
         default=1365,
-        help="cut the dict to this size, 0 for unlimited (default %(default)s)",
+        help="cut the dict to this size, 0 for unlimited (default: %(default)s)",
     )
     group.add_argument(
         "-f",
@@ -48,8 +48,9 @@ def parse_args():
         "-l",
         dest="local",
         action="store_true",
-        help="use cached data instead of web scraping (default %(default)s)",
+        help="use local cache instead of web scraping (default: %(default)s)",
     )
+
     return parser.parse_args()
 
 
@@ -57,15 +58,17 @@ def init_session():
     global session
     session = requests.Session()
     session.cookies.set_cookie(
-        requests.cookies.create_cookie(domain="mgstage.com",
-                                       name="adc",
-                                       value="1"))
+        requests.cookies.create_cookie(
+            domain="mgstage.com",
+            name="adc",
+            value="1",
+        ))
     session.headers.update({
         "User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                       'AppleWebKit/537.36 (KHTML, like Gecko) '
                       'Chrome/88.0.4324.104 Safari/537.36'
     })
-    retry = Retry(total=5,
+    retry = Retry(total=7,
                   status_forcelist=frozenset((500, 502, 503, 504)),
                   backoff_factor=0.2)
     adapter = requests.adapters.HTTPAdapter(max_retries=retry)
@@ -73,20 +76,24 @@ def init_session():
     session.mount("https://", adapter)
 
 
-def get_tree(url: str):
+def get_tree(url: str) -> Optional[HtmlElement]:
     try:
         r = session.get(url, timeout=(9.1, 60))
         r.raise_for_status()
     except requests.RequestException as e:
-        print(e, file=sys.stderr)
+        print(e, file=STDERR)
     else:
         return fromstring(r.content, base_url=r.url)
 
 
 def scrape():
     """Yield urls containing product ids."""
+
+    url = "https://www.mgstage.com/ppv/makers.php?id=osusume"
+
     if not session:
         init_session()
+
     xp_maker = XPath(
         '//div[@id="maker_list"]/div[@class="maker_list_box"]'
         '/dl/dt/a[2]/@href[contains(., "search.php")]',
@@ -96,11 +103,12 @@ def scrape():
         '//a[contains(., "最後")]/@href)',
         smart_strings=False)
     xp_id = XPath(
-        '//article[@id="center_column"]'
-        '//div[@class="rank_list"]//li/h5/a/@href',
+        '//article[@id="center_column"]//div[@class="rank_list"]'
+        '//li/h5/a/@href',
         smart_strings=False)
+    page_matcher = re.compile(r"(.*page=)(\d+)(.*)").fullmatch
 
-    tree = get_tree(ENTRY_PAGE)
+    tree = get_tree(url)
     url = tree.base_url
     results = tree.xpath('//div[@id="maker_list"]/dl[@class="navi"]'
                          '/dd/a/@href[contains(., "makers.php")]')
@@ -109,44 +117,53 @@ def scrape():
 
     with ThreadPoolExecutor() as ex:
 
+        fmt = _get_urlfmt(len(results) + 1)
+        results = chain(ex.map(get_tree, results), (tree,))
         pool = {}
-        for tree in chain(ex.map(get_tree, results), (tree,)):
+        for i, tree in enumerate(results, 1):
             try:
                 url = tree.base_url
             except AttributeError:
                 continue
-            print(f"Scanning: {url}")
-            for u in xp_maker(tree):
-                u = urljoin(url, u)
-                if u not in pool:
-                    pool[u] = ex.submit(get_tree, u)
+            print(fmt(i, url), file=STDERR)
+            for m in xp_maker(tree):
+                m = urljoin(url, m)
+                if m not in pool:
+                    pool[m] = ex.submit(get_tree, m)
 
+        fmt = _get_urlfmt(len(pool))
         results = as_completed(pool.values())
         pool = []
-        for tree in results:
+        for i, tree in enumerate(results, 1):
             tree = tree.result()
             try:
                 url = tree.base_url
             except AttributeError:
                 continue
-            print(f"Processing: {url}")
-            last = xp_last(tree).rpartition("page=")
-            if last[0] and last[2].isdigit():
-                url = urljoin(url, last[0] + last[1])
-                last = int(last[2]) + 1
-                pool.extend(
-                    ex.submit(get_tree, f"{url}{i}") for i in range(2, last))
+            print(fmt(i, url), file=STDERR)
+
+            m = page_matcher(xp_last(tree))
+            if m:
+                url = f"{urljoin(url, m[1])}{{}}{m[3]}".format
+                i = int(m[2]) + 1
+                pool.extend(ex.submit(get_tree, url(j)) for j in range(2, i))
             yield from xp_id(tree)
 
+        fmt = _get_urlfmt(len(pool))
         results = as_completed(pool)
         del pool
-        for tree in results:
+        for i, tree in enumerate(results, 1):
             tree = tree.result()
             try:
-                print(f"Processing: {tree.base_url}")
+                print(fmt(i, tree.base_url), file=STDERR)
             except AttributeError:
-                continue
-            yield from xp_id(tree)
+                pass
+            else:
+                yield from xp_id(tree)
+
+
+def _get_urlfmt(total: int):
+    return f"[{{:{len(str(total))}d}}/{total}] {{}}".format
 
 
 def bisect_slice(a: list, x, d: dict):
@@ -168,25 +185,23 @@ def main():
 
     args = parse_args()
 
-    regex = r"(([0-9]*)([A-Za-z]{2,10})-([0-9]{2,8}))"
-    group = defaultdict(set)
+    datafile = Path(__file__).resolve().with_name("mgsdata.json")
+    outputfile = datafile.parent.parent.joinpath("avinfo", "mgs.json")
 
     if args.local:
-        regex = re.compile(regex).fullmatch
-        with open(DATAFILE, "r", encoding="utf-8") as f:
+        with open(datafile, "r", encoding="utf-8") as f:
             data = json.load(f)
-        for i in filter(None, map(regex, data)):
-            group[i[3].lower(), i[2]].add(int(i[4]))
     else:
-        regex = re.compile(rf"/{regex}/?$").search
-        data = set()
-        add = data.add
-        for i in filter(None, map(regex, scrape())):
-            add(i[1])
-            group[i[3].lower(), i[2]].add(int(i[4]))
-        with open(DATAFILE, "w", encoding="utf-8") as f:
-            json.dump(sorted(data), f, separators=(",", ":"))
-        del add
+        regex = re.compile(r"product_detail/([A-Za-z0-9_-]+)/?$").search
+        data = map(itemgetter(1), filter(None, map(regex, scrape())))
+        data = sorted(frozenset(data))
+        with open(datafile, "w", encoding="utf-8") as f:
+            json.dump(data, f, separators=(",", ":"))
+
+    regex = re.compile(r"([0-9]*)([a-z]{2,10})-([0-9]{2,8})").fullmatch
+    group = defaultdict(set)
+    for i in filter(None, map(regex, map(str.lower, data))):
+        group[i[2], i[1]].add(int(i[3]))
 
     # (prefix, digit): frequency
     group = dict(zip(group, map(len, group.values())))
@@ -212,7 +227,8 @@ def main():
             setdefault(k, v)
     data[:] = tmp.items()
     if not data:
-        sys.exit("Empty result.")
+        print("Empty result.", file=STDERR)
+        return
 
     size = len(data)
     total_entry = sum(group.values())
@@ -230,17 +246,17 @@ def main():
     data.sort(key=itemgetter(1, 0))
     data = dict(data)
     try:
-        with open(OUTPUT, "r", encoding="utf-8") as f:
+        with open(outputfile, "r", encoding="utf-8") as f:
             if json.load(f) == data:
-                print("Dictionary is up to date.")
+                print("Dictionary is up to date.", file=STDERR)
                 return
     except (FileNotFoundError, ValueError):
         pass
 
-    print(f"Writing '{OUTPUT}'...", end="", flush=True)
-    with open(OUTPUT, "w", encoding="utf-8") as f:
+    print(f"Writing '{outputfile}'...", end="", flush=True, file=STDERR)
+    with open(outputfile, "w", encoding="utf-8") as f:
         json.dump(data, f, separators=(",", ":"))
-    print("done.")
+    print("done.", file=STDERR)
 
 
 if __name__ == "__main__":
