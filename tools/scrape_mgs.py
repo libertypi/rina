@@ -27,7 +27,12 @@ session = None
 def parse_args():
 
     parser = ArgumentParser()
-
+    parser.add_argument(
+        "-l",
+        dest="local",
+        action="store_true",
+        help="use local cache instead of web scraping (default: %(default)s)",
+    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         "-s",
@@ -44,13 +49,6 @@ def parse_args():
         type=int,
         help="cut the dict to this frequency",
     )
-    parser.add_argument(
-        "-l",
-        dest="local",
-        action="store_true",
-        help="use local cache instead of web scraping (default: %(default)s)",
-    )
-
     return parser.parse_args()
 
 
