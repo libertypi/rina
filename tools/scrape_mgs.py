@@ -196,7 +196,7 @@ def main():
         with open(datafile, "w", encoding="utf-8") as f:
             json.dump(data, f, separators=(",", ":"))
 
-    regex = re.compile(r"([0-9]*)([a-z]{2,10})-([0-9]{2,8})").fullmatch
+    regex = re.compile(r"([0-9]*)([a-z]{2,10})[_-]?([0-9]{2,8})").fullmatch
     group = defaultdict(set)
     for i in filter(None, map(regex, map(str.lower, data))):
         group[i[2], i[1]].add(int(i[3]))
