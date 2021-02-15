@@ -896,7 +896,8 @@ class DateSearcher:
 def _load_json_ld(tree: HtmlElement):
     """Loads JSON-LD data from page.
 
-    Raise TypeError if json was not found on page, ValueError when parsing failed.
+    Raise TypeError if json was not found on page, ValueError when parsing
+    failed.
     """
     data = re_sub(r"[\t\n\r\f\v]", "",
                   tree.findtext('.//script[@type="application/ld+json"]'))
@@ -911,8 +912,8 @@ def _load_json_ld(tree: HtmlElement):
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
     """Combine one or more scraper regexes to a single pattern.
 
-    After called, the `regex` attributes of input classes are deleted in order to
-    free some memory.
+    After called, the `regex` attributes of input classes are deleted in order
+    to free some memory.
     """
     item = []
     for scraper in args:
