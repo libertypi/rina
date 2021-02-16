@@ -181,10 +181,8 @@ class Scraper:
 
         m = self.match
         suffix = re_search(
-            r"^\s*(?:"
-            r"(?:f?hd|sd|cd|dvd|vol|[hm]hb|part)\s?|"
-            r"(?:216|108|72|48)0p\s"
-            r")*(?P<s>[1-9][0-9]?|[a-d])\b",
+            r"^\s*(?:(?:f?hd|sd|cd|dvd|vol|[hm]hb|part)\s?|(?:216|108|72|48)0p\s)*"
+            r"(?P<s>[1-9][0-9]?|[a-d])\b",
             _subbraces(" ", self.string[m.end(m.lastindex):]),
         )
 
