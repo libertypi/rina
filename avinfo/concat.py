@@ -16,10 +16,10 @@ class ConcatVideo:
 
     __slots__ = ("output_path", "input_files", "report", "applied")
 
-    def __init__(self, output_path: str, input_files: tuple) -> None:
+    def __init__(self, output_path: str, input_files) -> None:
 
         self.output_path = output_path
-        self.input_files = input_files
+        self.input_files = tuple(input_files)
         self.applied = False
 
         self.report = "files ({}):\n  {}\noutput preview:\n  {}".format(
@@ -88,9 +88,7 @@ def find_consecutive_videos(root):
 
         try:
             with os.scandir(root) as it:
-
                 for entry in it:
-
                     name = entry.name
                     if name[0] in "#@.":
                         continue
@@ -114,15 +112,12 @@ def find_consecutive_videos(root):
         for k, v in groups.items():
             n = len(v)
             if 1 < n == max(v):
-
                 name = k[0] + k[2]
-                if name in seen:
-                    continue
-
-                yield ConcatVideo(
-                    op.join(root, name),
-                    tuple(v[i] for i in range(1, n + 1)),
-                )
+                if name not in seen:
+                    yield ConcatVideo(
+                        op.join(root, name),
+                        (v[i] for i in range(1, n + 1)),
+                    )
 
 
 def main(top_dir, ffmpeg: str, quiet: bool):
