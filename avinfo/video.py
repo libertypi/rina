@@ -122,7 +122,6 @@ class AVFile(AVString):
             # delimiter in order of:
             # 1) title[cut..., title]cut..., title!cut...
             # 2) title cut..., title,cut...
-
             m = re_search(
                 r".*?\w.*(?:(?=[【「『｛（《\[(])|[】」』｝）》\])？！!…。.](?=.))|"
                 r".*?\w.*[\s〜～●・,、_](?=.)",
@@ -134,7 +133,6 @@ class AVFile(AVString):
             else:
                 # no delimiter was found by re.search, we have to forcefully
                 # delete some characters until title is shorter than namemax
-
                 len_sum = 0
                 # length of bytes needed to be deleted
                 thresh = len(title.encode()) - namemax
@@ -164,8 +162,7 @@ class AVFile(AVString):
     def apply(self):
         """Apply changes to file (rename and change timestamp).
 
-        If no change was necessary, skips silently.
-        Returns the new path.
+        If no change was necessary, skips silently. Returns the new path.
         """
         path = self.target
 
