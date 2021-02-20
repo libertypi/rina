@@ -133,24 +133,15 @@ class AVFile(AVString):
             else:
                 # no delimiter was found by re.search, we have to forcefully
                 # delete some characters until title is shorter than namemax
-                len_sum = 0
-                # length of bytes needed to be deleted
-                thresh = len(title.encode()) - namemax
-
-                if thresh <= namemax:
-                    # counting from the end
-                    seq = range(len(title) - 1, -1, -1)
-                else:
-                    # counting chars to be keeped would be more efficient,
-                    # count from the beginning
-                    thresh = namemax - 1
-                    seq = range(len(title))
-
-                for i in seq:
-                    len_sum += len(title[i].encode())
-                    if len_sum > thresh:
-                        title = title[:i]
-                        break
+                lo = 0
+                hi = namemax
+                while lo < hi:
+                    mid = (lo + hi) // 2
+                    if len(title[:mid + 1].encode()) < namemax:
+                        lo = mid + 1
+                    else:
+                        hi = mid
+                title = title[:lo]
 
                 # check if it can still be called a title
                 if _has_word(title):

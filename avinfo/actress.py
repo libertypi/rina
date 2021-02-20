@@ -69,7 +69,7 @@ class Wiki:
 
     @classmethod
     def _query(cls, keyword: str) -> SearchResult:
-        pass
+        raise NotImplementedError
 
 
 class Wikipedia(Wiki):
