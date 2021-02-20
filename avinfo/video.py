@@ -129,7 +129,6 @@ class AVFile(AVString):
             )
             if m:
                 title = strip("", m[0])
-
             else:
                 # no delimiter was found by re.search, we have to forcefully
                 # delete some characters until title is shorter than namemax
@@ -142,7 +141,6 @@ class AVFile(AVString):
                     else:
                         hi = mid
                 title = title[:lo]
-
                 # check if it can still be called a title
                 if _has_word(title):
                     break
