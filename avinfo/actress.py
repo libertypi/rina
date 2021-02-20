@@ -498,10 +498,10 @@ class Actress:
                 if v:
                     if isinstance(v, tuple):
                         v = iter(v)
-                        log.append(f'{k + ":":>10} {next(v)}')
-                        log.extend(f'{"":>10} {i}' for i in v)
+                        log.append(f'{k:>10}: {next(v)}')
+                        log.extend(f'{"":>11} {i}' for i in v)
                     else:
-                        log.append(f'{k + ":":>10} {v}')
+                        log.append(f'{k:>10}: {v}')
             report = self._report = "\n".join(log)
         return report
 
