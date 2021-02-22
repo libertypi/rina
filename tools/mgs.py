@@ -17,19 +17,19 @@ def parse_args(root: Path):
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
-        "-s",
-        dest="size",
-        action="store",
-        type=int,
-        default=1365,
-        help="cut the dict to this size, 0 for unlimited (default: %(default)s)",
-    )
-    group.add_argument(
         "-f",
         dest="freq",
         action="store",
         type=int,
-        help="cut the dict to this frequency",
+        default=5,
+        help="cut the dict to this frequency (default: %(default)s)",
+    )
+    group.add_argument(
+        "-s",
+        dest="size",
+        action="store",
+        type=int,
+        help="cut the dict to this size, 0 for unlimited",
     )
     parser.add_argument(
         "-d",
