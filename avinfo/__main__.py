@@ -208,17 +208,15 @@ def process_scan(scan, mode: str, quiet: bool):
 def progress(sequence, width: int = SEP_WIDTH):
     '''Make an iterator that returns values from the input sequence while
     printing a progress bar.'''
-
     total = len(sequence)
     if not total:
         return
-
-    bar = "Progress |{}{}| {:.1%} Complete".format
+    write = sys.stdout.write
+    fmt = f"Progress |{{:-<{width}}}| {{:.1%}} Complete\r".format
     for i, obj in enumerate(sequence, 1):
+        write(fmt("█" * (i * width // total), i / total))
         yield obj
-        n = i * width // total
-        print(bar("█" * n, "-" * (width - n), i / total), end="\r")
-    print()
+    write("\n")
 
 
 def main():
