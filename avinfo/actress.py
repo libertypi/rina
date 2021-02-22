@@ -518,7 +518,6 @@ class ActressFolder(Actress):
             self.status = "changed"
 
     def apply(self):
-
         path = self.path
         if self.status == "changed":
             new = path.with_name(self.result)

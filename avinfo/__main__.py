@@ -168,8 +168,7 @@ def process_scan(scan, mode: str, quiet: bool):
 
     msg = f"Total: {total}. Changed: {len(changed)}. Failed: {len(failed)}."
     if not changed:
-        print(msg)
-        print("No change can be made.")
+        print(msg, "No change can be made.", sep="\n")
         return
 
     if quiet:
