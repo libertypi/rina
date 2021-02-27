@@ -105,8 +105,7 @@ def main():
             setdefault(k, v)
     data[:] = tmp.items()
     if not data:
-        print("Empty result.", file=sys.stderr)
-        return
+        sys.exit("Empty result.")
 
     size = len(data)
     total_entry = sum(group.values())
