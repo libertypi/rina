@@ -712,7 +712,6 @@ class Kin8(Scraper):
         except AttributeError as e:
             self._warn(e)
             return
-
         date = xpath('string(.//div[@id="main"]'
                      '/div[contains(@id,"detail_box")]//td[contains(.,"更新日")]'
                      '/following-sibling::td[contains(.,"20")])')(tree)
@@ -739,7 +738,6 @@ class GirlsDelta(Scraper):
         tree = get_tree(f"https://girlsdelta.com/product/{uid}")
         if tree is None or "/product/" not in tree.base_url:
             return
-
         date = xpath('string(.//div[@class="product-detail"]//li'
                      '/*[contains(text(), "公開日")]'
                      '/following-sibling::*/text()[contains(., "20")])')(tree)
