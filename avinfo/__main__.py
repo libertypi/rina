@@ -29,8 +29,8 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="video",
-        help=("video mode: (target: dir, file, keyword)\n"
-              "scrape video information"),
+        help=("video mode: scrape video information\n"
+              "(target: dir, file, keyword)"),
     )
     group.add_argument(
         "-a",
@@ -38,8 +38,8 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="actress",
-        help=("actress mode: (target: dir, keyword)\n"
-              "search for actress biography"),
+        help=("actress mode: search for actress biography\n"
+              "(target: dir, keyword)"),
     )
     group.add_argument(
         "-c",
@@ -47,8 +47,8 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="concat",
-        help=("concat mode: (target: dir)\n"
-              "search and concatenate video series"),
+        help=("concat mode: search and concatenate series videos\n"
+              "(target: dir)"),
     )
     group.add_argument(
         "-d",
@@ -56,8 +56,8 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="dir",
-        help=("dir mode: (target: dir)\n"
-              "update dir mtime to the newest file inside"),
+        help=("dir mode: update dir mtime to the newest file inside\n"
+              "(target: dir)"),
     )
 
     parser.add_argument(
@@ -68,16 +68,16 @@ def parse_args():
         const="1D",
         type=parse_date,
         help=
-        ("for video and actress mode, only scan files modified in the last NEWER time.\n"
-         "value can be digits (seconds) or '1D2H3M4S' format string (default: 1D)"
+        ("in video and actress mode, only scan files newer than NEWER.\n"
+         "NEWER can be digits (seconds) or '1D2H3M4S' format string (default: 1D)"
         ),
     )
     parser.add_argument(
         "--ffmpeg",
         dest="ffmpeg",
         action="store",
-        help=("for concat mode, "
-              "the path to ffmpeg executable (default: search PATH)"),
+        help=("the path to ffmpeg executable for video concatenation "
+              "(default: search PATH)"),
     )
     parser.add_argument(
         "-q",
