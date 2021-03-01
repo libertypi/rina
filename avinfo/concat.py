@@ -22,7 +22,7 @@ class ConcatVideo:
         self.input_files = input_files = tuple(input_files)
         self.applied = False
 
-        self.report = "files ({}):\n  {}\noutput preview:\n  {}".format(
+        self.report = "files ({}):\n  {}\noutput:\n  {}".format(
             len(input_files),
             "\n  ".join(input_files),
             output_path,
@@ -37,7 +37,6 @@ class ConcatVideo:
         try:
             with os.fdopen(tmpfd, "w", encoding="utf-8") as f:
                 f.writelines(f"file '{p}'\n" for p in self.input_files)
-
             subprocess.run(
                 (ffmpeg, "-f", "concat", "-safe", "0", "-i", tmpfile, "-c",
                  "copy", self.output_path),
@@ -45,6 +44,10 @@ class ConcatVideo:
             )
         except subprocess.CalledProcessError as e:
             print(e, file=sys.stderr)
+            try:
+                os.unlink(self.output_path)
+            except FileNotFoundError:
+                pass
         else:
             self.applied = True
         finally:
@@ -113,11 +116,12 @@ def find_consecutive_videos(root):
             n = len(v)
             if 1 < n == max(v):
                 name = k[0] + k[2]
-                if name not in seen:
-                    yield ConcatVideo(
-                        op.join(root, name),
-                        (v[i] for i in range(1, n + 1)),
-                    )
+                if name in seen:
+                    continue
+                yield ConcatVideo(
+                    op.join(root, name),
+                    (v[i] for i in range(1, n + 1)),
+                )
 
 
 def main(top_dir, ffmpeg: str, quiet: bool):
