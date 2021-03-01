@@ -892,7 +892,7 @@ class DateSearcher:
 def _load_json_ld(tree: HtmlElement):
     """Loads JSON-LD data from page.
 
-    Raise TypeError if json was not found on page, ValueError when parsing
+    Raise TypeError if there is no json-ld on the page, ValueError if parsing
     failed.
     """
     data = re_sub(r"[\t\n\r\f\v]", "",
