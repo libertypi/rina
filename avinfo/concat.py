@@ -19,7 +19,7 @@ class ConcatVideo:
     def __init__(self, output_path: str, input_files) -> None:
 
         self.output_path = output_path
-        self.input_files = tuple(input_files)
+        self.input_files = input_files = tuple(input_files)
         self.applied = False
 
         self.report = "files ({}):\n  {}\noutput preview:\n  {}".format(
