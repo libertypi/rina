@@ -47,7 +47,7 @@ def parse_args():
         dest="mode",
         action="store_const",
         const="concat",
-        help=("concat mode: search and concatenate series videos\n"
+        help=("concatenation mode: search and concat series videos\n"
               "(target: dir)"),
     )
     group.add_argument(
@@ -68,7 +68,7 @@ def parse_args():
         const="1D",
         type=parse_date,
         help=
-        ("in video and actress mode, only scan files newer than NEWER.\n"
+        ("in video and actress mode, scan files newer than NEWER ago.\n"
          "NEWER can be digits (seconds) or '1D2H3M4S' format string (default: 1D)"
         ),
     )
@@ -76,7 +76,7 @@ def parse_args():
         "--ffmpeg",
         dest="ffmpeg",
         action="store",
-        help=("the path to ffmpeg executable for video concatenation "
+        help=("the path to ffmpeg executable for video concat "
               "(default: search PATH)"),
     )
     parser.add_argument(
