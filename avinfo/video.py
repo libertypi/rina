@@ -218,9 +218,10 @@ def scan_dir(top_dir: Path, newer: float = None) -> Iterator[AVFile]:
 
 def _probe_videos(root):
     ext = {
-        "3gp", "asf", "avi", "bdmv", "flv", "iso", "m2ts", "m2v", "m4p", "m4v",
-        "mkv", "mov", "mp2", "mp4", "mpeg", "mpg", "mpv", "mts", "mxf", "rm",
-        "rmvb", "ts", "vob", "webm", "wmv"
+        "3g2", "3gp", "amv", "asf", "avi", "bdmv", "f4a", "f4b", "f4p", "f4v",
+        "flv", "iso", "m2ts", "m2v", "m4p", "m4v", "mkv", "mov", "mp2", "mp4",
+        "mpe", "mpeg", "mpg", "mpv", "mts", "mxf", "ogg", "ogv", "qt", "rm",
+        "rmvb", "svi", "ts", "viv", "vob", "webm", "wmv", "yuv"
     }
     stack = [root]
     while stack:
