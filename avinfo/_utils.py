@@ -45,6 +45,11 @@ def _init_session(retries: int = 5, backoff: float = 0.2):
     return session
 
 
+def set_cookie(domain: str, name: str, value: str):
+    session.cookies.set_cookie(
+        requests.cookies.create_cookie(domain=domain, name=name, value=value))
+
+
 def color_printer(*args, red: bool = True, **kwargs):
     print("\033[31m" if red else "\033[33m", end="")
     print(*args, **kwargs)

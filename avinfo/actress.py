@@ -9,10 +9,11 @@ from urllib.parse import quote, urljoin
 
 from avinfo._utils import (SEP_CHANGED, SEP_FAILED, SEP_SUCCESS, HtmlElement,
                            color_printer, date_searcher, get_tree, re_compile,
-                           re_search, re_sub, xpath)
+                           re_search, re_sub, set_cookie, xpath)
 
 __all__ = ("scan_dir",)
 
+set_cookie(domain="db.msin.jp", name="age", value="off")
 is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
 name_finder = re_compile(
     rf"(?:^|[】」』｝）》\])]){is_cjk_name}(?:$|[【「『｛（《\[(])").search

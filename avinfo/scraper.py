@@ -7,24 +7,19 @@ from random import choice as random_choice
 from typing import Optional
 from urllib.parse import urljoin
 
-from requests.cookies import create_cookie
-
 from avinfo._utils import (HTTP_TIMEOUT, HtmlElement, HTTPError, get_tree,
                            html_fromstring, re_compile, re_search, re_sub,
-                           session, str_to_epoch, strptime, xpath)
+                           session, set_cookie, str_to_epoch, strptime, xpath)
 
 __all__ = ("scrape",)
 
+set_cookie(domain="www.javbus.com", name="existmag", value="all")
+set_cookie(domain="mgstage.com", name="adc", value="1")
 _subspace = re_compile(r"\s+").sub
 _subbraces = re_compile(r"[\s()\[\].-]+").sub
 _valid_id = re_compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
 _has_word = re_compile(r"\w").search
 _trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
-session.cookies.set_cookie(
-    create_cookie(domain="www.javbus.com", name="existmag", value="all"))
-session.cookies.set_cookie(
-    create_cookie(domain="mgstage.com", name="adc", value="1"))
-del create_cookie
 
 
 @dataclass
@@ -972,7 +967,7 @@ _date_re = _combine_scraper_regex(DateSearcher).search
 _clean_re = re_compile(
     r"""
     \s*\[(?:[a-z0-9.-]+\.[a-z]{2,4}|f?hd|jav)\]\s*|
-    (?:[\s\[_-]+|\b)(?:    
+    (?:[\s\[_-]+|\b)(?:
         (?:[a-z]+2048|\d+sht)\.[a-z]{2,4}|
         (?:hotavxxx|nyap2p|168x|44x|3xplanet|sogclub|sis001|sexinsex|thz)(?:\.[a-z]{2,4})?|
         [a-z0-9.-]+\.[a-z]{2,4}@|
