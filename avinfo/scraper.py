@@ -890,7 +890,7 @@ def _load_json_ld(tree: HtmlElement):
     Raise TypeError if there is no json-ld on the page, ValueError if parsing
     failed.
     """
-    data = re_sub(r"[\t\n\r\f\v]", "",
+    data = re_sub(r"[\t\n\r\f\v]", " ",
                   tree.findtext('.//script[@type="application/ld+json"]'))
     try:
         return json.loads(data)
