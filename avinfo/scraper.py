@@ -901,7 +901,7 @@ def _load_json_ld(tree: HtmlElement):
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
-    """Combine one or more scraper regexes to a single pattern.
+    """Combine one or more scraper regexes to form a single pattern.
 
     After called, the `regex` attributes of input classes are deleted in order
     to free some memory.
