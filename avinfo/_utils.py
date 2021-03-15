@@ -104,7 +104,7 @@ def strftime(epoch: float, fmt: str = "%F") -> Optional[str]:
 
 
 def str_to_epoch(string: str) -> Optional[float]:
-    """Search for YYYY-MM-DD like date in a string, returns epoch timestamp in UTC."""
+    """Search for YYYY-MM-DD like date in a string, returns UTC epoch timestamp."""
     try:
         m = date_searcher(string)
         return datetime(
