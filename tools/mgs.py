@@ -134,7 +134,7 @@ def main():
         args.output.mkdir(parents=True, exist_ok=True)
         with open(args.output, "w", encoding="utf-8") as f:
             json.dump(data, f, separators=(",", ":"))
-    print(f"'{args.output}' updated.", file=sys.stderr)
+    print(f"Update: '{args.output}'", file=sys.stderr)
 
 
 if __name__ == "__main__":
