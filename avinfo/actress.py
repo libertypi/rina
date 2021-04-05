@@ -483,10 +483,11 @@ class Actress:
         )
 
     def print(self):
+        """Print report to stdout."""
         if self.status == "ok":
             print(SEP_SUCCESS, self.report, sep="\n")
         elif self.status == "changed":
-            color_printer(SEP_CHANGED, self.report, red=False, sep="\n")
+            color_printer(SEP_CHANGED, self.report, sep="\n", red=False)
         else:
             color_printer(SEP_FAILED, self.report, sep="\n")
 

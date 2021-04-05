@@ -1,11 +1,10 @@
 import os
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator
 
 from avinfo._utils import (SEP_CHANGED, SEP_FAILED, SEP_SUCCESS, color_printer,
-                           re_compile, re_search, strftime)
+                           re_compile, re_search, strftime, stderr_write)
 from avinfo.scraper import ScrapeResult, _has_word, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
@@ -51,10 +50,11 @@ class AVString:
         )
 
     def print(self):
+        """Print report to stdout."""
         if self.status == "ok":
             print(SEP_SUCCESS, self.report, sep="\n")
         elif self.status == "changed":
-            color_printer(SEP_CHANGED, self.report, red=False, sep="\n")
+            color_printer(SEP_CHANGED, self.report, sep="\n", red=False)
         else:
             color_printer(SEP_FAILED, self.report, sep="\n")
 
@@ -242,7 +242,7 @@ def _probe_videos(root):
                     except OSError:
                         pass
         except OSError as e:
-            print(f'error occurred scanning "{root}": {e}', file=sys.stderr)
+            stderr_write(f'error occurred scanning "{root}": {e}\n')
 
 
 if os.name == "posix":
@@ -294,21 +294,21 @@ def update_dir_mtime(top_dir: Path):
                 try:
                     os.utime(root, (stat.st_atime, newest))
                 except OSError as e:
-                    print(e, file=sys.stderr)
+                    stderr_write(f"{e}\n")
                 else:
                     success += 1
-                    print("{} => {}: {}".format(strftime(stat.st_mtime),
-                                                strftime(newest),
-                                                os.fspath(root)))
+                    stderr_write("{} => {}: {}\n".format(
+                        strftime(stat.st_mtime), strftime(newest),
+                        os.fspath(root)))
         return newest
 
-    print("Updating directory timestamps...")
+    stderr_write("Updating directory timestamps...\n")
 
     if not isinstance(top_dir, Path):
         top_dir = Path(top_dir)
     try:
         probe_dir(top_dir)
     except OSError as e:
-        print(f"error occurred scanning {top_dir}: {e}", file=sys.stderr)
+        stderr_write(f"error occurred scanning {top_dir}: {e}\n")
     else:
-        print(f"Finished. {total} dirs scanned, {success} updated.")
+        stderr_write(f"Finished. {total} dirs scanned, {success} updated.\n")

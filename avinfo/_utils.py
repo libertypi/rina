@@ -1,4 +1,5 @@
 import re
+import sys
 import time
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -7,7 +8,8 @@ from typing import Optional
 
 import requests
 from lxml.etree import XPath
-from lxml.html import HtmlElement, fromstring as html_fromstring
+from lxml.html import HtmlElement
+from lxml.html import fromstring as html_fromstring
 from requests import HTTPError
 from urllib3 import Retry
 
@@ -19,6 +21,7 @@ SEP_FAILED = " FAILED ".center(SEP_WIDTH, "-")
 SEP_CHANGED = " CHANGED ".center(SEP_WIDTH, "-")
 HTTP_TIMEOUT = (9.1, 60)
 
+stderr_write = sys.stderr.write
 date_searcher = re_compile(
     r"""(?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
     (?:(?P<han>年)|(?P<sep>[／/.－-]))\s*
@@ -50,22 +53,30 @@ def set_cookie(domain: str, name: str, value: str):
         requests.cookies.create_cookie(domain=domain, name=name, value=value))
 
 
-def color_printer(*args, red: bool = True, **kwargs):
-    print("\033[31m" if red else "\033[33m", end="")
-    print(*args, **kwargs)
-    print("\033[0m", end="")
+if sys.stdout.isatty():
+
+    def color_printer(*args, sep=None, end=None, red: bool = True):
+        """Print text to stdout in red or yellow color."""
+        print("\033[31m" if red else "\033[33m", end="")
+        print(*args, sep=sep, end=end)
+        print("\033[0m", end="", flush=True)
+else:
+
+    def color_printer(*args, sep=None, end=None, red: bool = True):
+        print(*args, sep=sep, end=end)
 
 
 def get_choice_as_int(msg: str, max_opt: int) -> int:
     while True:
+        stderr_write(msg)
         try:
-            choice = int(input(msg))
+            choice = int(input())
         except ValueError:
             pass
         else:
             if 1 <= choice <= max_opt:
                 return choice
-        color_printer("Invalid option.")
+        stderr_write("Invalid option.\n")
 
 
 def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:

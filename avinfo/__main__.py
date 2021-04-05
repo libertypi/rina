@@ -4,8 +4,8 @@ import re
 import sys
 from pathlib import Path
 
-from avinfo._utils import (SEP_BOLD, SEP_SLIM, SEP_WIDTH, color_printer,
-                           get_choice_as_int)
+from avinfo._utils import (SEP_BOLD, SEP_SLIM, SEP_WIDTH, get_choice_as_int,
+                           stderr_write)
 
 
 def parse_args():
@@ -166,15 +166,15 @@ def process_scan(scan, mode: str, quiet: bool):
         elif obj.status == "failed":
             failed.append(obj)
 
-    print(f"{SEP_BOLD}\n{mode} scan finished.")
+    stderr_write(f"{SEP_BOLD}\n{mode} scan finished.\n")
 
     msg = f"Total: {total}. Changed: {len(changed)}. Failed: {len(failed)}."
     if not changed:
-        print(msg, "No change can be made.", sep="\n")
+        stderr_write(f"{msg}\nNo change can be made.\n")
         return
 
     if quiet:
-        print(msg)
+        stderr_write(msg + "\n")
     else:
         msg = (f"{SEP_BOLD}\n"
                f"{msg}\n"
@@ -192,7 +192,7 @@ def process_scan(scan, mode: str, quiet: bool):
             for obj in changed if choice == 2 else failed:
                 obj.print()
 
-    print(f"{SEP_BOLD}\nApplying changes...")
+    stderr_write(f"{SEP_BOLD}\nApplying changes...\n")
 
     failed.clear()
     for obj in progress(changed):
@@ -202,8 +202,7 @@ def process_scan(scan, mode: str, quiet: bool):
             failed.append((obj.path, e))
 
     for path, e in failed:
-        color_printer("Target:", path)
-        color_printer("Error:", e)
+        stderr_write(f"Target: {path}\nError: {e}\n")
 
 
 def progress(sequence, width: int = SEP_WIDTH):
@@ -212,12 +211,11 @@ def progress(sequence, width: int = SEP_WIDTH):
     total = len(sequence)
     if not total:
         return
-    write = sys.stdout.write
     fmt = f"\rProgress |{{:-<{width}}}| {{:.1%}} Complete".format
     for i, obj in enumerate(sequence, 1):
-        write(fmt("█" * (i * width // total), i / total))
+        stderr_write(fmt("█" * (i * width // total), i / total))
         yield obj
-    write("\n")
+    stderr_write("\n")
 
 
 def main():
@@ -226,14 +224,14 @@ def main():
     target = args.target
     mode = args.mode
 
-    print(f"{SEP_SLIM}\n"
-          f'{"Adult Video Information Detector":^{SEP_WIDTH}}\n'
-          f'{"By David Pi":^{SEP_WIDTH}}\n'
-          f"{SEP_SLIM}\n"
-          f"target: {target}\n"
-          f"type: {target_type}, mode: {mode}\n"
-          f"{SEP_BOLD}\n"
-          "Task start...")
+    stderr_write(f"{SEP_SLIM}\n"
+                 f'{"Adult Video Information Detector":^{SEP_WIDTH}}\n'
+                 f'{"By David Pi":^{SEP_WIDTH}}\n'
+                 f"{SEP_SLIM}\n"
+                 f"target: {target}\n"
+                 f"type: {target_type}, mode: {mode}\n"
+                 f"{SEP_BOLD}\n"
+                 "Task start...\n")
 
     if mode == "actress":
         from avinfo import actress

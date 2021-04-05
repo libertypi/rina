@@ -3,11 +3,10 @@ import os.path as op
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 from collections import defaultdict
 
-from avinfo._utils import SEP_BOLD, SEP_SLIM, get_choice_as_int
+from avinfo._utils import SEP_BOLD, SEP_SLIM, get_choice_as_int, stderr_write
 
 FFMPEG = "ffmpeg"
 
@@ -43,7 +42,7 @@ class ConcatVideo:
                 check=True,
             )
         except subprocess.CalledProcessError as e:
-            print(e, file=sys.stderr)
+            stderr_write(f"{e}\n")
             try:
                 os.unlink(self.output_path)
             except FileNotFoundError:
@@ -62,9 +61,9 @@ class ConcatVideo:
             try:
                 os.unlink(file)
             except OSError as e:
-                print(e, file=sys.stderr)
+                stderr_write(f"{e}\n")
             else:
-                print("remove:", file)
+                stderr_write(f"remove: {file}\n")
 
 
 def find_consecutive_videos(root):
@@ -109,7 +108,7 @@ def find_consecutive_videos(root):
                             )][int(m["num"])] = entry.path
 
         except OSError as e:
-            print(e, file=sys.stderr)
+            stderr_write(f"{e}\n")
             continue
 
         for k, v in groups.items():
@@ -128,29 +127,23 @@ def main(top_dir, ffmpeg: str, quiet: bool):
 
     ffmpeg = shutil.which(ffmpeg or FFMPEG)
     if ffmpeg is None:
-        print(
-            "Error: ffmpeg not found. "
-            "Please make sure it is in PATH, "
-            "or passed via --ffmpeg argument.",
-            file=sys.stderr)
+        stderr_write("Error: ffmpeg not found. "
+                     "Please make sure it is in PATH, "
+                     "or passed via --ffmpeg argument.\n")
         return
 
     result = []
     for video in find_consecutive_videos(top_dir):
         result.append(video)
-        print(SEP_SLIM)
-        print(video.report)
+        stderr_write(f"{SEP_SLIM}\n{video.report}\n")
 
     if not result:
-        print("No change can be made.")
+        stderr_write("No change can be made.\n")
         return
 
-    print(
-        "{}\nScan finished, {} files can be concatenated into {} files.".format(
-            SEP_BOLD,
-            sum(len(v.input_files) for v in result),
-            len(result),
-        ))
+    stderr_write(
+        "{}\nScan finished, {} files can be concatenated into {} files.\n".
+        format(SEP_BOLD, sum(len(v.input_files) for v in result), len(result)))
 
     if not quiet:
         msg = (f"{SEP_BOLD}\n"
