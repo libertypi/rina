@@ -213,7 +213,7 @@ def progress(sequence, width: int = SEP_WIDTH):
     if not total:
         return
     write = sys.stdout.write
-    fmt = f"Progress |{{:-<{width}}}| {{:.1%}} Complete\r".format
+    fmt = f"\rProgress |{{:-<{width}}}| {{:.1%}} Complete".format
     for i, obj in enumerate(sequence, 1):
         write(fmt("█" * (i * width // total), i / total))
         yield obj
