@@ -894,7 +894,8 @@ def _load_json_ld(tree: HtmlElement):
     try:
         return json.loads(data)
     except ValueError:
-        repl = lambda m: f"{m[1]}:{json.dumps(m[2], ensure_ascii=False)}"
+        dumps = json.dumps
+        repl = lambda m: f"{m[1]}:{dumps(m[2], ensure_ascii=False)}"
         return json.loads(
             re_sub(r'(?<=[{,])\s*("[^"]+")\s*:\s*"(.*?)"\s*(?=[,}])', repl,
                    data))
