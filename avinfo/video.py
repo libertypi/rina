@@ -112,7 +112,7 @@ class AVFile(AVString):
         try:
             clean, strip = _fn_regex
         except TypeError:
-            clean = re_compile(r'[\s<>:"/\\|?* 　]+').sub
+            clean = re_compile(r'[\x01-\x1f\x7f\s<>:"/\\|?* 　]+').sub
             strip = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
             _fn_regex = clean, strip
         title = strip("", clean(" ", self.title))
