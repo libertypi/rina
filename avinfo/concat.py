@@ -92,12 +92,10 @@ def find_consecutive_videos(root):
             with os.scandir(root) as it:
                 for entry in it:
                     name = entry.name
-                    if name[0] in "#@.":
-                        continue
                     seen.add(name)
-
                     if entry.is_dir(follow_symlinks=False):
-                        stack.append(entry.path)
+                        if name[0] not in "#@":
+                            stack.append(entry.path)
                     else:
                         m = matcher(name)
                         if m:
