@@ -272,10 +272,9 @@ def update_dir_mtime(top_dir: Path):
 
         with os.scandir(root) as it:
             for entry in it:
-                if entry.name[0] in "#@.":
-                    continue
                 if entry.is_dir(follow_symlinks=False):
-                    dirs.append(entry)
+                    if entry.name[0] not in "#@":
+                        dirs.append(entry)
                 else:
                     mtime = entry.stat().st_mtime
                     if mtime > newest:
