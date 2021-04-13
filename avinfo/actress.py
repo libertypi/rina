@@ -538,7 +538,7 @@ def scan_dir(top_dir: Path, newer: float = None) -> Iterator[ActressFolder]:
         pool = [
             outer.submit(ActressFolder, Path(entry.path), inner)
             for entry in os.scandir(top_dir)
-            if entry.is_dir() and entry.name[0] not in "#@." and
+            if entry.is_dir() and entry.name[0] not in "#@" and
             (newer is None or entry.stat().st_mtime >= newer)
         ]
         pool.append(outer.submit(ActressFolder, top_dir, inner))

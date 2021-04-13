@@ -229,14 +229,12 @@ def _probe_videos(root):
         try:
             with os.scandir(root) as it:
                 for entry in it:
-                    name = entry.name
-                    if name[0] in "#@.":
-                        continue
                     try:
                         if entry.is_dir(follow_symlinks=False):
-                            stack.append(entry.path)
+                            if entry.name[0] not in "#@":
+                                stack.append(entry.path)
                         else:
-                            name = name.rpartition(".")
+                            name = entry.name.rpartition(".")
                             if name[0] and name[2].lower() in ext:
                                 yield entry.path, entry.stat()
                     except OSError:
