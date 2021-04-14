@@ -30,7 +30,7 @@ def parse_args():
         action="store_const",
         const="video",
         help=("video mode: scrape video information\n"
-              "(target: dir, file, keyword)"),
+              "target: dir, file, keyword"),
     )
     group.add_argument(
         "-a",
@@ -39,7 +39,7 @@ def parse_args():
         action="store_const",
         const="actress",
         help=("actress mode: search for actress biography\n"
-              "(target: dir, keyword)"),
+              "target: dir, keyword"),
     )
     group.add_argument(
         "-c",
@@ -48,7 +48,7 @@ def parse_args():
         action="store_const",
         const="concat",
         help=("concatenation mode: search and concat series videos\n"
-              "(target: dir)"),
+              "target: dir"),
     )
     group.add_argument(
         "-d",
@@ -57,7 +57,7 @@ def parse_args():
         action="store_const",
         const="dir",
         help=("dir mode: update dir mtime to the newest file inside\n"
-              "(target: dir)"),
+              "target: dir\n"),
     )
 
     parser.add_argument(
@@ -69,7 +69,7 @@ def parse_args():
         type=parse_date,
         help=
         ("in video and actress mode, scan files newer than NEWER ago.\n"
-         "NEWER can be digits (seconds) or '1D2H3M4S' format string (default: 1D)"
+         "NEWER: n[DHMS]: n units of time. If unit is omit, presume seconds. If NEWER if omit, presume 1 day."
         ),
     )
     parser.add_argument(
