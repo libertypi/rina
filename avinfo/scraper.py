@@ -14,6 +14,7 @@ from avinfo._utils import (HTTP_TIMEOUT, HtmlElement, HTTPError, get_tree,
 __all__ = ("scrape",)
 
 set_cookie(domain="www.javbus.com", name="existmag", value="all")
+set_cookie(domain="javdb.com", name="over18", value="1")
 set_cookie(domain="mgstage.com", name="adc", value="1")
 _subspace = re_compile(r"\s+").sub
 _subbraces = re_compile(r"[\s()\[\].-]+").sub
