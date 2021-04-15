@@ -209,13 +209,12 @@ def progress(sequence, width: int = SEP_WIDTH):
     '''Make an iterator that returns values from the input sequence while
     printing a progress bar.'''
     total = len(sequence)
-    if not total:
-        return
     fmt = f"\rProgress |{{:-<{width}}}| {{:.1%}} Complete".format
     for i, obj in enumerate(sequence, 1):
         stderr_write(fmt("█" * (i * width // total), i / total))
         yield obj
-    stderr_write("\n")
+    if total:
+        stderr_write("\n")
 
 
 def main():
