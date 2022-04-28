@@ -199,7 +199,7 @@ def process_scan(scan, mode: str, quiet: bool):
         try:
             obj.apply()
         except OSError as e:
-            failed.append((obj.path, e))
+            failed.append((obj.target, e))
 
     for path, e in failed:
         stderr_write(f"Target: {path}\nError: {e}\n")
