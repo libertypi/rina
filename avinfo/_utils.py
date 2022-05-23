@@ -1,4 +1,3 @@
-import imp
 import re
 import sys
 import time

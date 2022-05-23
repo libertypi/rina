@@ -74,13 +74,12 @@ def main():
 
     args = parse_args()
 
-    stderr_write(
-        f"{SEP_SLIM}\n"
-        f'{"Adult Video Helper":^{SEP_WIDTH}}\n'
-        f'{"By David Pi":^{SEP_WIDTH}}\n'
-        f"{SEP_SLIM}\n"
-        f"command: {args.command}, target: {args.target}\n"
-        f"{SEP_BOLD}\n")
+    stderr_write(f"{SEP_SLIM}\n"
+                 f'{"Adult Video Helper":^{SEP_WIDTH}}\n'
+                 f'{"By David Pi":^{SEP_WIDTH}}\n'
+                 f"{SEP_SLIM}\n"
+                 f"command: {args.command}, target: {args.target}\n"
+                 f"{SEP_BOLD}\n")
 
     if args.command == "video":
 
@@ -90,13 +89,10 @@ def main():
             video.from_string(args.target).print()
         else:
             if args.type == "dir":
-                scan = video.scan_dir(args.target, args.newer)
-            else:
-                scan = (video.from_path(args.target), )
-            process_scan(scan, args)
-
-            if args.type == "dir":
+                process_scan(video.scan_dir(args.target, args.newer), args)
                 dirtime.update_dir_mtime(args.target)
+            else:
+                process_scan((video.from_path(args.target), ), args)
 
     elif args.command == "idol":
 
