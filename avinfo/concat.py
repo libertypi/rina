@@ -103,7 +103,7 @@ def find_consecutive_videos(root: Path):
                             continue
                         n = m["num"]
                         is_digit = n.isdigit()
-                        # if n is not a digit, convert a-z to 1-26
+                        # if n is a-z, convert to 1-26
                         n = int(n) if is_digit else ord(n.lower()) - 96
                         groups[(
                             m["pre"],
