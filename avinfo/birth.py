@@ -1,5 +1,6 @@
 import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from unittest import result
 from urllib.parse import urljoin
 
 from avinfo._utils import SEP_SLIM, get_tree, re_search, str_to_epoch, xpath
@@ -24,11 +25,11 @@ class ProductFilter:
     def run(self, tree) -> int:
 
         tree = tree.find('.//div[@class="act-video-list"]')
-
+        path_product = self._get_col_path(tree, "作品タイトル", 2)
+        path_date = self._get_col_path(tree, "発売日", 3)
         count = 0
-        path_product, path_date = self._get_col(tree)
 
-        for tr in xpath('table/tr[count(td) = 4]')(tree):
+        for tr in xpath('table/tr[count(td) > 3]')(tree):
             tree_product = tr.find(path_product)
             if not all(f(tree_product) for f in self._filters):
                 continue
@@ -46,17 +47,18 @@ class ProductFilter:
         return count
 
     @staticmethod
-    def _get_col(tree):
-        # find the column of product and date
-        xp = xpath('count(//tr/th[contains(., $title)]/preceding-sibling::th)')
-        path_product = int(xp(tree, title="作品タイトル") or 1) + 1
-        path_date = int(xp(tree, title="発売日") or 2) + 1
-        return f'td[{path_product}]', f'td[{path_date}]'
+    def _get_col_path(tree, title: str, default: int):
+        """find the path accroding to column title"""
+        tree = xpath('//tr/th[contains(., $title)]')(tree, title=title)
+        if tree:
+            default = int(xpath('count(preceding-sibling::th) + 1')(tree[0]))
+        return f'td[{default}]'
 
 
 def get_lastpage(tree):
     """return the page number of the last page, or 1."""
-    last = tree.xpath('.//section[@id="main-area"]//div[@class="pagination"]//a/text()')
+    last = tree.xpath(
+        './/section[@id="main-area"]//div[@class="pagination"]//a/text()')
     for last in reversed(last):
         last = re_search(r'\d+', last)
         if last:
