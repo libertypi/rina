@@ -132,4 +132,4 @@ def main(args):
                   sep="\n")
             result += 1
 
-    print(f'Total: {total}, result: {result}.', sep="\n")
+    print(f'Total: {total}, result: {result}.')
