@@ -77,7 +77,7 @@ def find_consecutive_videos(root: Path):
         r"""
         (?P<pre>.+?)
         (?P<sep>[\s._-]+(?:part|chunk|vol|cd|dvd)?[\s._-]*)
-        (?P<num>0*[1-9][0-9]*|[a-z])\s*
+        (?P<num>0?[1-9]|[1-9][0-9]|[a-z])\s*
         (?P<ext>\.(?:mp4|wmv|avi|m[ko4]v))
         """,
         flags=re.VERBOSE | re.IGNORECASE,
