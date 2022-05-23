@@ -61,9 +61,9 @@ def get_lastpage(tree):
         return 1
     last = nav.findtext('.//a[@title="Last"]')
     if last:
-        return int(re_search(r'[\d]+', last)[0])
+        return int(re_search(r'\d+', last)[0])
     for last in reversed(nav.xpath('.//a/text()')):
-        last = re_search(r'[\d]+', last)
+        last = re_search(r'\d+', last)
         if last:
             return int(last[0])
     return 1

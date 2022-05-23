@@ -76,8 +76,8 @@ def find_consecutive_videos(root: Path):
     matcher = re.compile(
         r"""
         (?P<pre>.+?)
-        (?P<sep>(?:[\s._-]+(?:part|chunk|vol|cd|dvd))?[\s._-]*)
-        (?P<num>0*[1-9][0-9]*)\s*
+        (?P<sep>[\s._-]+(?:part|chunk|vol|cd|dvd)?[\s._-]*)
+        (?P<num>0*[1-9][0-9]*|[a-z])\s*
         (?P<ext>\.(?:mp4|wmv|avi|m[ko4]v))
         """,
         flags=re.VERBOSE | re.IGNORECASE,
@@ -99,12 +99,18 @@ def find_consecutive_videos(root: Path):
                             stack.append(entry.path)
                     else:
                         m = matcher(name)
-                        if m:
-                            groups[(
-                                m["pre"],
-                                m["sep"],
-                                m["ext"].lower(),
-                            )][int(m["num"])] = entry.path
+                        if not m:
+                            continue
+                        n = m["num"]
+                        is_digit = n.isdigit()
+                        # if n is not a digit, convert a-z to 1-26
+                        n = int(n) if is_digit else ord(n.lower()) - 96
+                        groups[(
+                            m["pre"],
+                            m["ext"].lower(),
+                            m["sep"],
+                            is_digit,
+                        )][n] = entry.path
 
         except OSError as e:
             stderr_write(f"{e}\n")
@@ -113,7 +119,7 @@ def find_consecutive_videos(root: Path):
         for k, v in groups.items():
             n = len(v)
             if 1 < n == max(v):
-                name = k[0] + k[2]
+                name = k[0] + k[1]
                 if name in seen:
                     continue
                 yield ConcatVideo(
