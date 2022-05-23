@@ -114,7 +114,6 @@ def main(args):
                 continue
             tree = tree.find('.//section[@id="main-area"]')
             count = _filter.run(tree)
-
             if not count:
                 continue
 
@@ -125,11 +124,12 @@ def main(args):
                 ).split(maxsplit=1)[0]
             except AttributeError:
                 birth = None
-            print(f"Name: {name}\n"
-                  f"Birth: {birth}\n"
-                  f"Count: {count}\n"
-                  f"Url: {tree.base_url}\n"
-                  f"{SEP_SLIM}")
+            print(f"Name: {name}",
+                  f"Birth: {birth}",
+                  f"Count: {count}",
+                  f"Url: {tree.base_url}",
+                  f"{SEP_SLIM}",
+                  sep="\n")
             result += 1
 
-        print(f'Total: {total}, result: {result}.', sep="\n")
+    print(f'Total: {total}, result: {result}.', sep="\n")
