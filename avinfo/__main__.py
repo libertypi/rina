@@ -87,12 +87,11 @@ def main():
 
         if args.type == "keyword":
             video.from_string(args.target).print()
+        elif args.type == "dir":
+            process_scan(video.scan_dir(args.target, args.newer), args)
+            dirtime.update_dir_mtime(args.target)
         else:
-            if args.type == "dir":
-                process_scan(video.scan_dir(args.target, args.newer), args)
-                dirtime.update_dir_mtime(args.target)
-            else:
-                process_scan((video.from_path(args.target), ), args)
+            process_scan((video.from_path(args.target), ), args)
 
     elif args.command == "idol":
 

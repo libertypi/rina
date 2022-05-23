@@ -21,7 +21,7 @@ def parse_args(root: Path):
         dest="freq",
         action="store",
         type=int,
-        default=5,
+        default=3,
         help="cut the dict to this frequency (default: %(default)s)",
     )
     group.add_argument(
