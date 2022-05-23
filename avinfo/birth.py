@@ -56,13 +56,8 @@ class ProductFilter:
 
 def get_lastpage(tree):
     """return the page number of the last page, or 1."""
-    nav = tree.find('.//section[@id="main-area"]//div[@class="pagination"]')
-    if nav is None:
-        return 1
-    last = nav.findtext('.//a[@title="Last"]')
-    if last:
-        return int(re_search(r'\d+', last)[0])
-    for last in reversed(nav.xpath('.//a/text()')):
+    last = tree.xpath('.//section[@id="main-area"]//div[@class="pagination"]//a/text()')
+    for last in reversed(last):
         last = re_search(r'\d+', last)
         if last:
             return int(last[0])
