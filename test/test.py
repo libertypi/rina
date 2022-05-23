@@ -9,7 +9,7 @@ from dataclasses import astuple
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from avinfo import actress, scraper, video
+from avinfo import idol, scraper, video
 
 
 class Scraper(unittest.TestCase):
@@ -239,7 +239,7 @@ class Actress(unittest.TestCase):
             self.assertEqual(result, answer, msg=result)
 
     def test_wikipedia(self):
-        wiki = actress.Wikipedia
+        wiki = idol.Wikipedia
         values = {
             '鈴木さとみ': ('鈴木さとみ', '1988-09-09', {'鈴木さとみ', 'まお', '浅田真美'}),
             '佐々木愛美': None,
@@ -252,7 +252,7 @@ class Actress(unittest.TestCase):
         self._run_test(wiki, values)
 
     def test_minnanoav(self):
-        wiki = actress.MinnanoAV
+        wiki = idol.MinnanoAV
         values = {
             '片瀬瑞穂': ('成宮梓', '1993-04-12', {'片瀬瑞穂', '前田ななみ', '成宮梓'}),
             '佐伯史華': ('佐々木愛美', '1992-07-14', {'クルミ', '佐伯史華', '佐々木愛美'}),
@@ -262,7 +262,7 @@ class Actress(unittest.TestCase):
         self._run_test(wiki, values)
 
     def test_avrevolution(self):
-        wiki = actress.AVRevolution
+        wiki = idol.AVRevolution
         values = {
             '真央': ('知念真桜', None,
                    {'まお', '佐藤夏美', '羽田まなみ', '知念真央', '井原のえる', '真央', '知念真桜'}),
@@ -274,7 +274,7 @@ class Actress(unittest.TestCase):
         self._run_test(wiki, values)
 
     def test_seesaawiki(self):
-        wiki = actress.Seesaawiki
+        wiki = idol.Seesaawiki
         values = {
             '田中志乃': ('桃井杏南', '1988-03-31', {
                 '茉莉もも', '田中志乃', 'さとうみつ', '辰巳ゆみ', '水野ふうか', '七草まつり', '藤野あや',
@@ -292,7 +292,7 @@ class Actress(unittest.TestCase):
         self._run_test(wiki, values)
 
     def test_msin(self):
-        wiki = actress.Msin
+        wiki = idol.Msin
         values = {
             '木内亜美菜': ('木内亜美菜', '1991-11-30', {
                 '咲羽', 'りほ', 'モモ', '佐々木ゆき', '木内亜美菜', 'ナナ', '葉月美加子', '廣井美加子',
@@ -308,7 +308,7 @@ class Actress(unittest.TestCase):
         self._run_test(wiki, values)
 
     def test_manko(self):
-        wiki = actress.Manko
+        wiki = idol.Manko
         values = {
             '南星愛': ('南星愛', '1996-01-31', {'南星愛', '山城ゆうひ'}),
             '小司あん': ('平子知歌', None, {'佐々木ゆう', 'あん', 'いしはらさき', '小司あん', '平子知歌'})
@@ -316,7 +316,7 @@ class Actress(unittest.TestCase):
         self._run_test(wiki, values)
 
     def test_etigoya(self):
-        wiki = actress.Etigoya
+        wiki = idol.Etigoya
         values = {
             '市原さとみ':
                 (None, None, {'じゅんこ', '市原さとみ', '鶴田沙織', '西村江梨', '由宇', '北野景子'}),
@@ -334,7 +334,7 @@ class Actress(unittest.TestCase):
             " xxx]木内亜美菜27歳 (abc)",
         )
         for string in values:
-            result = actress.clean_name(string)
+            result = idol.clean_name(string)
             self.assertEqual(result, "木内亜美菜", msg=string)
 
 

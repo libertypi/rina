@@ -1,5 +1,6 @@
 import os
 import os.path as op
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -66,7 +67,7 @@ class ConcatVideo:
                 stderr_write(f"remove: {file}\n")
 
 
-def find_consecutive_videos(root):
+def find_consecutive_videos(root: Path):
 
     # ffmpeg requires absolute path
     stack = [op.abspath(root)]
@@ -121,9 +122,9 @@ def find_consecutive_videos(root):
                 )
 
 
-def main(top_dir, ffmpeg: str, quiet: bool):
+def main(args):
 
-    ffmpeg = shutil.which(ffmpeg or FFMPEG)
+    ffmpeg = shutil.which(args.ffmpeg or FFMPEG)
     if ffmpeg is None:
         stderr_write("Error: ffmpeg not found. "
                      "Please make sure it is in PATH, "
@@ -131,7 +132,7 @@ def main(top_dir, ffmpeg: str, quiet: bool):
         return
 
     result = []
-    for video in find_consecutive_videos(top_dir):
+    for video in find_consecutive_videos(args.target):
         result.append(video)
         stderr_write(f"{SEP_SLIM}\n{video.report}\n")
 
@@ -143,7 +144,7 @@ def main(top_dir, ffmpeg: str, quiet: bool):
         "{}\nScan finished, {} files can be concatenated into {} files.\n".
         format(SEP_BOLD, sum(len(v.input_files) for v in result), len(result)))
 
-    if not quiet:
+    if not args.quiet:
         msg = (f"{SEP_BOLD}\n"
                "please choose an option:\n"
                "1) apply all\n"
@@ -176,7 +177,7 @@ def main(top_dir, ffmpeg: str, quiet: bool):
     for video in result:
         video.apply(ffmpeg)
 
-    if not quiet:
+    if not args.quiet:
         msg = (f"{SEP_BOLD}\n"
                "delete all the successfully converted input files?\n"
                "please check with caution.\n"

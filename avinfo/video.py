@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterator
 
 from avinfo._utils import (SEP_CHANGED, SEP_FAILED, SEP_SUCCESS, color_printer,
-                           re_compile, re_search, strftime, stderr_write)
+                           re_compile, re_search, stderr_write, strftime)
 from avinfo.scraper import ScrapeResult, _has_word, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
@@ -62,8 +62,8 @@ class AVString:
     def report(self):
         report = self._report
         if isinstance(report, dict):
-            report = self._report = "\n".join(
-                f'{k:>10}: {v}' for k, v in report.items() if v)
+            report = self._report = "\n".join(f'{k:>10}: {v}'
+                                              for k, v in report.items() if v)
         return report
 
 
@@ -256,56 +256,3 @@ else:
 
     def _get_namemax(path: Path):
         return 255
-
-
-def update_dir_mtime(top_dir: Path):
-
-    total = success = 0
-
-    def probe_dir(root):
-
-        nonlocal total, success
-
-        total += 1
-        newest = 0
-        dirs = []
-
-        with os.scandir(root) as it:
-            for entry in it:
-                if entry.is_dir(follow_symlinks=False):
-                    if entry.name[0] not in "#@":
-                        dirs.append(entry)
-                else:
-                    mtime = entry.stat().st_mtime
-                    if mtime > newest:
-                        newest = mtime
-
-        for entry in dirs:
-            mtime = probe_dir(entry)
-            if mtime > newest:
-                newest = mtime
-
-        if newest:
-            stat = root.stat()
-            if newest != stat.st_mtime:
-                try:
-                    os.utime(root, (stat.st_atime, newest))
-                except OSError as e:
-                    stderr_write(f"{e}\n")
-                else:
-                    success += 1
-                    stderr_write("{} => {}: {}\n".format(
-                        strftime(stat.st_mtime), strftime(newest),
-                        os.fspath(root)))
-        return newest
-
-    stderr_write("Updating directory timestamps...\n")
-
-    if not isinstance(top_dir, Path):
-        top_dir = Path(top_dir)
-    try:
-        probe_dir(top_dir)
-    except OSError as e:
-        stderr_write(f"error occurred scanning {top_dir}: {e}\n")
-    else:
-        stderr_write(f"Finished. {total} dirs scanned, {success} updated.\n")

@@ -1,6 +1,8 @@
+import imp
 import re
 import sys
 import time
+import warnings
 from datetime import datetime, timezone
 from functools import lru_cache
 from re import compile as re_compile
@@ -10,7 +12,7 @@ import requests
 from lxml.etree import XPath
 from lxml.html import HtmlElement
 from lxml.html import fromstring as html_fromstring
-from requests import HTTPError
+from requests.exceptions import HTTPError, RequestException
 from urllib3 import Retry
 
 SEP_WIDTH = 50
@@ -36,8 +38,9 @@ date_searcher = re_compile(
 def _init_session(retries: int = 5, backoff: float = 0.2):
     session = requests.Session()
     session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) "
-                      "Gecko/20100101 Firefox/80.0"
+        "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) "
+        "Gecko/20100101 Firefox/80.0"
     })
     adapter = requests.adapters.HTTPAdapter(
         max_retries=Retry(total=retries,
@@ -86,10 +89,13 @@ def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
     :param encoding: None (feed bytes to lxml), "auto" (detect by requests), or any
     encodings
     """
-    response = session.get(url, timeout=HTTP_TIMEOUT, **kwargs)
     try:
+        response = session.get(url, timeout=HTTP_TIMEOUT, **kwargs)
         response.raise_for_status()
     except HTTPError:
+        return
+    except RequestException as e:
+        warnings.warn(f"{e}")
         return
 
     if encoding:
@@ -128,13 +134,7 @@ def str_to_epoch(string: str) -> Optional[float]:
         pass
 
 
-@lru_cache(maxsize=None)
-def xpath(xpath: str, smart_strings: bool = False) -> XPath:
-    """Returns a compiled XPath."""
-    return XPath(xpath, smart_strings=smart_strings)
-
-
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=512)
 def _cache_re_method(pattern: str, method: str):
     """Returns a cached regex method"""
     return getattr(re_compile(pattern), method)
@@ -147,5 +147,7 @@ def re_search(pattern: str, string: str) -> Optional[re.Match]:
 def re_sub(pattern: str, repl, string: str) -> str:
     return _cache_re_method(pattern, "sub")(repl, string)
 
+
+xpath = lru_cache(XPath)
 
 session = _init_session()
