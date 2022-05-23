@@ -6,17 +6,17 @@ from pathlib import Path
 
 def parse_args():
 
-    target_range = {
+    valid_types = {
         "video": {"dir", "file", "keyword"},
         "idol": {"dir", "keyword"},
         "concat": {"dir"},
         "dir": {"dir"}
     }
 
-    def add_target(parser, mode):
+    def add_target(parser, command):
         parser.add_argument(
             "target",
-            help=f'the target. expect: {", ".join(target_range[mode])}.')
+            help=f'the target. expect: {", ".join(valid_types[command])}.')
 
     def add_newer(parser):
         parser.add_argument(
@@ -176,7 +176,7 @@ def parse_args():
 
     # test target type
     # add args.type to Namespace
-    if args.command in target_range:
+    if args.command in valid_types:
         target = Path(args.target)
         try:
             target = target.resolve(strict=True)
@@ -188,9 +188,9 @@ def parse_args():
             args.type = "keyword"
         except (OSError, RuntimeError) as e:
             parser.error(e)
-        if args.type not in target_range[args.command]:
+        if args.type not in valid_types[args.command]:
             parser.error('expect target to be "{}", not "{}".'.format(
-                ", ".join(target_range[args.command]), args.type))
+                ", ".join(valid_types[args.command]), args.type))
         args.target = target
 
     return args
