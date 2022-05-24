@@ -1,6 +1,5 @@
 import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from unittest import result
 from urllib.parse import urljoin
 
 from avinfo._utils import (SEP_SLIM, XPath, get_tree, re_search, str_to_epoch,
