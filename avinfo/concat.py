@@ -1,6 +1,5 @@
 import os
 import os.path as op
-from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -9,43 +8,65 @@ from collections import defaultdict
 
 from avinfo._utils import SEP_BOLD, SEP_SLIM, get_choice_as_int, stderr_write
 
-FFMPEG = "ffmpeg"
+ffmpeg = "ffmpeg"
+ffprobe = "ffprobe"
 
 
 class ConcatVideo:
 
-    __slots__ = ("output_path", "input_files", "report", "applied")
+    __slots__ = ("output", "input", "report", "applied")
 
-    def __init__(self, output_path: str, input_files) -> None:
+    def __init__(self, output: str, input: tuple) -> None:
 
-        self.output_path = output_path
-        self.input_files = input_files = tuple(input_files)
+        self.output = output
+        self.input = input
         self.applied = False
 
-        self.report = "files ({}):\n  {}\noutput:\n  {}".format(
-            len(input_files),
-            "\n  ".join(input_files),
-            output_path,
-        )
+        self.report = "input ({}):\n  {}\noutput:\n  {}\n{}\n".format(
+            len(input), "\n  ".join(input), output, SEP_SLIM)
 
-    def apply(self, ffmpeg: str = FFMPEG):
+    def has_diff_streams(self):
+        """compare streams in input files. return True if there is
+        differences, and write some message to stderr."""
+        first = msg = None
+        try:
+            for file in self.input:
+                o = subprocess.run(
+                    (ffprobe, '-loglevel', '0', '-show_entries',
+                     'stream=index,codec_name,width,height,time_base',
+                     '-print_format', 'compact', file),
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                ).stdout
+                if first is None:
+                    first = o
+                elif first != o:
+                    msg = f"stream difference:\n{self.input[0]}:\n{first}{SEP_SLIM}\n{file}:\n{o}"
+                    break
+            else:
+                return False
+        except subprocess.CalledProcessError as msg:
+            msg = f"{msg}\n"
+        stderr_write(f"{SEP_BOLD}\nerror occured when verifying input files:\n"
+                     f"{self.report}{msg}{SEP_SLIM}\n")
+        return True
 
-        if self.applied:
-            return
+    def concat(self):
 
         tmpfd, tmpfile = tempfile.mkstemp()
         try:
             with os.fdopen(tmpfd, "w", encoding="utf-8") as f:
-                f.writelines(f"file '{p}'\n" for p in self.input_files)
+                f.writelines(f"file '{p}'\n" for p in self.input)
             subprocess.run(
                 (ffmpeg, "-f", "concat", "-safe", "0", "-i", tmpfile, "-c",
-                 "copy", self.output_path),
+                 "copy", self.output),
                 check=True,
             )
         except subprocess.CalledProcessError as e:
             stderr_write(f"{e}\n")
             try:
-                os.unlink(self.output_path)
+                os.unlink(self.output)
             except FileNotFoundError:
                 pass
         else:
@@ -58,7 +79,7 @@ class ConcatVideo:
         if not self.applied:
             return
 
-        for file in self.input_files:
+        for file in self.input:
             try:
                 os.unlink(file)
             except OSError as e:
@@ -67,7 +88,7 @@ class ConcatVideo:
                 stderr_write(f"remove: {file}\n")
 
 
-def find_consecutive_videos(root: Path):
+def find_consecutive_videos(root):
 
     # ffmpeg requires absolute path
     stack = [op.abspath(root)]
@@ -122,25 +143,28 @@ def find_consecutive_videos(root: Path):
                 name = k[0] + k[1]
                 if name in seen:
                     continue
-                yield ConcatVideo(
-                    op.join(root, name),
-                    (v[i] for i in range(1, n + 1)),
-                )
+                yield ConcatVideo(op.join(root, name),
+                                  tuple(v[i] for i in range(1, n + 1)))
 
 
 def main(args):
 
-    ffmpeg = shutil.which(args.ffmpeg or FFMPEG)
-    if ffmpeg is None:
-        stderr_write("Error: ffmpeg not found. "
-                     "Please make sure it is in PATH, "
-                     "or passed via --ffmpeg argument.\n")
-        return
+    global ffmpeg, ffprobe
+
+    if args.ffmpeg:
+        ffmpeg = op.join(args.ffmpeg, ffmpeg)
+        ffprobe = op.join(args.ffmpeg, ffprobe)
+    for i in ffmpeg, ffprobe:
+        if not shutil.which(i):
+            stderr_write(
+                f"Error: {i} not found. Please be sure ffmpeg can be "
+                "found in PATH or the directory passed via '-f' option.\n")
+            return
 
     result = []
     for video in find_consecutive_videos(args.target):
         result.append(video)
-        stderr_write(f"{SEP_SLIM}\n{video.report}\n")
+        stderr_write(video.report)
 
     if not result:
         stderr_write("No change can be made.\n")
@@ -148,7 +172,7 @@ def main(args):
 
     stderr_write(
         "{}\nScan finished, {} files can be concatenated into {} files.\n".
-        format(SEP_BOLD, sum(len(v.input_files) for v in result), len(result)))
+        format(SEP_BOLD, sum(len(v.input) for v in result), len(result)))
 
     if not args.quiet:
         msg = (f"{SEP_BOLD}\n"
@@ -163,8 +187,7 @@ def main(args):
                 f"{SEP_BOLD}\n"
                 f"please select what to do with following ({{}} of {len(result)}):\n"
                 f"{SEP_SLIM}\n"
-                "{}\n"
-                f"{SEP_SLIM}\n"
+                "{}"
                 "1) select\n"
                 "2) skip\n"
                 "3) quit\n")
@@ -180,16 +203,39 @@ def main(args):
         elif choice == 3:
             return
 
+    to_all = True if args.quiet else False  # skip all
     for video in result:
-        video.apply(ffmpeg)
+        if video.has_diff_streams():
+            if to_all:
+                choice = 3
+            else:
+                msg = (
+                    "concat these files anyway (not recommended)?\n"
+                    f"{SEP_SLIM}\n1) yes\n2) no (skip)\n3) skip all\n4) quit\n"
+                )
+                choice = get_choice_as_int(msg, 4)
+                if choice == 4:
+                    return
+                if choice == 3:
+                    to_all = True
+            if choice != 1:
+                stderr_write("files skipped.\n")
+                continue
+        video.concat()
 
     if not args.quiet:
-        msg = (f"{SEP_BOLD}\n"
-               "delete all the successfully converted input files?\n"
-               "please check with caution.\n"
-               "1) yes\n"
-               "2) no\n")
-        choice = get_choice_as_int(msg, 2)
-        if choice == 1:
-            for video in result:
-                video.remove_inputs()
+        to_all = False  # delete all
+        for video in result:
+            if not video.applied:
+                continue
+            if not to_all:
+                msg = (f"{SEP_BOLD}\ndelete all input files?\n{video.report}"
+                       "1) yes\n2) yes to all\n3) no\n4) quit\n")
+                choice = get_choice_as_int(msg, 4)
+                if choice == 4:
+                    return
+                if choice == 3:
+                    continue
+                if choice == 2:
+                    to_all = True
+            video.remove_inputs()
