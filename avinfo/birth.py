@@ -68,7 +68,8 @@ def get_lastpage(tree):
 
 xpath_actress_list = XPath(
     './/section[@id="main-area"]/section[contains(@class, "main-column")]'
-    '//td/*[@class="ttl"]/a/@href[contains(., "actress")]')
+    '//td/*[@class="ttl"]/a/@href[contains(., "actress")]',
+    smart_strings=False)
 
 
 def main(args):
