@@ -6,10 +6,6 @@ from urllib.parse import urljoin
 from avinfo._utils import (SEP_SLIM, XPath, get_tree, re_search, str_to_epoch,
                            xpath)
 
-xpath_actress_list = XPath(
-    './/section[@id="main-area"]/section[contains(@class, "main-column")]'
-    '//td/*[@class="ttl"]/a/@href[contains(., "actress")]')
-
 
 class ProductFilter:
     """actress page filter"""
@@ -69,6 +65,11 @@ def get_lastpage(tree):
         if last:
             return int(last[0])
     return 1
+
+
+xpath_actress_list = XPath(
+    './/section[@id="main-area"]/section[contains(@class, "main-column")]'
+    '//td/*[@class="ttl"]/a/@href[contains(., "actress")]')
 
 
 def main(args):

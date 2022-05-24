@@ -7,11 +7,11 @@ from avinfo._utils import get_tree
 class Test_Scraper(unittest.TestCase):
 
     def _run_test(self, values: dict, source: str):
-        for string, answer in values.items():
-            result = scraper.scrape(string)
-            self.assertEqual(answer[0], result.product_id)
-            self.assertIn(answer[1], result.title)
-            self.assertAlmostEqual(answer[2], result.publish_date)
+        for k, v in values.items():
+            result = scraper.scrape(k)
+            self.assertEqual(v[0], result.product_id)
+            self.assertIn(v[1], result.title)
+            self.assertAlmostEqual(v[2], result.publish_date)
             self.assertEqual(source, result.source)
 
     def test_javbus(self):
@@ -157,7 +157,7 @@ class Test_Scraper(unittest.TestCase):
         source = 'mgstage.com'
         values = {
             'siro-1204': ('SIRO-1204', '体験撮影438', 1349136000),
-            'DANDY-241': ('DANDY-241', '風呂', 1308355200.0)
+            'DANDY-241': ('DANDY-241', '風呂', 1308355200)
         }
         self._run_test(values, source)
 
@@ -197,6 +197,30 @@ class Test_Birth_List(unittest.TestCase):
     def test_xpath(self):
         result = birth.xpath_actress_list(self.tree)
         self.assertGreater(len(result), 5)
+
+
+class Test_Birth_Filter(unittest.TestCase):
+
+    url = "http://www.minnano-av.com/actress.php?actress_id=9190"
+    tree = None
+
+    def setUp(self) -> None:
+        if self.tree is None:
+            self.tree = get_tree(self.url)
+
+    def test_filter(self):
+        result_1 = birth.ProductFilter(20, False, False).run(self.tree)
+        result_2 = birth.ProductFilter(20, True, False).run(self.tree)
+        result_3 = birth.ProductFilter(20, True, True).run(self.tree)
+        self.assertGreater(result_3, 1)
+        self.assertGreater(result_1, result_2)
+        self.assertGreater(result_2, result_3)
+
+    def test_col_finder(self):
+        values = {"作品タイトル": 2, "発売日": 3}
+        for k, v in values.items():
+            result = birth.ProductFilter._get_col_path(self.tree, k, 10)
+            self.assertEqual(result, f"td[{v}]")
 
 
 if __name__ == '__main__':
