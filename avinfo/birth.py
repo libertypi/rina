@@ -83,7 +83,7 @@ def main(args):
     # parse the first page
     xp = xpath('.//section[@id="main-area"]'
                '/section[contains(@class, "main-column")]'
-               '//tr/td/a[starts-with(@href, "actress")]/@href')
+               '//td/*[@class="ttl"]/a/@href')
     page_list = set(xp(tree))
 
     with ThreadPoolExecutor(max_workers=5) as ex:

@@ -27,7 +27,7 @@ class ConcatVideo:
 
     def has_diff_streams(self):
         """compare streams in input files. return True if there is
-        differences, and write some message to stderr."""
+        difference, and write some message to stderr."""
         first = msg = None
         try:
             for file in self.input:

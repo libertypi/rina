@@ -11,7 +11,7 @@ from avinfo._utils import (HTTP_TIMEOUT, HtmlElement, HTTPError, get_tree,
                            html_fromstring, re_compile, re_search, re_sub,
                            session, set_cookie, str_to_epoch, strptime, xpath)
 
-__all__ = ("scrape",)
+__all__ = ("scrape", )
 
 set_cookie(domain="www.javbus.com", name="existmag", value="all")
 set_cookie(domain="javdb.com", name="over18", value="1")
@@ -57,8 +57,8 @@ class Scraper:
                 if _valid_id(product_id) and _has_word(title):
                     result.title = title
                     result.product_id = self._process_id(product_id)
-                    assert (isinstance(result.publish_date, float) or
-                            result.publish_date is None)
+                    assert (isinstance(result.publish_date, float)
+                            or result.publish_date is None)
                     return result
 
     def _query(self) -> Optional[ScrapeResult]:
@@ -123,44 +123,21 @@ class Scraper:
 
     def _javdb(self):
 
-        try:
-            base = random_choice(Scraper._javdb_url)
-        except AttributeError:
-            base = "https://javdb.com/search?q="
-            tree = get_tree(base + self.keyword, encoding="auto")
-            if tree is None:
-                return
-            alt = tree.xpath(
-                'string(.//nav[@class="sub-header"]'
-                '//text()[contains(., "最新域名")]'
-                '/following::a[starts-with(@href, "http")][1]/@href)',
-                smart_string=False,
-            )
-            if alt:
-                Scraper._javdb_url = (base, urljoin(alt, "search?q="))
-            else:
-                Scraper._javdb_url = (base,)
-                warnings.warn("xpath for javdb alt-url broken")
-        else:
-            tree = get_tree(base + self.keyword, encoding="auto")
-
+        tree = get_tree("https://javdb.com/search?q=" + self.keyword,
+                        encoding="auto")
         if tree is None or "/search" not in tree.base_url:
             return
 
-        tree = tree.find('.//div[@id="videos"]')
-        if tree is None:
-            return
-
         mask = self._get_keyword_mask()
-        for a in tree.iterfind('.//a[@class="box"]'):
-
-            product_id = a.findtext('div[@class="uid"]', "")
+        for v in xpath('.//div[contains(@class, "movie-list")]'
+                       '//a[@class="box"]/div[@class="video-title"]')(tree):
+            product_id = v.findtext("strong", "")
             if mask(product_id):
-
                 return ScrapeResult(
                     product_id=product_id,
-                    title=a.findtext('div[@class="video-title"]'),
-                    publish_date=str_to_epoch(a.findtext('div[@class="meta"]')),
+                    title=xpath('string(text())')(v),
+                    publish_date=str_to_epoch(
+                        v.findtext('../div[@class="meta"]')),
                     source="javdb.com",
                 )
 
@@ -232,8 +209,8 @@ class StudioMatcher(Scraper):
 
         result = super().search()
 
-        if result and (result.source.startswith("jav") or
-                       not result.publish_date):
+        if result and (result.source.startswith("jav")
+                       or not result.publish_date):
             try:
                 result.publish_date = strptime(match["s1"], self.datefmt)
             except ValueError as e:
@@ -312,9 +289,10 @@ class StudioMatcher(Scraper):
             self._warn(e)
             return
 
-        date = xpath('string(.//li[@class="movie-spec"]'
-                     '/span[contains(text(), "配信日") or contains(text(), "販売日")]'
-                     '/following-sibling::span[contains(., "20")])')(tree)
+        date = xpath(
+            'string(.//li[@class="movie-spec"]'
+            '/span[contains(text(), "配信日") or contains(text(), "販売日")]'
+            '/following-sibling::span[contains(., "20")])')(tree)
 
         return ScrapeResult(
             product_id=self.keyword,
@@ -476,7 +454,8 @@ class FC2(Scraper):
         tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
         if tree is not None:
             tree = tree.find(
-                './/section[@id="top"]//section[@class="items_article_header"]')
+                './/section[@id="top"]//section[@class="items_article_header"]'
+            )
             if tree is not None:
                 title = tree.findtext(
                     './/div[@class="items_article_headerInfo"]/h3')
@@ -507,30 +486,6 @@ class FC2(Scraper):
             publish_date=date,
             source=self.source,
         )
-
-    def _javdb(self):
-
-        data = session.get(
-            f"https://javdb.com/videos/search_autocomplete.json?q={self.keyword}",
-            timeout=HTTP_TIMEOUT)
-        try:
-            data.raise_for_status()
-        except HTTPError:
-            return
-
-        data = data.json()
-        mask = self._get_keyword_mask()
-        for item in data:
-            if not mask(item["number"]):
-                continue
-            if item["title"].endswith("..."):
-                return
-            return ScrapeResult(
-                product_id=item["number"],
-                title=re_sub(r"^\s*\[.*?\]\s*", "", item["title"]),
-                publish_date=str_to_epoch(item["meta"].rpartition("發布時間:")[2]),
-                source="javdb.com",
-            )
 
 
 class Heydouga(Scraper):
