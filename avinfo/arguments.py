@@ -110,7 +110,7 @@ def parse_args():
         "-f",
         dest="ffmpeg",
         action="store",
-        help="the ffmpeg directory. Search PATH if omit.",
+        help="the ffmpeg directory. Search $PATH if omit.",
     )
     add_quiet(parser_concat)
     add_target(parser_concat, command)
