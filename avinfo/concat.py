@@ -158,7 +158,7 @@ def main(args):
         if not shutil.which(i):
             stderr_write(
                 f"Error: {i} not found. Please be sure ffmpeg can be "
-                "found in PATH or the directory passed via '-f' option.\n")
+                "found in $PATH or the directory passed via '-f' option.\n")
             return
 
     result = []
