@@ -32,9 +32,9 @@ class ConcatVideo:
         try:
             for file in self.input:
                 o = subprocess.run(
-                    (ffprobe, '-loglevel', '0', '-show_entries',
-                     'stream=index,codec_name,width,height,time_base',
-                     '-print_format', 'compact', file),
+                    (ffprobe, "-loglevel", "0", "-show_entries",
+                     "stream=index,codec_name,width,height,time_base",
+                     "-print_format", "compact", file),
                     capture_output=True,
                     text=True,
                     check=True,
