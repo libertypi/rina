@@ -3,7 +3,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from unittest import result
 from urllib.parse import urljoin
 
-from avinfo._utils import SEP_SLIM, get_tree, re_search, str_to_epoch, xpath
+from avinfo._utils import (SEP_SLIM, XPath, get_tree, re_search, str_to_epoch,
+                           xpath)
+
+xpath_actress_list = XPath(
+    './/section[@id="main-area"]/section[contains(@class, "main-column")]'
+    '//td/*[@class="ttl"]/a/@href[contains(., "actress")]')
 
 
 class ProductFilter:
@@ -17,10 +22,10 @@ class ProductFilter:
         self._filters = []
         if uncensored:
             # return true if the product is uncensored
-            self._filters.append(xpath('contains(p[@class="moza"], "モザイクなし")'))
+            self._filters.append(XPath('contains(p[@class="moza"], "モザイクなし")'))
         if solo:
             # return true is the product contains only one actress
-            self._filters.append(xpath('count(p[@class="cast"]/a) <= 1'))
+            self._filters.append(XPath('count(p[@class="cast"]/a) <= 1'))
 
     def run(self, tree) -> int:
 
@@ -81,10 +86,7 @@ def main(args):
     total = get_lastpage(tree)
 
     # parse the first page
-    xp = xpath('.//section[@id="main-area"]'
-               '/section[contains(@class, "main-column")]'
-               '//td/*[@class="ttl"]/a/@href')
-    page_list = set(xp(tree))
+    page_list = set(xpath_actress_list(tree))
 
     with ThreadPoolExecutor(max_workers=5) as ex:
 
@@ -97,7 +99,7 @@ def main(args):
                     }) for i in range(2, total + 1)):
             tree = ft.result()
             if tree is not None:
-                page_list.update(xp(tree))
+                page_list.update(xpath_actress_list(tree))
 
         total = len(page_list)
         result = 0
