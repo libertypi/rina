@@ -3,9 +3,7 @@ import re
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from random import choice as random_choice
 from typing import Optional
-from urllib.parse import urljoin
 
 from avinfo._utils import (HTTP_TIMEOUT, HtmlElement, HTTPError, get_tree,
                            html_fromstring, re_compile, re_search, re_sub,
@@ -348,24 +346,8 @@ class StudioMatcher(Scraper):
 
     def _mura(self):
         self.studio = "mura"
-
-        tree = get_tree(f"https://www.muramura.tv/moviepages/{self.keyword}/",
-                        encoding="euc-jp")
-        if tree is None:
-            return
-
-        tree = tree.find('.//div[@id="detail-main"]')
-        try:
-            date = xpath('string(ul[@class="info"]/li[contains(.,"更新日")]'
-                         '/text()[contains(.,"20")])')(tree)
-        except TypeError as e:
-            self._warn(e)
-            return
-
-        return ScrapeResult(
-            product_id=self.keyword,
-            title="".join(xpath("h1[1]/text()")(tree)),
-            publish_date=str_to_epoch(date),
+        return self._1pon(
+            url="https://www.muramura.tv",
             source="muramura.tv",
         )
 
@@ -449,43 +431,23 @@ class FC2(Scraper):
 
         uid = self.match["fc2"]
         self.keyword = f"FC2-{uid}"
-        title = date = None
 
         tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
+        if tree is None:
+            return
+
+        tree = tree.find(
+            './/section[@id="top"]//section[@class="items_article_header"]')
         if tree is not None:
-            tree = tree.find(
-                './/section[@id="top"]//section[@class="items_article_header"]'
-            )
-            if tree is not None:
-                title = tree.findtext(
-                    './/div[@class="items_article_headerInfo"]/h3')
-                date = str_to_epoch(
+            return ScrapeResult(
+                product_id=self.keyword,
+                title=tree.findtext(
+                    './/div[@class="items_article_headerInfo"]/h3'),
+                publish_date=str_to_epoch(
                     tree.findtext(
-                        './/div[@class="items_article_Releasedate"]/p'))
-
-        if not title:
-            tree = get_tree(
-                "https://video.fc2.com/a/search/video/",
-                params={"keyword": f"aid={uid}"},
+                        './/div[@class="items_article_Releasedate"]/p')),
+                source=self.source,
             )
-            try:
-                tree = tree.find(
-                    './/div[@id="pjx-search"]//ul/li//a[@title][@href]')
-                title = tree.text
-                date = strptime(
-                    re_search(r"/(20[12][0-9]{5})", tree.get("href"))[1],
-                    "%Y%m%d")
-            except AttributeError:
-                return
-            except (TypeError, ValueError) as e:
-                self._warn(e)
-
-        return ScrapeResult(
-            product_id=self.keyword,
-            title=title,
-            publish_date=date,
-            source=self.source,
-        )
 
 
 class Heydouga(Scraper):
