@@ -1,6 +1,6 @@
 import unittest
-
-from avinfo import idol, scraper, video, birth
+from pathlib import Path
+from avinfo import idol, scraper, birth, video
 from avinfo._utils import get_tree
 
 
@@ -9,6 +9,7 @@ class Test_Scraper(unittest.TestCase):
     def _run_test(self, values: dict, source: str):
         for k, v in values.items():
             result = scraper.scrape(k)
+            self.assertIsNotNone(result)
             self.assertEqual(v[0], result.product_id)
             self.assertIn(v[1], result.title)
             self.assertAlmostEqual(v[2], result.publish_date)
@@ -179,6 +180,134 @@ class Test_Scraper(unittest.TestCase):
             else:
                 self.assertEqual(v, result.publish_date)
                 self.assertEqual(source, result.source)
+
+
+class Test_Idol(unittest.TestCase):
+
+    def _run_test(self, wiki, values):
+        for k, v in values.items():
+            r = wiki.search(k)
+            if v:
+                self.assertIsNotNone(r)
+                self.assertTrue(r.name)
+                self.assertEqual(r.birth, v[0])
+                self.assertTrue(r.alias.issuperset(v[1]))
+            else:
+                self.assertIsNone(r)
+
+    def test_wikipedia(self):
+        wiki = idol.Wikipedia
+        values = {
+            '鈴木さとみ': ('1988-09-09', {'鈴木さとみ', '浅田真美'}),
+            '上原結衣': ('1990-05-01', {'上原志織', '上原結衣'}),
+            '佐々木愛美': None,
+        }
+        self._run_test(wiki, values)
+
+    def test_minnanoav(self):
+        wiki = idol.MinnanoAV
+        values = {
+            '片瀬瑞穂': ('1993-04-12', {'成宮梓'}),
+            '上原志織': ('1990-05-01', {'上原結衣'}),
+            '蓮美': None,
+        }
+        self._run_test(wiki, values)
+
+    def test_avrevolution(self):
+        wiki = idol.AVRevolution
+        values = {
+            '蓮美': (None, {'大高頼子', '鈴木ありさ'}),
+            '市川サラ': (None, {'市川サラ'}),
+            '伊藤ゆう': None,
+        }
+        self._run_test(wiki, values)
+
+    def test_seesaawiki(self):
+        wiki = idol.Seesaawiki
+        values = {
+            '上原結衣': ('1989-10-10', {'上原志織', '上原結衣'}),
+            '成宮はるあ': ('1992-07-30', {'一ノ木ありさ', '乃木はるか'}),
+            '池田美和子': None,
+        }
+        self._run_test(wiki, values)
+
+    def test_msin(self):
+        wiki = idol.Msin
+        values = {
+            '木内亜美菜': ('1991-11-30', {'木内亜美菜', '葉月美加子'}),
+            '今村ゆう': ('1996-03-15', {'沖野るり', '今村ゆう'}),
+            '前田ななみ': ('1993-04-12', {'片瀬瑞穂', '成宮梓'}),
+        }
+        self._run_test(wiki, values)
+
+    def test_manko(self):
+        wiki = idol.Manko
+        values = {
+            '南星愛': ('1996-01-31', {'南星愛'}),
+            '小司あん': (None, {'小司あん', '平子知歌'})
+        }
+        self._run_test(wiki, values)
+
+    def test_etigoya(self):
+        wiki = idol.Etigoya
+        values = {
+            '市原さとみ': (None, {'鶴田沙織', '西村江梨', '由宇', '北野景子'}),
+            '上原志織': (None, {'上原志織', '上原結衣'}),
+            '佐々木愛美': (None, {'佐伯史華', '佐々木愛美'})
+        }
+        for k, v in values.items():
+            r = wiki.search(k)
+            self.assertIsNone(r.name)
+            self.assertIsNone(r.birth)
+            self.assertTrue(r.alias.issuperset(v[1]))
+
+    def test_clean_name(self):
+        values = (
+            " 木内亜美菜[xxx] abc",
+            "xxx) 木内亜美菜 [abc",
+            "[xxx] 木内亜美菜 (abc)",
+            "    木内亜美菜   　 (abc ~",
+            " xxx]木内亜美菜27歳 (abc)",
+        )
+        for string in values:
+            result = idol.clean_name(string)
+            self.assertEqual(result, "木内亜美菜", msg=string)
+
+
+class Test_AVFile(unittest.TestCase):
+
+    class DuckAVFile(video.AVFile):
+
+        def __init__(self, **kwargs) -> None:
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+    def test_get_file_name(self):
+        values = (
+            (
+                "FC2-1355235",
+                " \n \t ★顔出し☆スタイル抜群！貧乳美熟女の可奈子さん34歳☆かなりレアな貧乳デカ乳首♥電マ潮吹き♥激フェラでイキそ～♥パイパンまんこに生挿入で中出し射精♥【個人撮影】\n \t ",
+                "FC2-1355235 ★顔出し☆スタイル抜群！貧乳美熟女の可奈子さん34歳☆かなりレアな貧乳デカ乳首♥電マ潮吹き♥激フェラでイキそ～♥パイパンまんこに生挿入で中出し射精♥【個人撮影】.mp4",
+            ),
+            (
+                "DAVK-042",
+                "2920日間ドM調教経過報告 数学教師26歳は結婚していた【優しい夫を裏切り】異常性欲を抑えきれず【浮気男6名連続ザーメン中出し懇願】8年間サークル集団の性処理女として完全支配されてきた彼女が新妻になった今でも6P輪姦ドロドロ体液漬けSEX中毒ドキュメント報告",
+                "DAVK-042 2920日間ドM調教経過報告 数学教師26歳は結婚していた【優しい夫を裏切り】異常性欲を抑えきれず【浮気男6名連続ザーメン中出し懇願】.mp4",
+            ),
+            ("", "日" * 300, None),
+            ("", "abc" * 300, None),
+        )
+        path = Path("test.Mp4")
+        for product_id, title, answer in values:
+            result = self.DuckAVFile(
+                target=path,
+                product_id=product_id,
+                title=title,
+            )._get_filename(namemax=255)
+            if answer:
+                self.assertEqual(result, answer, msg=result)
+            self.assertLessEqual(len(result.encode("utf-8")), 255)
+            self.assertRegex(result, r"\w+")
 
 
 class Test_Birth_List(unittest.TestCase):
