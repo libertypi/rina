@@ -23,8 +23,8 @@ _trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
 
 
 def get_year_regex(year: int):
-    """Generate regex matching double digits from 00 - `year`. `year` should be a
-    digit from 0-99.
+    """Computing the regex that matches double digits from 00 - `year`. `year`
+    should be a digit from 0-99.
 
     example: 
       - 5  -> 0[0-5]
