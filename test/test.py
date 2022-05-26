@@ -182,6 +182,16 @@ class Test_Scraper(unittest.TestCase):
                 self.assertEqual(v, result.publish_date)
                 self.assertEqual(source, result.source)
 
+    def test_year_regex(self):
+        values = {
+            0: "00",
+            5: "0[0-5]",
+            56: "[0-4][0-9]|5[0-6]",
+            59: "[0-5][0-9]",
+        }
+        for k, v in values.items():
+            self.assertEqual(scraper.get_year_regex(k), v)
+
 
 class Test_Idol(unittest.TestCase):
 
