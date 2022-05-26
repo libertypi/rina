@@ -1,3 +1,4 @@
+import datetime
 import json
 import re
 import warnings
@@ -19,6 +20,28 @@ _subbraces = re_compile(r"[\s()\[\].-]+").sub
 _valid_id = re_compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
 _has_word = re_compile(r"\w").search
 _trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
+
+
+def get_year_regex(year: int):
+    """Generate regex matching double digits from 00 - `year`. `year` should be a
+    digit from 0-99.
+
+    example: 
+      - 5  -> 0[0-5]
+      - 56 -> [0-4][0-9]|5[0-6]
+      - 59 -> [0-5][0-9]
+      """
+    assert 0 <= year <= 99, f"year out of range: {year}"
+    digit_reg = lambda n: f"[0-{n}]" if n > 1 else "[01]" if n else "0"
+    tens, ones = divmod(year, 10)
+    if tens > 0 and ones < 9:
+        return f"{digit_reg(tens - 1)}[0-9]|{tens}{digit_reg(ones)}"
+    return digit_reg(tens) + digit_reg(ones)
+
+
+REG_Y = get_year_regex(datetime.date.today().year % 100)
+REG_M = r"0[1-9]|1[0-2]"
+REG_D = r"[12][0-9]|0[1-9]|3[01]"
 
 
 @dataclass
@@ -175,11 +198,10 @@ class Scraper:
 class StudioMatcher(Scraper):
 
     uncensored_only = True
-    regex = r"(?P<studio>(?P<s1>{m}{d}{y}|(?P<s4>{y}{m}{d})){tail})".format(
-        y=r"[0-2][0-9]",
-        m=r"(?:0[1-9]|1[0-2])",
-        d=r"(?:[12][0-9]|0[1-9]|3[01])",
-        tail=r"-(?P<s2>[0-9]{2,4})(?:-(?P<s3>0[0-9]))?",
+    regex = r"(?P<studio>(?P<s1>{m}{d}{y}|(?P<s4>{y}{m}{d}))-(?P<s2>[0-9]{{2,4}})(?:-(?P<s3>0[0-9]))?)".format(
+        y=rf"(?:{REG_Y})",
+        m=rf"(?:{REG_M})",
+        d=rf"(?:{REG_D})",
     )
     _std_re = (
         r"\b(?:"
@@ -685,7 +707,7 @@ class OneKGiri(Scraper):
 
     __slots__ = ()
     uncensored_only = True
-    regex = r"([12][0-9](?:0[1-9]|1[0-2])(?:[12][0-9]|0[1-9]|3[01]))[\s-]+([a-z]{3,8})(?:-(?P<kg>[a-z]{3,6}))?"
+    regex = rf"((?:{REG_Y})(?:{REG_M})(?:{REG_D}))[\s-]+([a-z]{{3,8}})(?:-(?P<kg>[a-z]{{3,6}}))?"
 
     def _query(self):
         m = self.match
@@ -696,7 +718,7 @@ class OneKGiri(Scraper):
 class PatternSearcher(Scraper):
 
     __slots__ = ()
-    regex = r"[0-9]{,5}(?P<uid>[a-z]{2,10})-?(?P<z>0)*(?P<num>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:[hm]hb{,2})?"
+    regex = r"[0-9]{,5}(?P<uid>[a-z]{2,10})-?(?P<z>0)*(?P<num>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:[hm]hb[0-9]{,2})?"
 
     @classmethod
     def _load_mgs(cls, fn: str = "mgs.json"):
@@ -751,12 +773,11 @@ class DateSearcher:
         template = [
             r"(?P<{0}>{{{0[0]}}}\s*?(?P<s{0}>[\s.-])\s*{{{0[1]}}}\s*?(?P=s{0})\s*{{{0[2]}}})"
             .format(f) for f in (
-                "mdy",  # 10.15.(20)19
                 "ymd",  # (20)19.03.15
+                "mdy",  # 10.15.(20)19
                 "dmy",  # 23.02.(20)19
             )
         ]
-        template.append(r"(?P<Ymd>{Y}(){mm}{dd})")  # 20170102
         template.extend(
             r"(?P<{0}>{{{0[0]}}}\s*([.,-]?)\s*{{{0[1]}}}\s*?[\s.,-]{1}\s*{{{0[2]}}})"
             .format(f, r) for f, r in (
@@ -767,13 +788,14 @@ class DateSearcher:
                 ("ybd", "?"),  # (20)12Feb3
                 ("yBd", "?"),  # (20)12March3
             ))
+        template.append(r"(?P<Ymd>{Y}(){mm}{dd})")  # 20170102
         fmt = {
-            "y": r"(?:20)?([12][0-9])",
-            "Y": r"(20[12][0-9])",
+            "y": rf"(?:20)?({REG_Y})",
+            "Y": rf"(20(?:{REG_Y}))",
             "m": r"(1[0-2]|0?[1-9])",
-            "mm": r"(1[0-2]|0[1-9])",
+            "mm": rf"({REG_M})",
             "d": r"([12][0-9]|3[01]|0?[1-9])",
-            "dd": r"([12][0-9]|3[01]|0[1-9])",
+            "dd": rf"({REG_D})",
             "b": r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
             "B": r"(january|february|march|april|may|june|july|august|september|october|november|december)",
         } # yapf: disable

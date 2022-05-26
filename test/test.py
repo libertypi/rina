@@ -171,6 +171,7 @@ class Test_Scraper(unittest.TestCase):
             'welivetogether dec.23.2014 test': 1419292800,
             'deeper.20.03.14.rae.lil.black': 1584144000,
             'march 14, 2012': 1331683200,
+            "20170102": 1483315200,
             '20-03.14': None,
         }
         for k, v in values.items():
