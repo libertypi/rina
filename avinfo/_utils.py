@@ -94,7 +94,7 @@ def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
     except HTTPError:
         return
     except RequestException as e:
-        warnings.warn(e)
+        warnings.warn(str(e))
         return
 
     if encoding:

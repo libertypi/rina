@@ -128,7 +128,7 @@ def main(args):
                   f"Birth: {birth}",
                   f"Count: {count}",
                   f"Url: {tree.base_url}",
-                  f"{SEP_SLIM}",
+                  SEP_SLIM,
                   sep="\n")
             result += 1
 
