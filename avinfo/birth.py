@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin
 
 from avinfo._utils import (SEP_SLIM, XPath, get_tree, re_search, str_to_epoch,
-                           xpath)
+                           strftime, xpath)
 
 
 class ProductFilter:
@@ -27,7 +27,6 @@ class ProductFilter:
         tree = tree.find('.//div[@class="act-video-list"]')
         path_product = self._get_col_path(tree, "作品タイトル", 2)
         path_date = self._get_col_path(tree, "発売日", 3)
-        count = 0
 
         for tr in xpath('table/tr[count(td) > 3]')(tree):
             tree_product = tr.find(path_product)
@@ -42,9 +41,7 @@ class ProductFilter:
                 date = tr.findtext(path_date)
             date = str_to_epoch(date)
             if date and date >= self._active:
-                count += 1
-
-        return count
+                return date
 
     @staticmethod
     def _get_col_path(tree, title: str, default: int):
@@ -113,8 +110,8 @@ def main(args):
             if tree is None:
                 continue
             tree = tree.find('.//section[@id="main-area"]')
-            count = _filter.run(tree)
-            if not count:
+            date = _filter.run(tree)
+            if not date:
                 continue
 
             name = tree.findtext('section/h1')
@@ -126,7 +123,7 @@ def main(args):
                 birth = None
             print(f"Name: {name}",
                   f"Birth: {birth}",
-                  f"Count: {count}",
+                  f"Latest: {strftime(date)}",
                   f"Url: {tree.base_url}",
                   SEP_SLIM,
                   sep="\n")
