@@ -11,7 +11,7 @@ from avinfo._utils import (SEP_CHANGED, SEP_FAILED, SEP_SUCCESS, HtmlElement,
                            color_printer, date_searcher, get_tree, re_compile,
                            re_search, re_sub, set_cookie, xpath)
 
-__all__ = ("scan_dir",)
+__all__ = ("scan_dir", )
 
 set_cookie(domain="db.msin.jp", name="age", value="off")
 is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
@@ -82,7 +82,7 @@ class Wikipedia(Wiki):
         if tree is None or tree.find('.//a[@title="Template:AV女優"]') is None:
             return
 
-        name = tree.findtext('.//*[@id="firstHeading"]')
+        name = tree.find('.//*[@id="firstHeading"]').text_content()
         box = tree.find(
             './/div[@id="mw-content-text"]//table[@class="infobox"]')
         if not name or box is None:
@@ -429,7 +429,8 @@ class Actress:
             visited[keyword] = unvisited.pop(keyword)
 
             ft_to_weight = {
-                ex.submit(f, keyword): i for i, f in weight_to_func.items()
+                ex.submit(f, keyword): i
+                for i, f in weight_to_func.items()
             }
 
             for ft in as_completed(ft_to_weight):
@@ -538,8 +539,8 @@ def scan_dir(top_dir: Path, newer: float = None) -> Iterator[ActressFolder]:
         pool = [
             outer.submit(ActressFolder, Path(entry.path), inner)
             for entry in os.scandir(top_dir)
-            if entry.is_dir() and entry.name[0] not in "#@" and
-            (newer is None or entry.stat().st_mtime >= newer)
+            if entry.is_dir() and entry.name[0] not in "#@" and (
+                newer is None or entry.stat().st_mtime >= newer)
         ]
         pool.append(outer.submit(ActressFolder, top_dir, inner))
 

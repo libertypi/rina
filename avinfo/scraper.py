@@ -463,8 +463,9 @@ class FC2(Scraper):
         if tree is not None:
             return ScrapeResult(
                 product_id=self.keyword,
-                title=tree.findtext(
-                    './/div[@class="items_article_headerInfo"]/h3'),
+                title=xpath(
+                    'string(.//div[@class="items_article_headerInfo"]/h3/text())'
+                )(tree),
                 publish_date=str_to_epoch(
                     tree.findtext(
                         './/div[@class="items_article_Releasedate"]/p')),
@@ -673,13 +674,16 @@ class GirlsDelta(Scraper):
         tree = get_tree(f"https://girlsdelta.com/product/{uid}")
         if tree is None or "/product/" not in tree.base_url:
             return
-        date = xpath('string(.//div[@class="product-detail"]//li'
-                     '/*[contains(text(), "公開日")]'
+
+        date = xpath('string(.//div[@class="product-detail"]'
+                     '//li/*[contains(text(), "公開日")]'
                      '/following-sibling::*/text()[contains(., "20")])')(tree)
 
         return ScrapeResult(
             product_id=self.keyword,
-            title=tree.findtext(".//title").partition("｜")[0],
+            title=xpath('string(.//div[@class="product-detail"]'
+                        '//li/*[contains(text(), "モデル名")]'
+                        '/following-sibling::*)')(tree),
             publish_date=str_to_epoch(date),
             source=self.source,
         )
