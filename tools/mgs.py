@@ -93,16 +93,17 @@ def main():
     # the most frequent one.
     tmp = {}
     setdefault = tmp.setdefault
-    if args.freq is None:
+    if args.size is None:
+        for k, v in bisect_slice(data, args.freq, group):
+            setdefault(k, v)
+    else:
         i = args.size if args.size > 0 else len(data)
         for k, v in data:
             if setdefault(k, v) == v:
                 i -= 1
                 if not i:
                     break
-    else:
-        for k, v in bisect_slice(data, args.freq, group):
-            setdefault(k, v)
+
     data[:] = tmp.items()
     if not data:
         sys.exit("Empty result.")
