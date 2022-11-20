@@ -135,11 +135,10 @@ def parse_args():
     command = "birth"
     parser_birth = subparsers.add_parser(
         command,
-        help=
-        "search for idols based on years of birth and lastest publications",
+        help="search for idols based on years of birth",
         description=
         ("description:\n"
-         "  Search for active idols based on years of birth.\n\n"
+         "  Search for idols based on years of birth and lastest publications.\n\n"
          "examples:\n"
          "  search for 1990-born idols who are active in the past year:\n"
          "    %(prog)s 1990\n"
