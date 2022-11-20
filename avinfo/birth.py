@@ -1,8 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin
 
-from avinfo._utils import (SEP_SLIM, XPath, get_tree, re_search, str_to_epoch,
-                           strftime, xpath)
+from avinfo._utils import (SEP_SLIM, XPath, get_tree, re_search, stderr_write,
+                           str_to_epoch, strftime, xpath)
 
 
 class ProductFilter:
@@ -130,4 +130,4 @@ def main(args):
                   sep="\n")
             result += 1
 
-    print(f'Scanned: {total}, found: {result}.')
+    stderr_write(f'Scanned: {total}, found: {result}.\n')
