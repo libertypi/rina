@@ -1,4 +1,3 @@
-import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin
 
@@ -71,7 +70,6 @@ xpath_actress_list = XPath(
 def main(args):
 
     domain = "http://www.minnano-av.com"
-    url = f"{domain}/actress_list.php"
     _filter = ProductFilter(active=args.active,
                             uncensored=args.uncensored,
                             solo=args.solo)
@@ -80,6 +78,7 @@ def main(args):
 
         # scrape the 1st index of each birth year; put the 2nd-last pages
         # into pool.
+        url = f"{domain}/actress_list.php"
         index_pool = [
             ex.submit(get_tree, url, params={"birthday": i})
             for i in args.target
@@ -93,18 +92,20 @@ def main(args):
                                    get_lastpage(tree) + 1))
 
         # parse all the index pages
-        page_pool = set()
+        page_pool = {}
         for ft in as_completed(index_pool):
             tree = ft.result()
-            if tree is not None:
-                page_pool.update(xpath_actress_list(tree))
+            if tree is None:
+                continue
+            for url in xpath_actress_list(tree):
+                if url not in page_pool:
+                    page_pool[url] = ex.submit(get_tree, urljoin(domain, url))
         del index_pool
 
         # scan & filter the actress pages
         total = len(page_pool)
         result = 0
-        for ft in as_completed(
-                ex.submit(get_tree, urljoin(domain, i)) for i in page_pool):
+        for ft in as_completed(page_pool.values()):
 
             tree = ft.result()
             if tree is None:
@@ -129,4 +130,4 @@ def main(args):
                   sep="\n")
             result += 1
 
-    print(f'Scanned: {total}, shown: {result}.')
+    print(f'Scanned: {total}, found: {result}.')
