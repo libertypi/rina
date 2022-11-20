@@ -9,9 +9,8 @@ from avinfo._utils import (SEP_SLIM, XPath, get_tree, re_search, str_to_epoch,
 class ProductFilter:
     """actress page filter"""
 
-    def __init__(self, active: int, uncensored: bool, solo: bool) -> None:
-        self._active = (datetime.datetime.now() -
-                        datetime.timedelta(days=active * 365)).timestamp()
+    def __init__(self, active: float, uncensored: bool, solo: bool) -> None:
+        self._active = active
         # The funcions in this list expect a 'tree_product' element. If any
         # returns False, the product should be filtered.
         self._filters = []
@@ -77,34 +76,35 @@ def main(args):
                             uncensored=args.uncensored,
                             solo=args.solo)
 
-    # find the total page count
-    tree = get_tree(url, params={"birthday": args.target})
-    if tree is None:
-        exit("Connection error.")
-    total = get_lastpage(tree)
+    with ThreadPoolExecutor(max_workers=6) as ex:
 
-    # parse the first page
-    page_list = set(xpath_actress_list(tree))
-
-    with ThreadPoolExecutor(max_workers=5) as ex:
-
-        # scan & parse all the list pages
-        for ft in as_completed(
-                ex.submit(
-                    get_tree, url, params={
-                        "birthday": args.target,
-                        "page": i
-                    }) for i in range(2, total + 1)):
+        # scrape the 1st index of each birth year; put the 2nd-last pages
+        # into pool.
+        index_pool = [
+            ex.submit(get_tree, url, params={"birthday": i})
+            for i in args.target
+        ]
+        for ft in as_completed(index_pool):
             tree = ft.result()
             if tree is not None:
-                page_list.update(xpath_actress_list(tree))
+                index_pool.extend(
+                    ex.submit(get_tree, tree.base_url, params={"page": i})
+                    for i in range(2,
+                                   get_lastpage(tree) + 1))
 
-        total = len(page_list)
-        result = 0
+        # parse all the index pages
+        page_pool = set()
+        for ft in as_completed(index_pool):
+            tree = ft.result()
+            if tree is not None:
+                page_pool.update(xpath_actress_list(tree))
+        del index_pool
 
         # scan & filter the actress pages
+        total = len(page_pool)
+        result = 0
         for ft in as_completed(
-                ex.submit(get_tree, urljoin(domain, i)) for i in page_list):
+                ex.submit(get_tree, urljoin(domain, i)) for i in page_pool):
 
             tree = ft.result()
             if tree is None:
@@ -129,4 +129,4 @@ def main(args):
                   sep="\n")
             result += 1
 
-    print(f'Total: {total}, shown: {result}.')
+    print(f'Scanned: {total}, shown: {result}.')

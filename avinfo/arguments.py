@@ -25,7 +25,7 @@ def parse_args():
             action="store",
             nargs="?",
             const="1D",
-            type=parse_date,
+            type=date_within,
             help=
             ("scan files newer than this timespan.\n"
              "NEWER: n[DHMS]: n units of time. If unit is omit, presume seconds. If NEWER if omit, presume 1 day."
@@ -150,9 +150,9 @@ def parse_args():
         "-a",
         dest="active",
         action="store",
-        default=1,
-        type=int,
-        help="active within so many years (default %(default)s)")
+        default="365D",
+        type=date_within,
+        help="active in this timespan (default %(default)s)")
     parser_birth.add_argument(
         "-u",
         dest="uncensored",
@@ -168,8 +168,9 @@ def parse_args():
     parser_birth.add_argument(
         dest="target",
         action="store",
-        type=int,
-        help="year of birth",
+        type=year_range,
+        help=
+        "year of birth, can be a single year (e.g. 1989) or a range (e.g. 1988-1991)",
     )
 
     args = parser.parse_args()
@@ -196,7 +197,7 @@ def parse_args():
     return args
 
 
-def parse_date(date: str):
+def date_within(date: str):
 
     date = re.fullmatch(
         r"\s*(?:(?P<days>\d+)D)?"
@@ -211,4 +212,12 @@ def parse_date(date: str):
                         datetime.timedelta(**date)).timestamp()
         except (ValueError, OverflowError) as e:
             raise argparse.ArgumentTypeError(e)
+    raise argparse.ArgumentError()
+
+
+def year_range(years: str):
+
+    m = re.fullmatch(r"\s*(\d{4})(?:-(\d{4}))?\s*", years)
+    if m:
+        return tuple(range(int(m[1]), int(m[2] or m[1]) + 1))
     raise argparse.ArgumentError()
