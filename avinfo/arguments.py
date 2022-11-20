@@ -121,7 +121,7 @@ def parse_args():
     parser_dir = subparsers.add_parser(
         command,
         help=
-        "updates the mtime of folders according the latest file stored in it",
+        "updates mtime of folders according to the latest file stored in it",
         description=
         ("description:\n"
          "  Updates the 'Modified Time' of every folder according the latest "
@@ -135,15 +135,16 @@ def parse_args():
     command = "birth"
     parser_birth = subparsers.add_parser(
         command,
-        help="search for active idols based on years of birth",
+        help=
+        "search for idols based on years of birth and lastest publications",
         description=
         ("description:\n"
          "  Search for active idols based on years of birth.\n\n"
          "examples:\n"
-         "  search for 1990-born idols who are active in the recent year:\n"
+         "  search for 1990-born idols who are active in the past year:\n"
          "    %(prog)s 1990\n"
-         "  search for 1990-born idols who have uncensored and solo publications within 3 years:\n"
-         "    %(prog)s -u -s -a 3 1990\n"),
+         "  search for 1989-1991 idols who have uncensored and solo publications within 90 days:\n"
+         "    %(prog)s -u -s -a 90D 1989-1991\n"),
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser_birth.add_argument(
