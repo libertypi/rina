@@ -575,7 +575,7 @@ class SM_Miracle(Scraper):
         uid = "e" + self.match["sm"]
         self.keyword = f"sm-miracle-{uid}"
 
-        data = session.get(f"http://sm-miracle.com/movie/{uid}.dat",
+        data = session.get(f"https://sm-miracle.com/movie/{uid}.dat",
                            timeout=HTTP_TIMEOUT)
         try:
             data.raise_for_status()
@@ -699,7 +699,8 @@ class UncensoredMatcher(Scraper):
         r"((?:bouga|crazyasia|eyu|gedo|nukimax|peworld|shi(?:kai|ma|routozanmai)|ubt)[0-9]{2,8})",
         r"(xxx)[\s-]*(av)[^0-9]*([0-9]{4,5})",
         r"(th101)[\s-]*([0-9]{3})[\s-]([0-9]{6})",
-        r"(mkb?d|bd)[\s-]?([sm]?[0-9]{2,4})",
+        r"(mkb?d)[\s-]?(s?[0-9]{2,4})",
+        r"(bd)[\s-]?([gm][0-9]{2,4})",
         r"([a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4}|r18|t28)[\s-]*([0-9]{2,6})",
     )
 
