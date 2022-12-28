@@ -7,10 +7,10 @@ from pathlib import Path
 def parse_args():
 
     valid_types = {
-        "video": {"dir", "file", "keyword"},
-        "idol": {"dir", "keyword"},
-        "concat": {"dir"},
-        "dir": {"dir"}
+        "video": ("dir", "file", "keyword"),
+        "idol": ("dir", "keyword"),
+        "concat": ("dir"),
+        "dir": ("dir")
     }
 
     def add_target(parser, command):
