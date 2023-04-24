@@ -38,8 +38,7 @@ def _init_session(retries: int = 5, backoff: float = 0.2):
     session = requests.Session()
     session.headers.update({
         "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) "
-        "Gecko/20100101 Firefox/80.0"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/110.0"
     })
     adapter = requests.adapters.HTTPAdapter(
         max_retries=Retry(total=retries,
