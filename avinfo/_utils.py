@@ -1,3 +1,4 @@
+import random
 import re
 import sys
 import time
@@ -33,17 +34,30 @@ date_searcher = re_compile(
     flags=re.VERBOSE,
 ).search
 
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5.2 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.54",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.3",
+)
 
-def _init_session(retries: int = 5, backoff: float = 0.2):
+
+def _init_session(retries: int = 5, backoff: float = 0.3):
     session = requests.Session()
-    session.headers.update({
-        "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/110.0"
-    })
+    session.headers["User-Agent"] = random.choice(UA)
     adapter = requests.adapters.HTTPAdapter(
-        max_retries=Retry(total=retries,
-                          status_forcelist=frozenset((500, 502, 503, 504)),
-                          backoff_factor=backoff))
+        max_retries=Retry(
+            total=retries,
+            status_forcelist=frozenset((500, 502, 503, 504)),
+            backoff_factor=backoff,
+        )
+    )
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     return session
@@ -51,7 +65,8 @@ def _init_session(retries: int = 5, backoff: float = 0.2):
 
 def set_cookie(domain: str, name: str, value: str):
     session.cookies.set_cookie(
-        requests.cookies.create_cookie(domain=domain, name=name, value=value))
+        requests.cookies.create_cookie(domain=domain, name=name, value=value)
+    )
 
 
 if sys.stdout.isatty():
@@ -61,6 +76,7 @@ if sys.stdout.isatty():
         print("\033[31m" if red else "\033[33m", end="")
         print(*args, sep=sep, end=end)
         print("\033[0m", end="", flush=True)
+
 else:
 
     def color_printer(*args, sep=None, end=None, red: bool = True):
@@ -88,7 +104,12 @@ def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
     encodings
     """
     try:
-        response = session.get(url, timeout=HTTP_TIMEOUT, **kwargs)
+        response = session.get(
+            url,
+            headers={"User-Agent": random.choice(UA)},
+            timeout=HTTP_TIMEOUT,
+            **kwargs,
+        )
         response.raise_for_status()
     except HTTPError:
         return
@@ -108,8 +129,7 @@ def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
 
 def strptime(string: str, fmt: str) -> float:
     """Parse a string acroding to a format, returns epoch in UTC."""
-    return datetime.strptime(string,
-                             fmt).replace(tzinfo=timezone.utc).timestamp()
+    return datetime.strptime(string, fmt).replace(tzinfo=timezone.utc).timestamp()
 
 
 def strftime(epoch: float, fmt: str = "%F") -> Optional[str]:
