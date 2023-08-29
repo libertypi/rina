@@ -41,7 +41,7 @@ date_searcher = re_compile(
 
 def _read_ua_file(filename: str = "useragents.txt"):
     with open(join_root(filename), "r", encoding="utf-8") as f:
-        useragents = tuple(s.strip() for s in f if s)
+        useragents = tuple(filter(None, map(str.strip, f)))
     if not useragents:
         raise ValueError("The user-agent list must not be empty.")
     return useragents
