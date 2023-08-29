@@ -1,11 +1,14 @@
-import random
 import re
 import sys
 import time
 import warnings
 from datetime import datetime, timezone
 from functools import lru_cache
+from pathlib import Path
+from random import choice as random_choice
 from re import compile as re_compile
+from re import search as re_search
+from re import sub as re_sub
 from typing import Optional
 
 import requests
@@ -23,6 +26,7 @@ SEP_FAILED = " FAILED ".center(SEP_WIDTH, "-")
 SEP_CHANGED = " CHANGED ".center(SEP_WIDTH, "-")
 HTTP_TIMEOUT = (9.1, 60)
 
+join_root = Path(__file__).parent.joinpath
 stderr_write = sys.stderr.write
 date_searcher = re_compile(
     r"""(?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
@@ -34,23 +38,18 @@ date_searcher = re_compile(
     flags=re.VERBOSE,
 ).search
 
-UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5.2 Safari/605.1.15",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.54",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.3",
-)
+
+def _read_ua_file(filename: str = "useragents.txt"):
+    with open(join_root(filename), "r", encoding="utf-8") as f:
+        useragents = tuple(s.strip() for s in f if s)
+    if not useragents:
+        raise ValueError("The user-agent list must not be empty.")
+    return useragents
 
 
 def _init_session(retries: int = 5, backoff: float = 0.3):
     session = requests.Session()
-    session.headers["User-Agent"] = random.choice(UA)
+    session.headers["User-Agent"] = random_choice(useragents)
     adapter = requests.adapters.HTTPAdapter(
         max_retries=Retry(
             total=retries,
@@ -106,7 +105,7 @@ def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
     try:
         response = session.get(
             url,
-            headers={"User-Agent": random.choice(UA)},
+            headers={"User-Agent": random_choice(useragents)},
             timeout=HTTP_TIMEOUT,
             **kwargs,
         )
@@ -152,20 +151,6 @@ def str_to_epoch(string: str) -> Optional[float]:
         pass
 
 
-@lru_cache(maxsize=512)
-def _cache_re_method(pattern: str, method: str):
-    """Returns a cached regex method"""
-    return getattr(re_compile(pattern), method)
-
-
-def re_search(pattern: str, string: str) -> Optional[re.Match]:
-    return _cache_re_method(pattern, "search")(string)
-
-
-def re_sub(pattern: str, repl, string: str) -> str:
-    return _cache_re_method(pattern, "sub")(repl, string)
-
-
 xpath = lru_cache(XPath)
-
+useragents = _read_ua_file()
 session = _init_session()

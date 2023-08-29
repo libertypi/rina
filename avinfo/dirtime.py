@@ -5,11 +5,9 @@ from avinfo._utils import stderr_write, strftime
 
 
 def update_dir_mtime(top_dir: Path):
-
     total = success = 0
 
     def probe_dir(root):
-
         nonlocal total, success
 
         total += 1
@@ -40,9 +38,11 @@ def update_dir_mtime(top_dir: Path):
                     stderr_write(f"{e}\n")
                 else:
                     success += 1
-                    stderr_write("{} => {}: {}\n".format(
-                        strftime(stat.st_mtime), strftime(newest),
-                        os.fspath(root)))
+                    stderr_write(
+                        "{} => {}: {}\n".format(
+                            strftime(stat.st_mtime), strftime(newest), os.fspath(root)
+                        )
+                    )
         return newest
 
     stderr_write("Updating directory timestamps...\n")

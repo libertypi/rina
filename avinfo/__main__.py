@@ -1,12 +1,10 @@
 import sys
 
-from avinfo._utils import (SEP_BOLD, SEP_SLIM, SEP_WIDTH, get_choice_as_int,
-                           stderr_write)
+from avinfo._utils import SEP_BOLD, SEP_SLIM, SEP_WIDTH, get_choice_as_int, stderr_write
 from avinfo.arguments import parse_args
 
 
 def process_scan(scan, args):
-
     changed = []
     failed = []
     total = 0
@@ -29,13 +27,15 @@ def process_scan(scan, args):
     if args.quiet:
         stderr_write(msg + "\n")
     else:
-        msg = (f"{SEP_BOLD}\n"
-               f"{msg}\n"
-               "Please choose an option:\n"
-               "1) apply changes\n"
-               "2) reload changes\n"
-               "3) reload failures\n"
-               "4) quit\n")
+        msg = (
+            f"{SEP_BOLD}\n"
+            f"{msg}\n"
+            "Please choose an option:\n"
+            "1) apply changes\n"
+            "2) reload changes\n"
+            "3) reload failures\n"
+            "4) quit\n"
+        )
         while True:
             choice = get_choice_as_int(msg, 4)
             if choice == 1:
@@ -59,8 +59,8 @@ def process_scan(scan, args):
 
 
 def progress(sequence, width: int = SEP_WIDTH):
-    '''Make an iterator that returns values from the input sequence while
-    printing a progress bar.'''
+    """Make an iterator that returns values from the input sequence while
+    printing a progress bar."""
     total = len(sequence)
     fmt = f"\rProgress |{{:-<{width}}}| {{:.1%}} Complete".format
     for i, obj in enumerate(sequence, 1):
@@ -71,18 +71,18 @@ def progress(sequence, width: int = SEP_WIDTH):
 
 
 def main():
-
     args = parse_args()
 
-    stderr_write(f"{SEP_SLIM}\n"
-                 f'{"Adult Video Helper":^{SEP_WIDTH}}\n'
-                 f'{"By David Pi":^{SEP_WIDTH}}\n'
-                 f"{SEP_SLIM}\n"
-                 f"command: {args.command}, target: {args.target}\n"
-                 f"{SEP_BOLD}\n")
+    stderr_write(
+        f"{SEP_SLIM}\n"
+        f'{"Adult Video Helper":^{SEP_WIDTH}}\n'
+        f'{"By David Pi":^{SEP_WIDTH}}\n'
+        f"{SEP_SLIM}\n"
+        f"command: {args.command}, target: {args.target}\n"
+        f"{SEP_BOLD}\n"
+    )
 
     if args.command == "video":
-
         from avinfo import dirtime, video
 
         if args.type == "keyword":
@@ -91,10 +91,9 @@ def main():
             process_scan(video.scan_dir(args.target, args.newer), args)
             dirtime.update_dir_mtime(args.target)
         else:
-            process_scan((video.from_path(args.target), ), args)
+            process_scan((video.from_path(args.target),), args)
 
     elif args.command == "idol":
-
         from avinfo import idol
 
         if args.type == "keyword":
@@ -103,19 +102,16 @@ def main():
             process_scan(idol.scan_dir(args.target, args.newer), args)
 
     elif args.command == "dir":
-
         from avinfo import dirtime
 
         dirtime.update_dir_mtime(args.target)
 
     elif args.command == "concat":
-
         from avinfo import concat
 
         concat.main(args)
 
     elif args.command == "birth":
-
         from avinfo import birth
 
         birth.main(args)

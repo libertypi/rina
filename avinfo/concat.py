@@ -13,17 +13,16 @@ ffprobe = "ffprobe"
 
 
 class ConcatVideo:
-
     __slots__ = ("output", "input", "report", "applied")
 
     def __init__(self, output: str, input: tuple) -> None:
-
         self.output = output
         self.input = input
         self.applied = False
 
         self.report = "input ({}):\n  {}\noutput:\n  {}\n{}\n".format(
-            len(input), "\n  ".join(input), output, SEP_SLIM)
+            len(input), "\n  ".join(input), output, SEP_SLIM
+        )
 
     def has_diff_streams(self):
         """compare streams in input files. return True if there is
@@ -32,9 +31,16 @@ class ConcatVideo:
         try:
             for file in self.input:
                 o = subprocess.run(
-                    (ffprobe, "-loglevel", "0", "-show_entries",
-                     "stream=index,codec_name,width,height,time_base",
-                     "-print_format", "compact", file),
+                    (
+                        ffprobe,
+                        "-loglevel",
+                        "0",
+                        "-show_entries",
+                        "stream=index,codec_name,width,height,time_base",
+                        "-print_format",
+                        "compact",
+                        file,
+                    ),
                     capture_output=True,
                     text=True,
                     check=True,
@@ -48,19 +54,30 @@ class ConcatVideo:
                 return False
         except subprocess.CalledProcessError as msg:
             msg = f"{msg}\n"
-        stderr_write(f"{SEP_BOLD}\nerror occured when verifying input files:\n"
-                     f"{self.report}{msg}{SEP_SLIM}\n")
+        stderr_write(
+            f"{SEP_BOLD}\nerror occured when verifying input files:\n"
+            f"{self.report}{msg}{SEP_SLIM}\n"
+        )
         return True
 
     def concat(self):
-
         tmpfd, tmpfile = tempfile.mkstemp()
         try:
             with os.fdopen(tmpfd, "w", encoding="utf-8") as f:
                 f.writelines(f"file '{p}'\n" for p in self.input)
             subprocess.run(
-                (ffmpeg, "-f", "concat", "-safe", "0", "-i", tmpfile, "-c",
-                 "copy", self.output),
+                (
+                    ffmpeg,
+                    "-f",
+                    "concat",
+                    "-safe",
+                    "0",
+                    "-i",
+                    tmpfile,
+                    "-c",
+                    "copy",
+                    self.output,
+                ),
                 check=True,
             )
         except subprocess.CalledProcessError as e:
@@ -75,7 +92,6 @@ class ConcatVideo:
             os.unlink(tmpfile)
 
     def remove_inputs(self):
-
         if not self.applied:
             return
 
@@ -89,7 +105,6 @@ class ConcatVideo:
 
 
 def find_consecutive_videos(root):
-
     # ffmpeg requires absolute path
     stack = [op.abspath(root)]
     seen = set()
@@ -105,7 +120,6 @@ def find_consecutive_videos(root):
     ).fullmatch
 
     while stack:
-
         root = stack.pop()
         seen.clear()
         groups.clear()
@@ -126,12 +140,14 @@ def find_consecutive_videos(root):
                         is_digit = n.isdigit()
                         # if n is a-z, convert to 1-26
                         n = int(n) if is_digit else ord(n.lower()) - 96
-                        groups[(
-                            m["pre"],
-                            m["ext"].lower(),
-                            m["sep"],
-                            is_digit,
-                        )][n] = entry.path
+                        groups[
+                            (
+                                m["pre"],
+                                m["ext"].lower(),
+                                m["sep"],
+                                is_digit,
+                            )
+                        ][n] = entry.path
 
         except OSError as e:
             stderr_write(f"{e}\n")
@@ -143,12 +159,12 @@ def find_consecutive_videos(root):
                 name = k[0] + k[1]
                 if name in seen:
                     continue
-                yield ConcatVideo(op.join(root, name),
-                                  tuple(v[i] for i in range(1, n + 1)))
+                yield ConcatVideo(
+                    op.join(root, name), tuple(v[i] for i in range(1, n + 1))
+                )
 
 
 def main(args):
-
     global ffmpeg, ffprobe
 
     if args.ffmpeg:
@@ -158,7 +174,8 @@ def main(args):
         if not shutil.which(i):
             stderr_write(
                 f"Error: {i} not found. Please be sure ffmpeg can be "
-                "found in $PATH or the directory passed via '-f' option.\n")
+                "found in $PATH or the directory passed via '-f' option.\n"
+            )
             return
 
     result = []
@@ -171,15 +188,19 @@ def main(args):
         return
 
     stderr_write(
-        "{}\nScan finished, {} files can be concatenated into {} files.\n".
-        format(SEP_BOLD, sum(len(v.input) for v in result), len(result)))
+        "{}\nScan finished, {} files can be concatenated into {} files.\n".format(
+            SEP_BOLD, sum(len(v.input) for v in result), len(result)
+        )
+    )
 
     if not args.quiet:
-        msg = (f"{SEP_BOLD}\n"
-               "please choose an option:\n"
-               "1) apply all\n"
-               "2) select items\n"
-               "3) quit\n")
+        msg = (
+            f"{SEP_BOLD}\n"
+            "please choose an option:\n"
+            "1) apply all\n"
+            "2) select items\n"
+            "3) quit\n"
+        )
         choice = get_choice_as_int(msg, 3)
 
         if choice == 2:
@@ -190,7 +211,8 @@ def main(args):
                 "{}"
                 "1) select\n"
                 "2) skip\n"
-                "3) quit\n")
+                "3) quit\n"
+            )
 
             for i, video in enumerate(result):
                 choice = get_choice_as_int(msg.format(i + 1, video.report), 3)
@@ -229,8 +251,10 @@ def main(args):
             if not video.applied:
                 continue
             if not to_all:
-                msg = (f"{SEP_BOLD}\ndelete all input files?\n{video.report}"
-                       "1) yes\n2) yes to all\n3) no\n4) quit\n")
+                msg = (
+                    f"{SEP_BOLD}\ndelete all input files?\n{video.report}"
+                    "1) yes\n2) yes to all\n3) no\n4) quit\n"
+                )
                 choice = get_choice_as_int(msg, 4)
                 if choice == 4:
                     return

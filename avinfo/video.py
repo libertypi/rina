@@ -3,8 +3,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator
 
-from avinfo._utils import (SEP_CHANGED, SEP_FAILED, SEP_SUCCESS, color_printer,
-                           re_compile, re_search, stderr_write, strftime)
+from avinfo._utils import (
+    SEP_CHANGED,
+    SEP_FAILED,
+    SEP_SUCCESS,
+    color_printer,
+    re_compile,
+    re_search,
+    stderr_write,
+    strftime,
+)
 from avinfo.scraper import ScrapeResult, _has_word, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
@@ -12,12 +20,17 @@ _fn_regex = None
 
 
 class AVString:
-
-    __slots__ = ("target", "product_id", "title", "publish_date", "source",
-                 "status", "_report")
+    __slots__ = (
+        "target",
+        "product_id",
+        "title",
+        "publish_date",
+        "source",
+        "status",
+        "_report",
+    )
 
     def __init__(self, target: str, result: ScrapeResult, error: str):
-
         self.target = target
 
         if result:
@@ -62,23 +75,24 @@ class AVString:
     def report(self):
         report = self._report
         if isinstance(report, dict):
-            report = self._report = "\n".join(f'{k:>10}: {v}'
-                                              for k, v in report.items() if v)
+            report = self._report = "\n".join(
+                f"{k:>10}: {v}" for k, v in report.items() if v
+            )
         return report
 
 
 class AVFile(AVString):
-
     __slots__ = ("new_name", "_atime")
     target: Path
 
-    def __init__(self,
-                 target: Path,
-                 result: ScrapeResult,
-                 error: str,
-                 stat: os.stat_result = None,
-                 namemax: int = None):
-
+    def __init__(
+        self,
+        target: Path,
+        result: ScrapeResult,
+        error: str,
+        stat: os.stat_result = None,
+        namemax: int = None,
+    ):
         super().__init__(target, result, error)
         self.new_name = self._atime = None
 
@@ -101,7 +115,6 @@ class AVFile(AVString):
                 self.status = "changed"
 
     def _get_filename(self, namemax: int):
-
         global _fn_regex
 
         suffix = self.target.suffix.lower()
@@ -136,7 +149,7 @@ class AVFile(AVString):
                 hi = namemax
                 while lo < hi:
                     mid = (lo + hi) // 2
-                    if len(title[:mid + 1].encode()) < namemax:
+                    if len(title[: mid + 1].encode()) < namemax:
                         lo = mid + 1
                     else:
                         hi = mid
@@ -206,22 +219,61 @@ def scan_dir(top_dir: Path, newer: float = None) -> Iterator[AVFile]:
 
     with ThreadPoolExecutor() as ex:
         if newer is None:
-            ft = (ex.submit(from_path, path, stat, namemax)
-                  for path, stat in _probe_videos(top_dir))
+            ft = (
+                ex.submit(from_path, path, stat, namemax)
+                for path, stat in _probe_videos(top_dir)
+            )
         else:
-            ft = (ex.submit(from_path, path, stat, namemax)
-                  for path, stat in _probe_videos(top_dir)
-                  if stat.st_mtime >= newer)
+            ft = (
+                ex.submit(from_path, path, stat, namemax)
+                for path, stat in _probe_videos(top_dir)
+                if stat.st_mtime >= newer
+            )
         for ft in as_completed(ft):
             yield ft.result()
 
 
 def _probe_videos(root):
     ext = {
-        '3g2', '3gp', 'amv', 'asf', 'avi', 'divx', 'f4a', 'f4b', 'f4p', 'f4v',
-        'flv', 'hevc', 'iso', 'm2ts', 'm2v', 'm4p', 'm4v', 'mkv', 'mov', 'mp2',
-        'mp4', 'mpe', 'mpeg', 'mpg', 'mpv', 'mts', 'mxf', 'ogv', 'qt', 'rm',
-        'rmvb', 'svi', 'swf', 'ts', 'viv', 'vob', 'webm', 'wmv', 'yuv'
+        "3g2",
+        "3gp",
+        "amv",
+        "asf",
+        "avi",
+        "divx",
+        "f4a",
+        "f4b",
+        "f4p",
+        "f4v",
+        "flv",
+        "hevc",
+        "iso",
+        "m2ts",
+        "m2v",
+        "m4p",
+        "m4v",
+        "mkv",
+        "mov",
+        "mp2",
+        "mp4",
+        "mpe",
+        "mpeg",
+        "mpg",
+        "mpv",
+        "mts",
+        "mxf",
+        "ogv",
+        "qt",
+        "rm",
+        "rmvb",
+        "svi",
+        "swf",
+        "ts",
+        "viv",
+        "vob",
+        "webm",
+        "wmv",
+        "yuv",
     }
     stack = [root]
     while stack:
@@ -250,8 +302,10 @@ if os.name == "posix":
             return os.statvfs(path).f_namemax
         except OSError as e:
             import warnings
+
             warnings.warn(f"getting filesystem namemax failed: {e}")
             return 255
+
 else:
 
     def _get_namemax(path: Path):
