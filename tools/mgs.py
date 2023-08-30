@@ -13,7 +13,6 @@ from pathlib import Path
 
 
 def parse_args(root: Path):
-
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
@@ -36,7 +35,7 @@ def parse_args(root: Path):
         dest="source",
         action="store",
         type=Path,
-        default=root.parent.joinpath("regenerator/builder/data/mgs.json"),
+        default=root.parent.joinpath("rebuilder/data/mgs.json"),
         help="path to data source (default: %(default)s)",
     )
     parser.add_argument(
@@ -66,7 +65,6 @@ def bisect_slice(a: list, x, d: dict):
 
 
 def main():
-
     args = parse_args(Path(__file__).resolve().parent.parent)
     print(f"Source: {args.source}\nOutput: {args.output}", file=sys.stderr)
 
@@ -119,7 +117,8 @@ def main():
         f"Prefix coverage: {size} / {len(group)} ({size / len(group):.1%})\n"
         f"Minimum frequency: {group[data[-1]]}\n"
         f"Key length: {{{min(key_len)},{max(key_len)}}}\n"
-        f'Value length: {{{min(val_len) or ""},{max(val_len)}}}')
+        f'Value length: {{{min(val_len) or ""},{max(val_len)}}}'
+    )
 
     data.sort(key=itemgetter(1, 0))
     data = dict(data)
