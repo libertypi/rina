@@ -1,7 +1,6 @@
 import datetime
 import json
 import re
-import warnings
 from dataclasses import dataclass
 from typing import Optional
 
@@ -17,6 +16,7 @@ from avinfo._utils import (
     re_sub,
     session,
     set_cookie,
+    stderr_write,
     str_to_epoch,
     strptime,
     xpath,
@@ -198,10 +198,7 @@ class Scraper:
         return product_id
 
     def _warn(self, e: Exception):
-        warnings.warn(
-            f'error occurred while processing "{self.string}": {e}',
-            stacklevel=2,
-        )
+        stderr_write(f'error occurred while processing "{self.string}": {e}\n')
 
 
 class StudioMatcher(Scraper):
@@ -839,7 +836,7 @@ class DateSearcher:
                 source=cls.source,
             )
         except ValueError as e:
-            warnings.warn(f"parsing date failed '{m[0]}': {e}")
+            stderr_write(f"parsing date failed '{m[0]}': {e}\n")
 
 
 def _load_json_ld(tree: HtmlElement):

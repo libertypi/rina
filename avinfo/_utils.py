@@ -1,7 +1,6 @@
 import re
 import sys
 import time
-import warnings
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -113,7 +112,7 @@ def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
     except HTTPError:
         return
     except RequestException as e:
-        warnings.warn(str(e))
+        stderr_write(f"{e}\n")
         return
 
     if encoding:

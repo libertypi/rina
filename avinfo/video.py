@@ -301,9 +301,7 @@ if os.name == "posix":
         try:
             return os.statvfs(path).f_namemax
         except OSError as e:
-            import warnings
-
-            warnings.warn(f"getting filesystem namemax failed: {e}")
+            stderr_write(f"getting filesystem namemax failed: {e}\n")
             return 255
 
 else:
