@@ -12,7 +12,7 @@ from operator import itemgetter
 from pathlib import Path
 
 
-def parse_args(root: Path):
+def parse_args(src: Path, dst: Path):
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
@@ -35,7 +35,7 @@ def parse_args(root: Path):
         dest="source",
         action="store",
         type=Path,
-        default=root.parent.joinpath("rebuilder/data/mgs.json"),
+        default=src,
         help="path to data source (default: %(default)s)",
     )
     parser.add_argument(
@@ -43,7 +43,7 @@ def parse_args(root: Path):
         dest="output",
         action="store",
         type=Path,
-        default=root.joinpath("avinfo/mgs.json"),
+        default=dst,
         help="path to output file (default: %(default)s)",
     )
     return parser.parse_args()
@@ -65,7 +65,12 @@ def bisect_slice(a: list, x, d: dict):
 
 
 def main():
-    args = parse_args(Path(__file__).resolve().parent.parent)
+    root = Path(__file__).resolve().parent.parent
+    args = parse_args(
+        src=root.parent.joinpath("rebuilder", "data", "mgs.json"),
+        dst=root.joinpath("avinfo", "mgs.json"),
+    )
+
     print(f"Source: {args.source}\nOutput: {args.output}", file=sys.stderr)
 
     try:
