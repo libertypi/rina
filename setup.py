@@ -17,7 +17,7 @@ setup(
     keywords="jav, scraper",
     install_requires=["requests", "lxml"],
     python_requires=">=3.5",
-    packages=find_packages(exclude=["legacy", "test", "tools"]),
+    packages=find_packages(include=["avinfo"]),
     package_data={"avinfo": ["*.txt", "*.json"]},
     entry_points={"console_scripts": ["avinfo=avinfo.__main__:main"]},
 )
