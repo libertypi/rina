@@ -38,15 +38,12 @@ date_searcher = re_compile(
 ).search
 
 
-def _read_ua_file(filename: str = "useragents.txt"):
-    with open(join_root(filename), "r", encoding="utf-8") as f:
+def _init_session(retries=5, backoff=0.3, uafile="useragents.txt"):
+    with open(join_root(uafile), "r", encoding="utf-8") as f:
         useragents = tuple(filter(None, map(str.strip, f)))
     if not useragents:
         raise ValueError("The user-agent list must not be empty.")
-    return useragents
 
-
-def _init_session(retries: int = 5, backoff: float = 0.3):
     session = requests.Session()
     session.headers["User-Agent"] = random_choice(useragents)
     adapter = requests.adapters.HTTPAdapter(
@@ -58,7 +55,7 @@ def _init_session(retries: int = 5, backoff: float = 0.3):
     )
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    return session
+    return session, useragents
 
 
 def set_cookie(domain: str, name: str, value: str):
@@ -151,5 +148,4 @@ def str_to_epoch(string: str) -> Optional[float]:
 
 
 xpath = lru_cache(XPath)
-useragents = _read_ua_file()
-session = _init_session()
+session, useragents = _init_session()
