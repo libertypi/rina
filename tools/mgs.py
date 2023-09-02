@@ -24,23 +24,23 @@ def parse_args(src: Path, dst: Path):
         help="cut the dict to this frequency (default: %(default)s)",
     )
     group.add_argument(
-        "-s",
-        dest="size",
+        "-l",
+        dest="length",
         action="store",
         type=int,
-        help="cut the dict to this size, 0 for unlimited",
+        help="cut the dict to this length, 0 for unlimited",
     )
     parser.add_argument(
-        "-d",
-        dest="source",
+        "-s",
+        dest="src",
         action="store",
         type=Path,
         default=src,
         help="path to data source (default: %(default)s)",
     )
     parser.add_argument(
-        "-o",
-        dest="output",
+        "-d",
+        dest="dst",
         action="store",
         type=Path,
         default=dst,
@@ -71,10 +71,10 @@ def main():
         dst=root.joinpath("avinfo", "mgs.json"),
     )
 
-    print(f"Source: {args.source}\nOutput: {args.output}", file=sys.stderr)
+    print(f"Source: {args.src}\nOutput: {args.dst}", file=sys.stderr)
 
     try:
-        with open(args.source, "r", encoding="utf-8") as f:
+        with open(args.src, "r", encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, ValueError) as e:
         sys.exit(e)
@@ -92,15 +92,15 @@ def main():
     data = sorted(group)
     data.sort(key=group.get, reverse=True)
 
-    # Trim data to `size` or `freq`. For the prefixes with multiple digits, keep
+    # Trim data to `length` or `freq`. For the prefixes with multiple digits, keep
     # the most frequent one.
     tmp = {}
     setdefault = tmp.setdefault
-    if args.size is None:
+    if args.length is None:
         for k, v in bisect_slice(data, args.freq, group):
             setdefault(k, v)
     else:
-        i = args.size if args.size > 0 else len(data)
+        i = args.length if args.length > 0 else len(data)
         for k, v in data:
             if setdefault(k, v) == v:
                 i -= 1
@@ -111,35 +111,35 @@ def main():
     if not data:
         sys.exit("Empty result.")
 
-    size = len(data)
+    length = len(data)
     total_entry = sum(group.values())
     used_entry = sum(map(group.get, data))
     key_len = frozenset(map(len, tmp))
     val_len = frozenset(map(len, tmp.values()))
     print(
-        f"Dictionary size: {size}\n"
-        f"Product coverage: {used_entry} / {total_entry} ({used_entry / total_entry:.1%})\n"
-        f"Prefix coverage: {size} / {len(group)} ({size / len(group):.1%})\n"
-        f"Minimum frequency: {group[data[-1]]}\n"
-        f"Key length: {{{min(key_len)},{max(key_len)}}}\n"
-        f'Value length: {{{min(val_len) or ""},{max(val_len)}}}'
+        "Result:\n"
+        f"  Dictionary length: {length}\n"
+        f"  Product coverage : {used_entry} / {total_entry} ({used_entry / total_entry:.1%})\n"
+        f"  Prefix coverage  : {length} / {len(group)} ({length / len(group):.1%})\n"
+        f"  Minimum frequency: {group[data[-1]]}\n"
+        f"  Key length range : {{{min(key_len)},{max(key_len)}}}\n"
+        f"  Val length range : {{{min(val_len)},{max(val_len)}}}"
     )
 
     data.sort(key=itemgetter(1, 0))
     data = dict(data)
     try:
-        with open(args.output, "r+", encoding="utf-8") as f:
+        with open(args.dst, "r+", encoding="utf-8") as f:
             if json.load(f) == data:
-                print("Dictionary is up to date.", file=sys.stderr)
+                print(f"{args.dst.name} is up to date.", file=sys.stderr)
                 return
             f.seek(0)
             json.dump(data, f, separators=(",", ":"))
             f.truncate()
     except (FileNotFoundError, ValueError):
-        args.output.mkdir(parents=True, exist_ok=True)
-        with open(args.output, "w", encoding="utf-8") as f:
+        with open(args.dst, "w", encoding="utf-8") as f:
             json.dump(data, f, separators=(",", ":"))
-    print(f"Update: '{args.output}'", file=sys.stderr)
+    print(f"Update: '{args.dst}'", file=sys.stderr)
 
 
 if __name__ == "__main__":
