@@ -2,6 +2,7 @@ import datetime
 import json
 import re
 from dataclasses import dataclass
+from threading import Semaphore
 from typing import Optional
 
 from avinfo._utils import (
@@ -27,6 +28,10 @@ __all__ = ("scrape",)
 set_cookie(domain="www.javbus.com", name="existmag", value="all")
 set_cookie(domain="javdb.com", name="over18", value="1")
 set_cookie(domain="mgstage.com", name="adc", value="1")
+
+# javdb.com simultaneous connection limit
+_javdb_semaphore = Semaphore(value=3)
+
 _subspace = re_compile(r"\s+").sub
 _subbraces = re_compile(r"[\s()\[\].-]+").sub
 _valid_id = re_compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
@@ -78,7 +83,7 @@ class Scraper:
         self._mask = None
 
     def search(self):
-        for func in self._query, self._javbus, self._javdb:
+        for func in self._query, self._javdb:
             result = func()
             if result:
                 try:
@@ -118,7 +123,7 @@ class Scraper:
                 return result
 
         result = xpath(
-            'string(//div[@class="search-header"]' '//li[@role="presentation"][1])'
+            'string(//div[@class="search-header"]//li[@role="presentation"][1])'
         )(tree)
         if re_search(r"/\s*0+\s*\)", result):
             return
@@ -155,7 +160,11 @@ class Scraper:
                 )
 
     def _javdb(self):
-        tree = get_tree("https://javdb.com/search?q=" + self.keyword, encoding="auto")
+        with _javdb_semaphore:
+            tree = get_tree(
+                "https://javdb.com/search?q=" + self.keyword,
+                encoding="auto",
+            )
         if tree is None or "/search" not in tree.base_url:
             return
 
@@ -464,9 +473,9 @@ class FC2(Scraper):
         if tree is not None:
             return ScrapeResult(
                 product_id=self.keyword,
-                title=xpath(
-                    'string(.//div[@class="items_article_headerInfo"]/h3/text())'
-                )(tree),
+                title="".join(
+                    xpath('.//div[@class="items_article_headerInfo"]/h3/text()')(tree)
+                ),
                 publish_date=str_to_epoch(
                     tree.findtext('.//div[@class="items_article_Releasedate"]/p')
                 ),
