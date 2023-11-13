@@ -17,6 +17,7 @@ from avinfo.scraper import ScrapeResult, _has_word, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
 _fn_regex = None
+_NAMEMAX = 255
 
 
 class AVString:
@@ -91,7 +92,6 @@ class AVFile(AVString):
         result: ScrapeResult,
         error: str,
         stat: os.stat_result = None,
-        namemax: int = None,
     ):
         super().__init__(target, result, error)
         self.new_name = self._atime = None
@@ -100,7 +100,7 @@ class AVFile(AVString):
             return
 
         if self.product_id and self.title:
-            name = self._get_filename(namemax or _get_namemax(target))
+            name = self._get_filename()
             if name and name != target.name:
                 self.new_name = name
                 self._report.update(NewName=name, FromName=target.name)
@@ -114,42 +114,56 @@ class AVFile(AVString):
                 self._report["FromDate"] = strftime(stat.st_mtime)
                 self.status = "changed"
 
-    def _get_filename(self, namemax: int):
+    def _get_filename(self):
         global _fn_regex
 
         suffix = self.target.suffix.lower()
-        namemax -= len(self.product_id.encode()) + len(suffix.encode()) + 1
+        namemax = _NAMEMAX - len(self.product_id.encode()) - len(suffix.encode()) - 1
         if namemax <= 0:
             return
 
         try:
-            clean, strip = _fn_regex
+            clean_1, clean_2, strip_re = _fn_regex
         except TypeError:
-            clean = re_compile(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+').sub
-            strip = re_compile(r"^[\s._]+|[【「『｛（《\[(\s。.,、_]+$").sub
-            _fn_regex = clean, strip
-        title = strip("", clean(" ", self.title))
+            # replace forbidden characters with a whitespace
+            # remove empty brackets: ( )
+            # opening brackets: [【「『｛（《\[(]
+            # closing brackets: [】」』｝）》\])]
+            clean_1 = re_compile(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+').sub
+            clean_2 = re_compile(r"[【「『｛（《\[(]\s*[】」』｝）》\])]").subn
+            # remove leading and trailing whitespace and some punctuations
+            # remove leading closing brackets and trailing opening brackets:
+            # ...] ... [...
+            #     ↑...↑
+            strip_re = re_compile(
+                r"^([^【「『｛（《\[(]{,5}[】」』｝）》\])])?[-_\s。.,、？！!…]*|"
+                r"[-_\s。.,、]*([【「『｛（《\[(][^】」』｝）》\])]{,5})?$"
+            ).sub
+            _fn_regex = clean_1, clean_2, strip_re
 
-        while len(title.encode()) >= namemax:
-            # Title is too long for a filename. Trying to find a reasonable
-            # delimiter in order of:
-            # 1) title[cut..., title]cut..., title!cut...
-            # 2) title cut..., title,cut...
-            m = re_search(
-                r".*?\w.*(?:(?=[【「『｛（《\[(])|[】」』｝）》\])？！!…。.](?=.))|"
-                r".*?\w.*[\s〜～●・,、_](?=.)",
-                title,
-            )
+        title = self.title
+        m = True
+        while m:
+            title, m = clean_2(" ", clean_1(" ", title))
+        title = strip_re("", title)
+
+        while len(title.encode("utf-8")) > namemax:
+            # Truncate title:
+            # Preserve trailing punctuations: `】」』｝）》\])？！!…`
+            # Remove other non-word characters
+            # ...]...   |   ...、...
+            # ...]↑     |   ...↑
+            m = re_search(r".+(?:[】」』｝）》\])？！!…](?=.)|(?=\W))", title)
             if m:
-                title = strip("", m[0])
+                title = strip_re("", m[0])
             else:
-                # no delimiter was found by re.search, we have to forcefully
-                # delete some characters until title is shorter than namemax
+                # no delimiter was found, we have to delete some characters
+                # until title is shorter than namemax
                 lo = 0
                 hi = namemax
                 while lo < hi:
                     mid = (lo + hi) // 2
-                    if len(title[: mid + 1].encode()) < namemax:
+                    if len(title[: mid + 1].encode("utf-8")) < namemax:
                         lo = mid + 1
                     else:
                         hi = mid
@@ -191,7 +205,7 @@ def from_string(string: str):
     return AVString(string, result, error)
 
 
-def from_path(path, stat: os.stat_result = None, namemax: int = None):
+def from_path(path, stat: os.stat_result = None):
     """Analyze a path, returns an AVFile object."""
 
     path = Path(path)
@@ -208,24 +222,21 @@ def from_path(path, stat: os.stat_result = None, namemax: int = None):
         result,
         error,
         stat=stat,
-        namemax=namemax,
     )
 
 
 def scan_dir(top_dir: Path, newer: float = None) -> Iterator[AVFile]:
     """Recursively scans a dir, yields AVFile objects."""
 
-    namemax = _get_namemax(top_dir)
-
     with ThreadPoolExecutor() as ex:
         if newer is None:
             ft = (
-                ex.submit(from_path, path, stat, namemax)
+                ex.submit(from_path, path, stat)
                 for path, stat in _probe_videos(top_dir)
             )
         else:
             ft = (
-                ex.submit(from_path, path, stat, namemax)
+                ex.submit(from_path, path, stat)
                 for path, stat in _probe_videos(top_dir)
                 if stat.st_mtime >= newer
             )
@@ -293,18 +304,3 @@ def _probe_videos(root):
                         pass
         except OSError as e:
             stderr_write(f'error occurred scanning "{root}": {e}\n')
-
-
-if os.name == "posix":
-
-    def _get_namemax(path: Path):
-        try:
-            return os.statvfs(path).f_namemax
-        except OSError as e:
-            stderr_write(f"getting filesystem namemax failed: {e}\n")
-            return 255
-
-else:
-
-    def _get_namemax(path: Path):
-        return 255

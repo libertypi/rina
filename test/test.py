@@ -307,6 +307,16 @@ class Test_AVFile(unittest.TestCase):
                 "2920日間ドM調教経過報告 数学教師26歳は結婚していた【優しい夫を裏切り】異常性欲を抑えきれず【浮気男6名連続ザーメン中出し懇願】8年間サークル集団の性処理女として完全支配されてきた彼女が新妻になった今でも6P輪姦ドロドロ体液漬けSEX中毒ドキュメント報告",
                 "DAVK-042 2920日間ドM調教経過報告 数学教師26歳は結婚していた【優しい夫を裏切り】異常性欲を抑えきれず【浮気男6名連続ザーメン中出し懇願】.mp4",
             ),
+            (
+                "FC2-1003388",
+                "個撮】【パーフェクトスタイル】ナンパで知り合った最強プロポーションの美人妻を自宅へ連れ込み生ハメ！奥様のご無沙汰マンコは感度抜群！不倫チンポに何度もイカされ悶絶大絶頂！！「昼間からこんな事して…イクッ",
+                "FC2-1003388 【パーフェクトスタイル】ナンパで知り合った最強プロポーションの美人妻を自宅へ連れ込み生ハメ！奥様のご無沙汰マンコは感度抜群！.mp4",
+            ),
+            (
+                "FC2-2539111",
+                "【無修正ｘ個人撮影】Merry Christmas★アラサー**超メンヘラ風俗嬢とクリスマス企画★ツンデレトナカイさんに顔射したら、ご機嫌斜めになっちゃったけど、最後はピースでメリクリ★",
+                "FC2-2539111 【無修正ｘ個人撮影】Merry Christmas★アラサー 超メンヘラ風俗嬢とクリスマス企画★ツンデレトナカイさんに顔射したら、ご機嫌斜めになっちゃったけど.mp4",
+            ),
             ("", "日" * 300, None),
             ("", "abc" * 300, None),
         )
@@ -316,10 +326,10 @@ class Test_AVFile(unittest.TestCase):
                 target=path,
                 product_id=product_id,
                 title=title,
-            )._get_filename(namemax=255)
+            )._get_filename()
             if answer:
                 self.assertEqual(result, answer, msg=result)
-            self.assertLessEqual(len(result.encode("utf-8")), 255)
+            self.assertLessEqual(len(result.encode("utf-8")), video._NAMEMAX)
             self.assertRegex(result, r"\w+")
 
 

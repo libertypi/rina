@@ -8,8 +8,12 @@ from collections import defaultdict
 
 from avinfo._utils import SEP_BOLD, SEP_SLIM, get_choice_as_int, stderr_write
 
-ffmpeg = "ffmpeg"
-ffprobe = "ffprobe"
+if os.name == "posix":
+    ffmpeg = "ffmpeg"
+    ffprobe = "ffprobe"
+else:
+    ffmpeg = "ffmpeg.exe"
+    ffprobe = "ffprobe.exe"
 
 
 class ConcatVideo:
@@ -168,8 +172,12 @@ def main(args):
     global ffmpeg, ffprobe
 
     if args.ffmpeg:
-        ffmpeg = op.join(args.ffmpeg, ffmpeg)
-        ffprobe = op.join(args.ffmpeg, ffprobe)
+        if op.isdir(args.ffmpeg):
+            ffmpeg = op.join(args.ffmpeg, ffmpeg)
+            ffprobe = op.join(args.ffmpeg, ffprobe)
+        else:
+            ffmpeg = args.ffmpeg
+            ffprobe = op.join(op.dirname(args.ffmpeg), ffprobe)
     for i in ffmpeg, ffprobe:
         if not shutil.which(i):
             stderr_write(

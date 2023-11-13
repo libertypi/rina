@@ -28,6 +28,8 @@ __all__ = ("scrape",)
 set_cookie(domain="www.javbus.com", name="existmag", value="all")
 set_cookie(domain="javdb.com", name="over18", value="1")
 set_cookie(domain="mgstage.com", name="adc", value="1")
+set_cookie(domain="fc2.com", name="wei6H", value="1")
+set_cookie(domain="fc2.com", name="language", value="ja")
 
 # javdb.com simultaneous connection limit
 _javdb_semaphore = Semaphore(value=3)
@@ -466,21 +468,22 @@ class FC2(Scraper):
         tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
         if tree is None:
             return
-
-        tree = tree.find(
-            './/section[@id="top"]//section[@class="items_article_header"]'
-        )
-        if tree is not None:
-            return ScrapeResult(
-                product_id=self.keyword,
-                title="".join(
+        return ScrapeResult(
+            product_id=self.keyword,
+            title=(
+                xpath('string(.//meta[@name="twitter:title"]/@content)')(tree)
+                or xpath(
+                    'string(.//div[@class="items_article_MainitemThumb"]//img/@title)'
+                )(tree)
+                or "".join(
                     xpath('.//div[@class="items_article_headerInfo"]/h3/text()')(tree)
-                ),
-                publish_date=str_to_epoch(
-                    tree.findtext('.//div[@class="items_article_Releasedate"]/p')
-                ),
-                source=self.source,
-            )
+                )
+            ),
+            publish_date=str_to_epoch(
+                tree.findtext('.//div[@class="items_article_Releasedate"]/p')
+            ),
+            source=self.source,
+        )
 
 
 class Heydouga(Scraper):
