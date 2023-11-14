@@ -12,7 +12,7 @@ from avinfo._utils import (
     stderr_write,
     strftime,
 )
-from avinfo.scraper import ScrapeResult, _has_word, _subspace, scrape
+from avinfo.scraper import ScrapeResult, _has_word, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
 _NAMEMAX = 255
@@ -121,14 +121,12 @@ class AVFile(AVString):
         # Replace forbidden characters with a whitespace
         title = re.sub(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+', " ", self.title)
 
-        # Replace empty brackets with a space
+        # Replace empty brackets with a space, and eliminate repeating spaces
         # opening brackets: [【「『｛（《\[(]
         # closing brackets: [】」』｝）》\])]
-        while True:
-            title, m = re.subn(r"[【「『｛（《\[(]\s*[】」』｝）》\])]", " ", title)
-            if not m:
-                break
-            title = _subspace(" ", title)
+        m = True
+        while m:
+            title, m = re.subn(r"[【「『｛（《\[(]\s*[】」』｝）》\])]|\s{2,}", " ", title)
 
         # Strip certain leading and trailing characters
         strip_re = re.compile(r"^[-_\s。.,、？！!…]+|[-_\s。.,、]+$").sub
