@@ -12,9 +12,6 @@ from avinfo._utils import (
     get_tree,
     html_fromstring,
     join_root,
-    re_compile,
-    re_search,
-    re_sub,
     session,
     set_cookie,
     stderr_write,
@@ -34,10 +31,10 @@ set_cookie(domain="fc2.com", name="language", value="ja")
 # javdb.com simultaneous connection limit
 _javdb_semaphore = Semaphore(value=3)
 
-_subspace = re_compile(r"\s+").sub
-_subbraces = re_compile(r"[\s()\[\].-]+").sub
-_valid_id = re_compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
-_has_word = re_compile(r"\w").search
+_subspace = re.compile(r"\s+").sub
+_subbraces = re.compile(r"[\s()\[\].-]+").sub
+_valid_id = re.compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
+_has_word = re.compile(r"\w").search
 _trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
 
 
@@ -127,7 +124,7 @@ class Scraper:
         result = xpath(
             'string(//div[@class="search-header"]//li[@role="presentation"][1])'
         )(tree)
-        if re_search(r"/\s*0+\s*\)", result):
+        if re.search(r"/\s*0+\s*\)", result):
             return
 
         tree = get_tree(f"https://www.javbus.com/search/{self.keyword}")
@@ -150,7 +147,7 @@ class Scraper:
                 title = span.text
                 try:
                     if title[0] == "【":
-                        title = re_sub(r"^【(お得|特価)】\s*", "", title)
+                        title = re.sub(r"^【(お得|特価)】\s*", "", title)
                 except IndexError:
                     continue
 
@@ -187,14 +184,14 @@ class Scraper:
     def _get_keyword_mask(self):
         mask = self._mask
         if not mask:
-            mask = self._mask = re_compile(
+            mask = self._mask = re.compile(
                 rf"\s*{self.keyword.translate(_trans_sep)}\s*", flags=re.I
             ).fullmatch
         return mask
 
     def _process_id(self, product_id: str) -> str:
         m = self.match
-        suffix = re_search(
+        suffix = re.search(
             r"^\s*(?:(?:f?hd|sd|cd|dvd|vol|[hm]hb|part)\s?|(?:216|108|72|48)0p\s)*"
             r"(?P<s>[1-9][0-9]?|[a-d])\b",
             _subbraces(" ", self.string[m.end(m.lastindex) :]),
@@ -237,7 +234,7 @@ class StudioMatcher(Scraper):
         match = self.match
         self.keyword = f'{match["s1"]}_{match["s2"]}'
 
-        m = self.studio_match = re_search(self._std_re, self.string)
+        m = self.studio_match = re.search(self._std_re, self.string)
         if m:
             self._query = getattr(self, m.lastgroup)
         elif match["s3"] and match["s4"]:
@@ -284,7 +281,7 @@ class StudioMatcher(Scraper):
             elif "日期" in k:
                 date = get_value(p)
             elif "製作商" in k:
-                studio = re_search(self._std_re, get_value(p))
+                studio = re.search(self._std_re, get_value(p))
                 if product_id and date:
                     break
 
@@ -401,7 +398,7 @@ class StudioMatcher(Scraper):
         if self.studio_match:
             i = max(self.studio_match.end(), i)
 
-        suffix = re_search(
+        suffix = re.search(
             r"^\s*(([1-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)($|\s))+",
             _subbraces(" ", self.string[i:]),
         )
@@ -595,7 +592,7 @@ class SM_Miracle(Scraper):
 
         return ScrapeResult(
             product_id=self.keyword,
-            title=re_search(
+            title=re.search(
                 r'[{,]\s*title\s*:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)\s*[,}]',
                 data.content.decode(errors="ignore"),
             )["title"],
@@ -767,7 +764,7 @@ class PatternSearcher(Scraper):
                 './/article[@id="center_column"]' '/div[@class="common_detail_cover"]'
             )
             try:
-                title = re_sub(
+                title = re.sub(
                     r"^(\s*【.*?】)+|【[^】]*映像付】|\+\d+分\b", "", tree.findtext("h1")
                 )
             except (AttributeError, TypeError) as e:
@@ -856,7 +853,7 @@ def _load_json_ld(tree: HtmlElement):
 
     Raise TypeError if there is no json-ld, ValueError if parsing failed.
     """
-    data = re_sub(
+    data = re.sub(
         r"[\t\n\r\f\v]", " ", tree.findtext('.//script[@type="application/ld+json"]')
     )
     try:
@@ -865,7 +862,7 @@ def _load_json_ld(tree: HtmlElement):
         dumps = json.dumps
         repl = lambda m: f"{m[1]}:{dumps(m[2], ensure_ascii=False)}"
         return json.loads(
-            re_sub(r'(?<=[{,])\s*("[^"]+")\s*:\s*"(.*?)"\s*(?=[,}])', repl, data)
+            re.sub(r'(?<=[{,])\s*("[^"]+")\s*:\s*"(.*?)"\s*(?=[,}])', repl, data)
         )
 
 
@@ -891,7 +888,7 @@ def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
     else:
         result = f"{b}(?:{result}){b}"
 
-    return re_compile(result)
+    return re.compile(result)
 
 
 def scrape(string: str) -> Optional[ScrapeResult]:
@@ -933,7 +930,7 @@ _search_map = {
 _search_re = _combine_scraper_regex(*_search_map.values()).search
 _iter_re = _combine_scraper_regex(PatternSearcher).finditer
 _date_re = _combine_scraper_regex(DateSearcher).search
-_clean_re = re_compile(
+_clean_re = re.compile(
     r"""
     \s*\[(?:[a-z0-9.-]+\.[a-z]{2,4}|f?hd|jav)\]\s*|
     (?:[\s\[_-]+|\b)(?:

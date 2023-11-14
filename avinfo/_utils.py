@@ -5,9 +5,6 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from random import choice as random_choice
-from re import compile as re_compile
-from re import search as re_search
-from re import sub as re_sub
 from typing import Optional
 
 import requests
@@ -27,7 +24,7 @@ HTTP_TIMEOUT = (9.1, 60)
 
 join_root = Path(__file__).parent.joinpath
 stderr_write = sys.stderr.write
-date_searcher = re_compile(
+date_searcher = re.compile(
     r"""(?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
     (?:(?P<han>年)|(?P<sep>[／/.－-]))\s*
     (?P<m>[1１][0-2０-２]|[0０]?[1-9１-９])\s*

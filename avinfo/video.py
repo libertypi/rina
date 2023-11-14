@@ -1,4 +1,5 @@
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator
@@ -8,15 +9,12 @@ from avinfo._utils import (
     SEP_FAILED,
     SEP_SUCCESS,
     color_printer,
-    re_compile,
-    re_search,
     stderr_write,
     strftime,
 )
 from avinfo.scraper import ScrapeResult, _has_word, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
-_fn_regex = None
 _NAMEMAX = 255
 
 
@@ -115,36 +113,27 @@ class AVFile(AVString):
                 self.status = "changed"
 
     def _get_filename(self):
-        global _fn_regex
-
         suffix = self.target.suffix.lower()
         namemax = _NAMEMAX - len(self.product_id.encode()) - len(suffix.encode()) - 1
         if namemax <= 0:
             return
 
-        try:
-            clean_1, clean_2, strip_re = _fn_regex
-        except TypeError:
-            # replace forbidden characters with a whitespace
-            # remove empty brackets: ( )
-            # opening brackets: [【「『｛（《\[(]
-            # closing brackets: [】」』｝）》\])]
-            clean_1 = re_compile(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+').sub
-            clean_2 = re_compile(r"[【「『｛（《\[(]\s*[】」』｝）》\])]").subn
-            # remove leading and trailing whitespace and some punctuations
-            # remove leading closing brackets and trailing opening brackets:
-            # ...] ... [...
-            #     ↑...↑
-            strip_re = re_compile(
-                r"^([^【「『｛（《\[(]{,5}[】」』｝）》\])])?[-_\s。.,、？！!…]*|"
-                r"[-_\s。.,、]*([【「『｛（《\[(][^】」』｝）》\])]{,5})?$"
-            ).sub
-            _fn_regex = clean_1, clean_2, strip_re
+        # replace forbidden characters with a whitespace
+        title = re.sub(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+', " ", self.title)
 
-        title = self.title
+        # Repeatedly replacing empty brackets with a space
+        # opening brackets: [【「『｛（《\[(]
+        # closing brackets: [】」』｝）》\])]
         m = True
         while m:
-            title, m = clean_2(" ", clean_1(" ", title))
+            title, m = re.subn(r"[【「『｛（《\[(]\s*[】」』｝）》\])]", " ", title)
+
+        # Removes extra whitespace around non-word characters and consolidates
+        # multiple spaces into one
+        title = re.sub(r"\s*(\W)\s*", r"\1", title)
+
+        # Strips certain leading and trailing characters and whitespace
+        strip_re = re.compile(r"^[-_\s。.,、？！!…]+|[-_\s。.,、]+$").sub
         title = strip_re("", title)
 
         while len(title.encode("utf-8")) > namemax:
@@ -153,27 +142,38 @@ class AVFile(AVString):
             # Remove other non-word characters
             # ...]...   |   ...、...
             # ...]↑     |   ...↑
-            m = re_search(r".+(?:[】」』｝）》\])？！!…](?=.)|(?=\W))", title)
+            m = re.search(r".*?\w.*(?:[】」』｝）》\])？！!…](?=.)|(?=\W))", title)
             if m:
                 title = strip_re("", m[0])
             else:
-                # no delimiter was found, we have to delete some characters
-                # until title is shorter than namemax
-                lo = 0
-                hi = namemax
-                while lo < hi:
-                    mid = (lo + hi) // 2
-                    if len(title[: mid + 1].encode("utf-8")) < namemax:
-                        lo = mid + 1
-                    else:
-                        hi = mid
-                title = title[:lo]
-                # check if it can still be called a title
+                # No suitable breakpoint is found, do a hard cut
+                title = title.encode("utf-8")[:namemax].decode("utf-8", "ignore")
                 if _has_word(title):
                     break
                 return
 
         return f"{self.product_id} {title}{suffix}"
+
+    @staticmethod
+    def _clean_title(title: str):
+        re_1 = re.compile(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+').sub
+        re_2 = re.compile(r"[【「『｛（《\[(]\s*[】」』｝）》\])]").subn
+        n = True
+        while n:
+            title, n = re_2(" ", re_1(" ", title))
+        return title
+
+    @staticmethod
+    def _strip_title(title: str):
+        re_1 = re.compile(r"^[-_\s。.,、？！!…]+|[-_\s。.,、]+$").sub
+        re_2 = re.compile(
+            r"^[^【「『｛（《\[(]{,5}[】」』｝）》\])](?=.*?\w)|"
+            r"(?<=\w.*?)[【「『｛（《\[(][^】」』｝）》\])]{,5}$"
+        ).subn
+        n = True
+        while n:
+            title, n = re_2(" ", re_1(" ", title))
+        return title
 
     def apply(self):
         """Apply changes to file, returns the new path.

@@ -1,3 +1,4 @@
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin
 
@@ -5,7 +6,6 @@ from avinfo._utils import (
     SEP_SLIM,
     XPath,
     get_tree,
-    re_search,
     stderr_write,
     str_to_epoch,
     strftime,
@@ -61,7 +61,7 @@ def get_lastpage(tree):
     """return the page number of the last page, or 1."""
     last = tree.xpath('.//section[@id="main-area"]//div[@class="pagination"]//a/text()')
     for last in reversed(last):
-        last = re_search(r"\d+", last)
+        last = re.search(r"\d+", last)
         if last:
             return int(last[0])
     return 1
