@@ -39,10 +39,14 @@ def _init_session(retries=5, backoff=0.3, uafile="useragents.txt"):
     with open(join_root(uafile), "r", encoding="utf-8") as f:
         useragents = tuple(filter(None, map(str.strip, f)))
     if not useragents:
-        raise ValueError("The user-agent list must not be empty.")
+        raise ValueError("The useragent list must not be empty.")
+
+    def get_ua():
+        """Get a random useragent."""
+        return random_choice(useragents)
 
     session = requests.Session()
-    session.headers["User-Agent"] = random_choice(useragents)
+    session.headers.update({"user-agent": get_ua()})
     adapter = requests.adapters.HTTPAdapter(
         max_retries=Retry(
             total=retries,
@@ -52,7 +56,7 @@ def _init_session(retries=5, backoff=0.3, uafile="useragents.txt"):
     )
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    return session, useragents
+    return session, get_ua
 
 
 def set_cookie(domain: str, name: str, value: str):
@@ -88,17 +92,23 @@ def get_choice_as_int(msg: str, max_opt: int) -> int:
         stderr_write("Invalid option.\n")
 
 
-def get_tree(url, *, encoding: str = None, **kwargs) -> Optional[HtmlElement]:
+def get_tree(
+    url, *, encoding: str = None, headers: dict = None, **kwargs
+) -> Optional[HtmlElement]:
     """Downloads a page and returns lxml.html element tree.
 
     :param url, **kwargs: url and optional arguments `requests` take
     :param encoding: None (feed bytes to lxml), "auto" (detect by requests), or any
     encodings
     """
+    if headers is None:
+        headers = {"user-agent": get_ua()}
+    elif "user-agent" not in headers:
+        headers["user-agent"] = get_ua()
     try:
         response = session.get(
             url,
-            headers={"User-Agent": random_choice(useragents)},
+            headers=headers,
             timeout=HTTP_TIMEOUT,
             **kwargs,
         )
@@ -145,4 +155,4 @@ def str_to_epoch(string: str) -> Optional[float]:
 
 
 xpath = lru_cache(XPath)
-session, useragents = _init_session()
+session, get_ua = _init_session()

@@ -22,6 +22,7 @@ from avinfo._utils import (
 
 __all__ = ("scrape",)
 
+# Cookies
 set_cookie(domain="www.javbus.com", name="existmag", value="all")
 set_cookie(domain="javdb.com", name="over18", value="1")
 set_cookie(domain="mgstage.com", name="adc", value="1")
@@ -29,13 +30,17 @@ set_cookie(domain="fc2.com", name="wei6H", value="1")
 set_cookie(domain="fc2.com", name="language", value="ja")
 
 # javdb.com simultaneous connection limit
-_javdb_semaphore = Semaphore(value=3)
+javdb_semaphore = Semaphore(value=2)
 
+# javbus.com header
+javbus_header = {"accept-language": "zh;q=0.9"}
+
+# Regular expressions
 _subspace = re.compile(r"\s+").sub
 _subbraces = re.compile(r"[\s()\[\].-]+").sub
 _valid_id = re.compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
 _has_word = re.compile(r"\w").search
-_trans_sep = {ord(c): r"[\s_-]?" for c in " _-"}
+_trans_sep = {ord(c): r"[\s_-]*0*" for c in " _-"}
 
 
 def get_year_regex(year: int):
@@ -82,7 +87,7 @@ class Scraper:
         self._mask = None
 
     def search(self):
-        for func in self._query, self._javdb:
+        for func in self._query, self._javbus, self._javdb:
             result = func()
             if result:
                 try:
@@ -105,8 +110,12 @@ class Scraper:
     def _javbus(self):
         response = session.get(
             f"https://www.javbus.com/uncensored/search/{self.keyword}",
+            headers=javbus_header,
             timeout=HTTP_TIMEOUT,
         )
+        if "member.php?mod=logging" in response.url:
+            self._warn("JavBus is walled, consider switching network.")
+            return
         try:
             response.raise_for_status()
             ok = True
@@ -127,7 +136,9 @@ class Scraper:
         if re.search(r"/\s*0+\s*\)", result):
             return
 
-        tree = get_tree(f"https://www.javbus.com/search/{self.keyword}")
+        tree = get_tree(
+            f"https://www.javbus.com/search/{self.keyword}", headers=javbus_header
+        )
         if tree is not None:
             return self._parse_javbus(tree)
 
@@ -159,9 +170,9 @@ class Scraper:
                 )
 
     def _javdb(self):
-        with _javdb_semaphore:
+        with javdb_semaphore:
             tree = get_tree(
-                "https://javdb.com/search?q=" + self.keyword,
+                f"https://javdb.com/search?q={self.keyword}&f=all",
                 encoding="auto",
             )
         if tree is None or "/search" not in tree.base_url:
@@ -206,7 +217,7 @@ class Scraper:
         return product_id
 
     def _warn(self, e: Exception):
-        stderr_write(f'error occurred while processing "{self.string}": {e}\n')
+        stderr_write(f"error ({self.string}): {e}\n")
 
 
 class StudioMatcher(Scraper):
@@ -250,11 +261,11 @@ class StudioMatcher(Scraper):
         return result
 
     def _query(self) -> Optional[ScrapeResult]:
-        tree = get_tree(f"https://www.javbus.com/{self.keyword}")
+        tree = get_tree(f"https://www.javbus.com/{self.keyword}", headers=javbus_header)
 
         if tree is None:
             keyword = self.keyword.replace("_", "-")
-            tree = get_tree(f"https://www.javbus.com/{keyword}")
+            tree = get_tree(f"https://www.javbus.com/{keyword}", headers=javbus_header)
             if tree is None:
                 return
             self.keyword = keyword
@@ -465,13 +476,19 @@ class FC2(Scraper):
         tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
         if tree is None:
             return
+        if "payarticle" in tree.base_url:
+            self._warn(f"FC2 is walled, consider switching network.")
+            return
+        if tree.find('.//div[@class="items_notfound_wp"]') is not None:
+            return
+
         return ScrapeResult(
             product_id=self.keyword,
             title=(
-                xpath('string(.//meta[@name="twitter:title"]/@content)')(tree)
-                or xpath(
+                tree.xpath('string(.//meta[@name="twitter:title"]/@content)')
+                or tree.xpath(
                     'string(.//div[@class="items_article_MainitemThumb"]//img/@title)'
-                )(tree)
+                )
                 or "".join(
                     xpath('.//div[@class="items_article_headerInfo"]/h3/text()')(tree)
                 )
