@@ -33,7 +33,7 @@ set_cookie(domain="fc2.com", name="language", value="ja")
 javdb_semaphore = Semaphore(value=2)
 
 # javbus.com header
-javbus_header = {"accept-language": "zh;q=0.9"}
+javbus_header = {"Accept-Language": "zh"}
 
 # Regular expressions
 _subspace = re.compile(r"\s+").sub
@@ -87,7 +87,7 @@ class Scraper:
         self._mask = None
 
     def search(self):
-        for func in self._query, self._javbus, self._javdb:
+        for func in self._native, self._javbus, self._javdb:
             result = func()
             if result:
                 try:
@@ -104,7 +104,7 @@ class Scraper:
                     )
                     return result
 
-    def _query(self) -> Optional[ScrapeResult]:
+    def _native(self) -> Optional[ScrapeResult]:
         pass
 
     def _javbus(self):
@@ -247,9 +247,9 @@ class StudioMatcher(Scraper):
 
         m = self.studio_match = re.search(self._std_re, self.string)
         if m:
-            self._query = getattr(self, m.lastgroup)
+            self._native = getattr(self, m.lastgroup)
         elif match["s3"] and match["s4"]:
-            self._query = self._mesubuta
+            self._native = self._mesubuta
 
         result = super().search()
 
@@ -260,7 +260,7 @@ class StudioMatcher(Scraper):
                 self._warn(e)
         return result
 
-    def _query(self) -> Optional[ScrapeResult]:
+    def _native(self) -> Optional[ScrapeResult]:
         tree = get_tree(f"https://www.javbus.com/{self.keyword}", headers=javbus_header)
 
         if tree is None:
@@ -425,7 +425,7 @@ class Heyzo(Scraper):
     source = "heyzo.com"
     regex = r"heyzo[^0-9]*(?P<heyzo>[0-9]{4})"
 
-    def _query(self):
+    def _native(self):
         uid = self.match["heyzo"]
         self.keyword = f"HEYZO-{uid}"
 
@@ -469,7 +469,7 @@ class FC2(Scraper):
     source = "fc2.com"
     regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{4,10})"
 
-    def _query(self):
+    def _native(self):
         uid = self.match["fc2"]
         self.keyword = f"FC2-{uid}"
 
@@ -506,7 +506,7 @@ class Heydouga(Scraper):
     source = "heydouga.com"
     regex = r"heydouga[^0-9]*(?P<h1>[0-9]{4})[^0-9]+(?P<heydou>[0-9]{3,6})"
 
-    def _query(self, url: str = None):
+    def _native(self, url: str = None):
         if not url:
             m1, m2 = self.match.group("h1", "heydou")
             self.keyword = f"heydouga-{m1}-{m2}"
@@ -535,10 +535,10 @@ class AV9898(Heydouga):
     __slots__ = ()
     regex = r"av9898[^0-9]+(?P<av98>[0-9]{3,})"
 
-    def _query(self):
+    def _native(self):
         uid = self.match["av98"]
         self.keyword = f"AV9898-{uid}"
-        return super()._query(
+        return super()._native(
             f"https://av9898.heydouga.com/monthly/av9898/moviepages/{uid}/"
         )
 
@@ -547,10 +547,10 @@ class Honnamatv(Heydouga):
     __slots__ = ()
     regex = r"honnamatv[^0-9]*(?P<honna>[0-9]{3,})"
 
-    def _query(self):
+    def _native(self):
         uid = self.match["honna"]
         self.keyword = f"honnamatv-{uid}"
-        return super()._query(
+        return super()._native(
             f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{uid}/"
         )
 
@@ -561,7 +561,7 @@ class X1X(Scraper):
     source = "x1x.com"
     regex = r"x1x(?:\.com)?[\s-]+(?P<x1x>[0-9]{6})"
 
-    def _query(self):
+    def _native(self):
         uid = self.match["x1x"]
         self.keyword = f"x1x-{uid}"
 
@@ -595,7 +595,7 @@ class SM_Miracle(Scraper):
     source = "sm-miracle.com"
     regex = r"sm[\s-]*miracle(?:[\s-]+no)?[\s.-]+e?(?P<sm>[0-9]{4})"
 
-    def _query(self):
+    def _native(self):
         uid = "e" + self.match["sm"]
         self.keyword = f"sm-miracle-{uid}"
 
@@ -622,7 +622,7 @@ class H4610(Scraper):
     uncensored_only = True
     regex = r"(?P<h41>h4610|[ch]0930)\W+(?P<h4610>[a-z]+[0-9]+)"
 
-    def _query(self):
+    def _native(self):
         m1, m2 = self.match.group("h41", "h4610")
         self.keyword = f"{m1.upper()}-{m2}"
 
@@ -658,7 +658,7 @@ class Kin8(Scraper):
     source = "kin8tengoku.com"
     regex = r"kin8(?:tengoku)?[^0-9]*(?P<kin8>[0-9]{4})"
 
-    def _query(self):
+    def _native(self):
         uid = self.match["kin8"]
         self.keyword = f"kin8-{uid}"
 
@@ -695,7 +695,7 @@ class GirlsDelta(Scraper):
     source = "girlsdelta.com"
     regex = r"girls[\s-]?delta[^0-9]*(?P<gd>[0-9]{3,4})"
 
-    def _query(self):
+    def _native(self):
         uid = self.match["gd"]
         self.keyword = f"GirlsDelta-{uid}"
 
@@ -736,7 +736,7 @@ class UncensoredMatcher(Scraper):
         r"([a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4}|r18|t28)[\s-]*([0-9]{2,6})",
     )
 
-    def _query(self):
+    def _native(self):
         self.keyword = "-".join(filter(None, self.match.groups()))
 
 
@@ -745,7 +745,7 @@ class OneKGiri(Scraper):
     uncensored_only = True
     regex = rf"((?:{REG_Y})(?:{REG_M})(?:{REG_D}))[\s-]+([a-z]{{3,8}})(?:-(?P<kg>[a-z]{{3,6}}))?"
 
-    def _query(self):
+    def _native(self):
         m = self.match
         i = m.lastindex
         self.keyword = f"{m[i-2]}-{m[i-1]}_{m[i]}"
@@ -760,7 +760,7 @@ class PatternSearcher(Scraper):
         with open(join_root(filename), "r", encoding="utf-8") as f:
             cls.mgs_get = json.load(f).get
 
-    def _query(self):
+    def _native(self):
         m = self.match
         uid = m["uid"]
         self.keyword = f'{uid.upper()}-{m["num"]}'

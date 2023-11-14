@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from random import choice as random_choice
 from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 from lxml.etree import XPath
@@ -41,12 +42,22 @@ def _init_session(retries=5, backoff=0.3, uafile="useragents.txt"):
     if not useragents:
         raise ValueError("The useragent list must not be empty.")
 
-    def get_ua():
-        """Get a random useragent."""
-        return random_choice(useragents)
-
     session = requests.Session()
-    session.headers.update({"user-agent": get_ua()})
+    session.headers.update(
+        {
+            "User-Agent": random_choice(useragents),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "ja,zh;q=0.8,en-US;q=0.5,en;q=0.3",
+            "Accept-Encoding": "gzip, deflate",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Cache-Control": "max-age=0",
+        }
+    )
     adapter = requests.adapters.HTTPAdapter(
         max_retries=Retry(
             total=retries,
@@ -56,7 +67,7 @@ def _init_session(retries=5, backoff=0.3, uafile="useragents.txt"):
     )
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    return session, get_ua
+    return session, useragents
 
 
 def set_cookie(domain: str, name: str, value: str):
@@ -102,9 +113,11 @@ def get_tree(
     encodings
     """
     if headers is None:
-        headers = {"user-agent": get_ua()}
-    elif "user-agent" not in headers:
-        headers["user-agent"] = get_ua()
+        headers = {"User-Agent": random_choice(useragents)}
+    elif "User-Agent" not in headers:
+        headers["User-Agent"] = random_choice(useragents)
+    headers["Referer"] = "{0}://{1}/".format(*urlparse(url))
+
     try:
         response = session.get(
             url,
@@ -155,4 +168,4 @@ def str_to_epoch(string: str) -> Optional[float]:
 
 
 xpath = lru_cache(XPath)
-session, get_ua = _init_session()
+session, useragents = _init_session()
