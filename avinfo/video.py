@@ -12,9 +12,10 @@ from avinfo._utils import (
     stderr_write,
     strftime,
 )
-from avinfo.scraper import ScrapeResult, _has_word, scrape
+from avinfo.scraper import ScrapeResult, _has_word, _subspace, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
+_fn_regex = []
 _NAMEMAX = 255
 
 
@@ -118,25 +119,28 @@ class AVFile(AVString):
         if namemax <= 0:
             return
 
-        # replace forbidden characters with a whitespace
-        title = re.sub(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+', " ", self.title)
+        try:
+            clean_1, clean_2, strip_1 = _fn_regex
+        except ValueError:
+            # Replace forbidden characters with a whitespace
+            clean_1 = re.compile(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+').sub
+            # Replace empty brackets with a space
+            # opening brackets: [【「『｛（《\[(]
+            # closing brackets: [】」』｝）》\])]
+            clean_2 = re.compile(r"[【「『｛（《\[(]\s*[】」』｝）》\])]").subn
+            # Strips certain leading and trailing characters
+            strip_1 = re.compile(r"^[-_\s。.,、？！!…]+|[-_\s。.,、]+$").sub
+            _fn_regex[:] = clean_1, clean_2, strip_1
 
-        # Repeatedly replacing empty brackets with a space
-        # opening brackets: [【「『｛（《\[(]
-        # closing brackets: [】」』｝）》\])]
-        m = True
-        while m:
-            title, m = re.subn(r"[【「『｛（《\[(]\s*[】」』｝）》\])]", " ", title)
+        title = clean_1(" ", self.title)
+        while True:
+            title, m = clean_2(" ", title)
+            if not m:
+                break
+            title = _subspace(" ", title)
+        title = strip_1("", title)
 
-        # Removes extra whitespace around non-word characters and consolidates
-        # multiple spaces into one
-        title = re.sub(r"\s*(\W)\s*", r"\1", title)
-
-        # Strips certain leading and trailing characters and whitespace
-        strip_re = re.compile(r"^[-_\s。.,、？！!…]+|[-_\s。.,、]+$").sub
-        title = strip_re("", title)
-
-        while len(title.encode("utf-8")) > namemax:
+        while len(title.encode("utf-8")) >= namemax:
             # Truncate title:
             # Preserve trailing punctuations: `】」』｝）》\])？！!…`
             # Remove other non-word characters
@@ -144,7 +148,7 @@ class AVFile(AVString):
             # ...]↑     |   ...↑
             m = re.search(r".*?\w.*(?:[】」』｝）》\])？！!…](?=.)|(?=\W))", title)
             if m:
-                title = strip_re("", m[0])
+                title = strip_1("", m[0])
             else:
                 # No suitable breakpoint is found, do a hard cut
                 title = title.encode("utf-8")[:namemax].decode("utf-8", "ignore")
