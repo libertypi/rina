@@ -48,6 +48,12 @@ SITE_SETTINGS = {
     "www.heydouga.com": {
         "encoding": "requests_auto",
     },
+    "av9898.heydouga.com": {
+        "encoding": "requests_auto",
+    },
+    "honnamatv.heydouga.com": {
+        "encoding": "requests_auto",
+    },
     "db.msin.jp": {
         "cookies": {"age": "off"},
         "encoding": "requests_auto",

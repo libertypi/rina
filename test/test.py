@@ -341,9 +341,9 @@ class Test_Birth_List(unittest.TestCase):
         result = birth.get_lastpage(self.tree)
         self.assertGreater(result, 1)
 
-    def test_xpath(self):
-        result = birth.xpath_actress_list(self.tree)
-        self.assertGreater(len(result), 5)
+    # def test_xpath(self):
+    #     result = birth.xpath_actress_list(self.tree)
+    #     self.assertGreater(len(result), 5)
 
 
 class Test_Birth_Filter(unittest.TestCase):

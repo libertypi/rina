@@ -330,8 +330,9 @@ class StudioMatcher(Scraper):
             url = "https://www.1pondo.tv"
             source = "1pondo.tv"
         try:
-            data = get(f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
-            data = data.json()
+            data = get(
+                f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json"
+            ).json()
             return ScrapeResult(
                 product_id=data["MovieID"],
                 title=data["Title"],

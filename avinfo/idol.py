@@ -125,11 +125,11 @@ class MinnanoAV(Wiki):
         birth = None
         alias = []
         for td in tree.iterfind('.//div[@class="act-profile"]/table//td[span][p]'):
-            title = td.findtext("span")
+            title = td.findtext("span", "")
             if "別名" in title:
-                alias.append(td.findtext("p"))
+                alias.append(td.findtext("p", ""))
             elif not birth and "生年月日" in title:
-                birth = date_searcher(td.findtext("p"))
+                birth = date_searcher(td.findtext("p", ""))
 
         return SearchResult(name=name, birth=birth, alias=alias)
 
@@ -250,28 +250,29 @@ class Seesaawiki(Wiki):
 class Msin(Wiki):
     @classmethod
     def _query(cls, keyword: str):
-        tree = get_tree(f"https://db.msin.jp/search/actress?str={keyword}")
+        tree = get_tree(
+            "https://db.msin.jp/branch/search",
+            params={"sort": "jp.actress", "str": keyword},
+        )
         if tree is None:
             return
 
         if "/actress?str=" in tree.base_url:
             return cls._scan_search_page(keyword, tree)
 
-        tree = tree.find(
-            './/div[@id="content"]/div[@id="actress_view"]' '//div[@class="act_ditail"]'
-        )
+        tree = tree.find('.//div[@id="top_content"]//div[@class="act_ditail"]')
         try:
-            name = clean_name(tree.findtext('.//span[@class="mv_name"]'))
+            name = clean_name(
+                tree.findtext('.//div[@class="act_name"]/span[@class="mv_name"]')
+            )
         except (AttributeError, TypeError):
             return
 
-        xp = xpath("string(div[contains(text(), $title)]/following-sibling::span)")
-        alias = split_names(xp(tree, title="別名"))
-
+        alias = split_names(xpath('string(.//span[@class="mv_anotherName"])')(tree))
         if match_name(keyword, name, *alias):
             return SearchResult(
                 name=name,
-                birth=date_searcher(xp(tree, title="生年月日")),
+                birth=date_searcher(tree.findtext('.//span[@class="mv_barth"]', "")),
                 alias=alias,
             )
 
@@ -279,24 +280,20 @@ class Msin(Wiki):
     def _scan_search_page(keyword: str, tree: HtmlElement):
         result = None
         for div in tree.iterfind(
-            './/div[@id="content"]//div[@class="actress_info_find"]'
-            '/div[@class="act_ditail"]'
+            './/div[@class="actress_info"]/div[@class="act_detail"]'
         ):
-            name = div.findtext('div[@class="act_name"]/a')
+            name = clean_name(div.findtext('div[@class="act_name"]/a', ""))
             if not name:
                 continue
-
-            alias = div.findtext('div[@class="act_anotherName"]')
-            alias = split_names(alias) if alias else ()
-
+            alias = split_names(xpath('string(div[@class="act_anotherName"])')(div))
             if match_name(keyword, name, *alias):
                 if result:
                     return
-
-                birth = div.findtext('div[@class="act_barth"]')
                 result = SearchResult(
                     name=name,
-                    birth=date_searcher(birth) if birth else None,
+                    birth=date_searcher(
+                        div.findtext('.//span[@class="act_barth"]', "")
+                    ),
                     alias=alias,
                 )
         return result
