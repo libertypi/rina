@@ -1,6 +1,7 @@
 from functools import lru_cache
 from random import choice as random_choice
 from threading import Semaphore
+from typing import Optional
 from urllib.parse import ParseResult, urlparse
 
 import requests
@@ -12,16 +13,15 @@ from urllib3 import Retry
 
 from avinfo.utils import join_root, stderr_write
 
-HTTP_TIMEOUT = (9.1, 60)
 xpath = lru_cache(XPath)
-
-DEFAULT = {
+HTTP_TIMEOUT = (9.1, 60)
+DEFAULT_SETTING = {
     "max_connection": 5,
     "cookies": None,
     "headers": None,
     "encoding": None,
 }
-sites = {
+SITE_SETTINGS = {
     "www.javbus.com": {
         "max_connection": 10,
         "cookies": {"existmag": "all"},
@@ -60,10 +60,10 @@ sites = {
 
 @lru_cache
 def _get_setting(netloc: str):
-    domain_settings = sites.get(netloc)
+    domain_settings = SITE_SETTINGS.get(netloc)
     if domain_settings is None:
-        return DEFAULT
-    setting = DEFAULT.copy()
+        return DEFAULT_SETTING
+    setting = DEFAULT_SETTING.copy()
     setting.update(domain_settings)
     return setting
 
@@ -146,7 +146,7 @@ def get(url: str, /, pr: ParseResult = None, check: bool = True, **kwargs):
     return res
 
 
-def get_tree(url: str, **kwargs) -> HtmlElement:
+def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
     pr = urlparse(url)
     try:
         res = get(url, pr=pr, **kwargs)

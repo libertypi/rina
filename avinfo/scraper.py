@@ -92,10 +92,10 @@ class Scraper:
         res = get(
             f"https://www.javbus.com/uncensored/search/{self.keyword}", check=False
         )
+        if "member.php?mod=logging" in res.url:
+            self._warn("JavBus is walled, consider switching network.")
+            return
         try:
-            if "member.php?mod=logging" in res.url:
-                self._warn("JavBus is walled, consider switching network.")
-                return
             res.raise_for_status()
             ok = True
         except HTTPError:
