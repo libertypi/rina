@@ -1,7 +1,8 @@
 import unittest
 from pathlib import Path
-from avinfo import idol, scraper, birth, video
-from avinfo._utils import get_tree
+
+from avinfo import birth, idol, scraper, video
+from avinfo.connection import get_tree
 
 
 class Test_Scraper(unittest.TestCase):

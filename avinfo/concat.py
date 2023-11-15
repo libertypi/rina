@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 from collections import defaultdict
 
-from avinfo._utils import SEP_BOLD, SEP_SLIM, get_choice_as_int, stderr_write
+from avinfo.utils import SEP_BOLD, SEP_SLIM, get_choice_as_int, stderr_write
 
 if os.name == "posix":
     ffmpeg = "ffmpeg"

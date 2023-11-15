@@ -4,7 +4,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator
 
-from avinfo._utils import (
+from avinfo.scraper import ScrapeResult, _has_word, scrape
+from avinfo.utils import (
     SEP_CHANGED,
     SEP_FAILED,
     SEP_SUCCESS,
@@ -12,7 +13,6 @@ from avinfo._utils import (
     stderr_write,
     strftime,
 )
-from avinfo.scraper import ScrapeResult, _has_word, scrape
 
 __all__ = ("from_string", "from_path", "scan_dir")
 _NAMEMAX = 255

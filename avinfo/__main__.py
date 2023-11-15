@@ -1,6 +1,6 @@
 import sys
 
-from avinfo._utils import SEP_BOLD, SEP_SLIM, SEP_WIDTH, get_choice_as_int, stderr_write
+from avinfo.utils import SEP_BOLD, SEP_SLIM, SEP_WIDTH, get_choice_as_int, stderr_write
 from avinfo.arguments import parse_args
 
 

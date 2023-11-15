@@ -2,15 +2,8 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin
 
-from avinfo._utils import (
-    SEP_SLIM,
-    XPath,
-    get_tree,
-    stderr_write,
-    str_to_epoch,
-    strftime,
-    xpath,
-)
+from avinfo.connection import get_tree, xpath
+from avinfo.utils import SEP_SLIM, stderr_write, str_to_epoch, strftime
 
 
 class ProductFilter:
@@ -23,10 +16,10 @@ class ProductFilter:
         self._filters = []
         if uncensored:
             # return true if the product is uncensored
-            self._filters.append(XPath('contains(p[@class="moza"], "モザイクなし")'))
+            self._filters.append(xpath('contains(p[@class="moza"], "モザイクなし")'))
         if solo:
             # return true is the product contains only one actress
-            self._filters.append(XPath('count(p[@class="cast"]/a) <= 1'))
+            self._filters.append(xpath('count(p[@class="cast"]/a) <= 1'))
 
     def run(self, tree) -> int:
         tree = tree.find('.//div[@class="act-video-list"]')
@@ -67,20 +60,18 @@ def get_lastpage(tree):
     return 1
 
 
-xpath_actress_list = XPath(
-    './/section[@id="main-area"]/section[contains(@class, "main-column")]'
-    '//td/*[@class="ttl"]/a/@href[contains(., "actress")]',
-    smart_strings=False,
-)
-
-
 def main(args):
     domain = "http://www.minnano-av.com"
     _filter = ProductFilter(
         active=args.active, uncensored=args.uncensored, solo=args.solo
     )
+    xpath_actress_list = xpath(
+        './/section[@id="main-area"]/section[contains(@class, "main-column")]'
+        '//td/*[@class="ttl"]/a/@href[contains(., "actress")]',
+        smart_strings=False,
+    )
 
-    with ThreadPoolExecutor(max_workers=6) as ex:
+    with ThreadPoolExecutor() as ex:
         # scrape the 1st index of each birth year; put the 2nd-last pages
         # into pool.
         url = f"{domain}/actress_list.php"
@@ -97,7 +88,8 @@ def main(args):
 
         # parse all the index pages
         page_pool = {}
-        for ft in as_completed(index_pool):
+        index_pool = as_completed(index_pool)
+        for ft in index_pool:
             tree = ft.result()
             if tree is None:
                 continue
@@ -109,7 +101,8 @@ def main(args):
         # scan & filter the actress pages
         total = len(page_pool)
         result = 0
-        for ft in as_completed(page_pool.values()):
+        page_pool = as_completed(page_pool.values())
+        for ft in page_pool:
             tree = ft.result()
             if tree is None:
                 continue

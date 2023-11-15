@@ -2,38 +2,19 @@ import datetime
 import json
 import re
 from dataclasses import dataclass
-from threading import Semaphore
 from typing import Optional
 
-from avinfo._utils import (
-    HTTP_TIMEOUT,
+from avinfo.connection import (
     HtmlElement,
     HTTPError,
+    get,
     get_tree,
     html_fromstring,
-    join_root,
-    session,
-    set_cookie,
-    stderr_write,
-    str_to_epoch,
-    strptime,
     xpath,
 )
+from avinfo.utils import join_root, stderr_write, str_to_epoch, strptime
 
 __all__ = ("scrape",)
-
-# Cookies
-set_cookie(domain="www.javbus.com", name="existmag", value="all")
-set_cookie(domain="javdb.com", name="over18", value="1")
-set_cookie(domain="mgstage.com", name="adc", value="1")
-set_cookie(domain="fc2.com", name="wei6H", value="1")
-set_cookie(domain="fc2.com", name="language", value="ja")
-
-# javdb.com simultaneous connection limit
-javdb_semaphore = Semaphore(value=2)
-
-# javbus.com header
-javbus_header = {"Accept-Language": "zh"}
 
 # Regular expressions
 _subspace = re.compile(r"\s+").sub
@@ -108,23 +89,21 @@ class Scraper:
         pass
 
     def _javbus(self):
-        response = session.get(
-            f"https://www.javbus.com/uncensored/search/{self.keyword}",
-            headers=javbus_header,
-            timeout=HTTP_TIMEOUT,
+        res = get(
+            f"https://www.javbus.com/uncensored/search/{self.keyword}", check=False
         )
-        if "member.php?mod=logging" in response.url:
-            self._warn("JavBus is walled, consider switching network.")
-            return
         try:
-            response.raise_for_status()
+            if "member.php?mod=logging" in res.url:
+                self._warn("JavBus is walled, consider switching network.")
+                return
+            res.raise_for_status()
             ok = True
         except HTTPError:
             if self.uncensored_only:
                 return
             ok = False
 
-        tree = html_fromstring(response.content)
+        tree = html_fromstring(res.content)
         if ok:
             result = self._parse_javbus(tree)
             if result or self.uncensored_only:
@@ -136,9 +115,7 @@ class Scraper:
         if re.search(r"/\s*0+\s*\)", result):
             return
 
-        tree = get_tree(
-            f"https://www.javbus.com/search/{self.keyword}", headers=javbus_header
-        )
+        tree = get_tree(f"https://www.javbus.com/search/{self.keyword}")
         if tree is not None:
             return self._parse_javbus(tree)
 
@@ -170,11 +147,7 @@ class Scraper:
                 )
 
     def _javdb(self):
-        with javdb_semaphore:
-            tree = get_tree(
-                f"https://javdb.com/search?q={self.keyword}&f=all",
-                encoding="auto",
-            )
+        tree = get_tree(f"https://javdb.com/search?q={self.keyword}&f=all")
         if tree is None or "/search" not in tree.base_url:
             return
 
@@ -261,11 +234,11 @@ class StudioMatcher(Scraper):
         return result
 
     def _native(self) -> Optional[ScrapeResult]:
-        tree = get_tree(f"https://www.javbus.com/{self.keyword}", headers=javbus_header)
+        tree = get_tree(f"https://www.javbus.com/{self.keyword}")
 
         if tree is None:
             keyword = self.keyword.replace("_", "-")
-            tree = get_tree(f"https://www.javbus.com/{keyword}", headers=javbus_header)
+            tree = get_tree(f"https://www.javbus.com/{keyword}")
             if tree is None:
                 return
             self.keyword = keyword
@@ -320,7 +293,7 @@ class StudioMatcher(Scraper):
             source = "caribbeancom.com"
             url = "https://www.caribbeancom.com"
 
-        tree = get_tree(f"{url}/moviepages/{self.keyword}/", encoding="euc-jp")
+        tree = get_tree(f"{url}/moviepages/{self.keyword}/")
         if tree is None:
             return
 
@@ -356,13 +329,8 @@ class StudioMatcher(Scraper):
             self.studio = "1pon"
             url = "https://www.1pondo.tv"
             source = "1pondo.tv"
-
-        data = session.get(
-            f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json",
-            timeout=HTTP_TIMEOUT,
-        )
         try:
-            data.raise_for_status()
+            data = get(f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
             data = data.json()
             return ScrapeResult(
                 product_id=data["MovieID"],
@@ -432,7 +400,6 @@ class Heyzo(Scraper):
         tree = get_tree(f"https://www.heyzo.com/moviepages/{uid}/")
         if tree is None:
             return
-
         try:
             data = _load_json_ld(tree)
             return ScrapeResult(
@@ -512,7 +479,7 @@ class Heydouga(Scraper):
             self.keyword = f"heydouga-{m1}-{m2}"
             url = f"https://www.heydouga.com/moviepages/{m1}/{m2}/"
 
-        tree = get_tree(url, encoding="auto")
+        tree = get_tree(url)
         if tree is None:
             return
 
@@ -599,11 +566,8 @@ class SM_Miracle(Scraper):
         uid = "e" + self.match["sm"]
         self.keyword = f"sm-miracle-{uid}"
 
-        data = session.get(
-            f"https://sm-miracle.com/movie/{uid}.dat", timeout=HTTP_TIMEOUT
-        )
         try:
-            data.raise_for_status()
+            data = get(f"https://sm-miracle.com/movie/{uid}.dat")
         except HTTPError:
             return
 
@@ -770,36 +734,35 @@ class PatternSearcher(Scraper):
         except AttributeError:
             self._load_mgs()
             number = self.mgs_get(uid)
+        if number is None:
+            return
 
-        if number is not None:
-            number += self.keyword
-            tree = get_tree(f"https://www.mgstage.com/product/product_detail/{number}/")
-            if tree is None or number not in tree.base_url:
-                return
+        number += self.keyword
+        tree = get_tree(f"https://www.mgstage.com/product/product_detail/{number}/")
+        if tree is None or number not in tree.base_url:
+            return
 
-            tree = tree.find(
-                './/article[@id="center_column"]' '/div[@class="common_detail_cover"]'
-            )
-            try:
-                title = re.sub(
-                    r"^(\s*【.*?】)+|【[^】]*映像付】|\+\d+分\b", "", tree.findtext("h1")
-                )
-            except (AttributeError, TypeError) as e:
-                self._warn(e)
-                return
+        tree = tree.find(
+            './/article[@id="center_column"]' '/div[@class="common_detail_cover"]'
+        )
+        try:
+            title = re.sub(r"^(\s*【.*?】)+|【[^】]*映像付】|\+\d+分\b", "", tree.findtext("h1"))
+        except (AttributeError, TypeError) as e:
+            self._warn(e)
+            return
 
-            xp = xpath(
-                "string(.//table/tr/th[contains(., $title)]"
-                '/following-sibling::td[contains(., "20")])'
-            )
-            date = xp(tree, title="発売日") or xp(tree, title="開始日")
+        xp = xpath(
+            "string(.//table/tr/th[contains(., $title)]"
+            '/following-sibling::td[contains(., "20")])'
+        )
+        date = xp(tree, title="発売日") or xp(tree, title="開始日")
 
-            return ScrapeResult(
-                product_id=self.keyword,
-                title=title,
-                publish_date=str_to_epoch(date),
-                source="mgstage.com",
-            )
+        return ScrapeResult(
+            product_id=self.keyword,
+            title=title,
+            publish_date=str_to_epoch(date),
+            source="mgstage.com",
+        )
 
 
 class DateSearcher:

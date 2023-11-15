@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from avinfo._utils import stderr_write, strftime
+from avinfo.utils import stderr_write, strftime
 
 
 def update_dir_mtime(top_dir: Path):
