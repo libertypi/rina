@@ -15,6 +15,8 @@ from avinfo.utils import (
     SEP_SUCCESS,
     color_printer,
     date_searcher,
+    re_search,
+    re_sub,
 )
 
 __all__ = ("scan_dir",)
@@ -173,7 +175,7 @@ class AVRevolution(Wiki):
             try:
                 a = row.find("div[1]/a[@href]")
                 title = clean_name(a.text_content())
-                name = re.search(r"/([^/]+)/?$", a.get("href"))[1]
+                name = re_search(r"/([^/]+)/?$", a.get("href"))[1]
             except (AttributeError, TypeError):
                 continue
 
@@ -207,7 +209,7 @@ class Seesaawiki(Wiki):
                 return
 
             text = tree.findtext('.//h3[@id="content_1"]')
-            if not (text and re.search(r"(女優名|名前).*?変更", text)):
+            if not (text and re_search(r"(女優名|名前).*?変更", text)):
                 break
 
             url = xpath(
@@ -241,7 +243,7 @@ class Seesaawiki(Wiki):
         for k, v in box:
             if not birth and "生年月日" in k:
                 birth = date_searcher(v)
-            elif re.search(r"旧名|別名|名前|女優名", k):
+            elif re_search(r"旧名|別名|名前|女優名", k):
                 stack.extend(split_names(v))
 
         return SearchResult(name=name, birth=birth, alias=stack)
@@ -371,7 +373,7 @@ class Actress:
             "Result": None,
         }
 
-        keyword = re.sub(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}|\s+", "", keyword)
+        keyword = re_sub(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}|\s+", "", keyword)
         if not is_cjk_name(keyword):
             self._report["Error"] = "Not valid actress name."
             return

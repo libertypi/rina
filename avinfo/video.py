@@ -1,5 +1,4 @@
 import os
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator
@@ -10,6 +9,9 @@ from avinfo.utils import (
     SEP_FAILED,
     SEP_SUCCESS,
     color_printer,
+    re_search,
+    re_sub,
+    re_subn,
     stderr_write,
     strftime,
 )
@@ -119,18 +121,18 @@ class AVFile(AVString):
             return
 
         # Replace forbidden characters with a whitespace
-        title = re.sub(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+', " ", self.title)
+        title = re_sub(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+', " ", self.title)
 
         # Replace empty brackets with a space, and eliminate repeating spaces
         # opening brackets: [【「『｛（《\[(]
         # closing brackets: [】」』｝）》\])]
         m = True
         while m:
-            title, m = re.subn(r"[【「『｛（《\[(]\s*[】」』｝）》\])]|\s{2,}", " ", title)
+            title, m = re_subn(r"[【「『｛（《\[(]\s*[】」』｝）》\])]|\s{2,}", " ", title)
 
         # Strip certain leading and trailing characters
-        strip_re = re.compile(r"^[-_\s。.,、？！!…]+|[-_\s。.,、]+$").sub
-        title = strip_re("", title)
+        strip_re = r"^[-_\s。.,、？！!…]+|[-_\s。.,、]+$"
+        title = re_sub(strip_re, "", title)
 
         while len(title.encode("utf-8")) > namemax:
             # Truncate title:
@@ -138,9 +140,9 @@ class AVFile(AVString):
             # Remove other non-word characters
             # ...]...   |   ...、...
             # ...]↑     |   ...↑
-            m = re.search(r".*?\w.*(?:[】」』｝）》\])？！!…](?=.)|(?=\W))", title)
+            m = re_search(r".*?\w.*(?:[】」』｝）》\])？！!…](?=.)|(?=\W))", title)
             if m:
-                title = strip_re("", m[0])
+                title = re_sub(strip_re, "", m[0])
             else:
                 # No suitable breakpoint is found, do a hard cut
                 title = title.encode("utf-8")[:namemax].decode("utf-8", "ignore")

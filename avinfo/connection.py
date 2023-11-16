@@ -5,11 +5,11 @@ from typing import Optional
 from urllib.parse import ParseResult, urlparse
 
 import requests
+import urllib3
 from lxml.etree import XPath
-from lxml.html import HtmlElement
+from lxml.html import HtmlElement, HTMLParser
 from lxml.html import fromstring as html_fromstring
 from requests.exceptions import HTTPError, RequestException
-from urllib3 import Retry
 
 from avinfo.utils import join_root, stderr_write
 
@@ -28,9 +28,8 @@ SITE_SETTINGS = {
         "headers": {"Accept-Language": "zh"},
     },
     "javdb.com": {
-        "max_connection": 2,
+        "max_connection": 1,
         "cookies": {"over18": "1", "locale": "zh"},
-        "encoding": "requests_auto",
     },
     "adult.contents.fc2.com": {
         "cookies": {"wei6H": "1", "language": "ja"},
@@ -45,21 +44,8 @@ SITE_SETTINGS = {
     "www.caribbeancompr.com": {
         "encoding": "euc-jp",
     },
-    "www.heydouga.com": {
-        "encoding": "requests_auto",
-    },
-    "av9898.heydouga.com": {
-        "encoding": "requests_auto",
-    },
-    "honnamatv.heydouga.com": {
-        "encoding": "requests_auto",
-    },
     "db.msin.jp": {
         "cookies": {"age": "off"},
-        "encoding": "requests_auto",
-    },
-    "seesaawiki.jp": {
-        "encoding": "euc-jp",
     },
 }
 
@@ -79,14 +65,14 @@ def _init_site(netloc: str, setting: dict):
         sc = session.cookies.set_cookie
         cc = requests.cookies.create_cookie
         for k, v in setting["cookies"].items():
-            sc(cc(domain=netloc, name=k, value=v))
+            sc(cc(name=k, value=v, domain=netloc))
 
 
 def _init_session(retries=7, backoff=0.3, uafile="useragents.txt"):
     with open(join_root(uafile), "r", encoding="utf-8") as f:
         useragents = tuple(filter(None, map(str.strip, f)))
     if not useragents:
-        raise ValueError("The useragent list must not be empty.")
+        raise ValueError(f"Corrupted useragent file: {uafile}")
 
     session = requests.Session()
     session.headers.update(
@@ -105,7 +91,7 @@ def _init_session(retries=7, backoff=0.3, uafile="useragents.txt"):
         }
     )
     adapter = requests.adapters.HTTPAdapter(
-        max_retries=Retry(
+        max_retries=urllib3.Retry(
             total=retries,
             status_forcelist=frozenset((429, 500, 502, 503, 504, 521, 524)),
             backoff_factor=backoff,
@@ -126,11 +112,6 @@ def get(url: str, /, pr: ParseResult = None, check: bool = True, **kwargs):
     netloc = pr.netloc
     setting = _get_setting(netloc)
 
-    semaphore = _semaphores.get(netloc)
-    if semaphore is None:
-        _init_site(netloc, setting)
-        semaphore = _semaphores[netloc] = Semaphore(setting["max_connection"])
-
     headers = setting["headers"]
     if headers:
         headers = headers.copy()
@@ -139,17 +120,25 @@ def get(url: str, /, pr: ParseResult = None, check: bool = True, **kwargs):
     else:
         headers = {"User-Agent": random_choice(useragents)}
     headers.setdefault("Referer", f"{pr.scheme}://{netloc}/")
-
     if "headers" in kwargs:
         headers.update(kwargs.pop("headers"))
 
     kwargs.setdefault("timeout", HTTP_TIMEOUT)
+
+    try:
+        semaphore = _semaphores[netloc]
+    except KeyError:
+        _init_site(netloc, setting)
+        semaphore = _semaphores[netloc] = Semaphore(setting["max_connection"])
 
     with semaphore:
         res = session.get(url, headers=headers, **kwargs)
     if check:
         res.raise_for_status()
     return res
+
+
+_parsers = {}
 
 
 def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
@@ -162,11 +151,14 @@ def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
         stderr_write(f"{e}\n")
         return
 
-    encoding = _get_setting(pr.netloc)["encoding"]
-    if encoding:
-        if encoding != "requests_auto":
-            res.encoding = encoding
-        content = res.text
-    else:
-        content = res.content
-    return html_fromstring(content, base_url=res.url)
+    encoding = (
+        _get_setting(pr.netloc)["encoding"] or res.encoding or res.apparent_encoding
+    ).lower()
+    try:
+        parser = _parsers[encoding]
+    except KeyError:
+        try:
+            parser = _parsers[encoding] = HTMLParser(encoding=encoding)
+        except LookupError:
+            parser = _parsers[encoding] = None
+    return html_fromstring(res.content, base_url=res.url, parser=parser)

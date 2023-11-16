@@ -2,6 +2,7 @@ import re
 import sys
 import time
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -76,3 +77,20 @@ def str_to_epoch(string: str) -> Optional[float]:
         ).timestamp()
     except (TypeError, ValueError):
         pass
+
+
+@lru_cache
+def cached_compile(pattern: str, flags: int = 0):
+    return re.compile(pattern, flags)
+
+
+def re_search(pattern: str, string: str, flags: int = 0):
+    return cached_compile(pattern, flags).search(string)
+
+
+def re_sub(pattern: str, repl, string: str, count: int = 0, flags: int = 0):
+    return cached_compile(pattern, flags).sub(repl, string, count)
+
+
+def re_subn(pattern: str, repl, string: str, count: int = 0, flags: int = 0):
+    return cached_compile(pattern, flags).subn(repl, string, count)
