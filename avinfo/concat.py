@@ -81,8 +81,13 @@ class VideoGroup(AVInfo):
     def apply(self):
         tmpfd, tmpfile = tempfile.mkstemp()
         try:
+            # ffmpeg escaping
+            # https://www.ffmpeg.org/ffmpeg-utils.html#Quoting-and-escaping
             with os.fdopen(tmpfd, "w", encoding="utf-8") as f:
-                f.writelines(f"file '{p}'\n" for p in self.source)
+                f.writelines(
+                    "file '{}'\n".format(path.replace("'", "'\\''"))
+                    for path in self.source
+                )
             subprocess.run(
                 (
                     ffmpeg,
