@@ -1,5 +1,6 @@
 import os
 import re
+from abc import ABC
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -9,15 +10,7 @@ from typing import Iterator
 from urllib.parse import quote, urljoin
 
 from avinfo.connection import HtmlElement, get_tree, xpath
-from avinfo.utils import (
-    SEP_CHANGED,
-    SEP_FAILED,
-    SEP_SUCCESS,
-    color_printer,
-    date_searcher,
-    re_search,
-    re_sub,
-)
+from avinfo.utils import AVInfo, Status, date_searcher, re_search, re_sub
 
 __all__ = ("scan_dir",)
 
@@ -45,10 +38,10 @@ class SearchResult:
     alias: set = None
 
 
-class Wiki:
+class Wiki(ABC):
     @classmethod
     def search(cls, keyword: str):
-        result = cls._query(keyword)
+        result = cls._search(keyword)
         if not result:
             return
 
@@ -73,13 +66,13 @@ class Wiki:
             return result
 
     @classmethod
-    def _query(cls, keyword: str) -> SearchResult:
+    def _search(cls, keyword: str) -> SearchResult:
         raise NotImplementedError
 
 
 class Wikipedia(Wiki):
     @staticmethod
-    def _query(keyword: str):
+    def _search(keyword: str):
         tree = get_tree(f"https://ja.wikipedia.org/wiki/{keyword}")
         if tree is None or tree.find('.//a[@title="Template:AV女優"]') is None:
             return
@@ -105,7 +98,7 @@ class Wikipedia(Wiki):
 
 class MinnanoAV(Wiki):
     @classmethod
-    def _query(cls, keyword: str):
+    def _search(cls, keyword: str):
         tree = get_tree(
             "http://www.minnano-av.com/search_result.php",
             params={"search_scope": "actress", "search_word": keyword},
@@ -158,7 +151,7 @@ class MinnanoAV(Wiki):
 
 class AVRevolution(Wiki):
     @staticmethod
-    def _query(keyword: str):
+    def _search(keyword: str):
         tree = get_tree(
             f"http://neo-adultmovie-revolution.com/db/jyoyuu_betumei_db/?q={keyword}"
         )
@@ -195,7 +188,7 @@ class AVRevolution(Wiki):
 
 class Seesaawiki(Wiki):
     @staticmethod
-    def _query(keyword: str):
+    def _search(keyword: str):
         try:
             stack = [
                 "https://seesaawiki.jp/av_neme/d/" + quote(keyword, encoding="euc-jp")
@@ -251,7 +244,7 @@ class Seesaawiki(Wiki):
 
 class Msin(Wiki):
     @classmethod
-    def _query(cls, keyword: str):
+    def _search(cls, keyword: str):
         tree = get_tree(
             "https://db.msin.jp/branch/search",
             params={"sort": "jp.actress", "str": keyword},
@@ -303,7 +296,7 @@ class Msin(Wiki):
 
 class Manko(Wiki):
     @staticmethod
-    def _query(keyword: str):
+    def _search(keyword: str):
         tree = get_tree(f"http://mankowomiseruavzyoyu.blog.fc2.com/?q={keyword}")
         if tree is None:
             return
@@ -338,7 +331,7 @@ class Manko(Wiki):
 
 class Etigoya(Wiki):
     @staticmethod
-    def _query(keyword: str):
+    def _search(keyword: str):
         tree = get_tree(f"http://etigoya955.blog49.fc2.com/?q={keyword}")
         if tree is None:
             return
@@ -358,24 +351,26 @@ class Etigoya(Wiki):
 _WIKI_LIST = (Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Msin, Manko, Etigoya)
 
 
-class Actress:
-    __slots__ = ("name", "birth", "result", "status", "_report")
+class Actress(AVInfo):
+    name: str = None
+    birth: str = None
+    final: str = None
+    keywidth = 10
 
     def __init__(self, keyword: str, executor: ThreadPoolExecutor = None):
-        self.status = "failed"
-        self.name = self.birth = self.result = None
-        self._report = {
-            "Target": keyword,
+        self.status = Status.FAILURE
+        self.result = {
+            "Source": keyword,
             "Name": None,
             "Birth": None,
             "Visited": None,
             "Unvisited": None,
-            "Result": None,
+            "Final": None,
         }
 
         keyword = re_sub(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}|\s+", "", keyword)
         if not is_cjk_name(keyword):
-            self._report["Error"] = "Not valid actress name."
+            self.result["Error"] = "Not a valid actress name."
             return
 
         try:
@@ -385,7 +380,8 @@ class Actress:
                 with ThreadPoolExecutor(max_workers=None) as ex:
                     self._bfs_search(keyword, ex)
         except Exception as e:
-            self._report["Error"] = str(e)
+            self.result["Error"] = str(e)
+            self.status = Status.ERROR
 
     def _bfs_search(self, keyword: str, ex: ThreadPoolExecutor):
         nameDict = defaultdict(list)
@@ -431,7 +427,7 @@ class Actress:
 
                 del weight_to_func[weight]
 
-        report = self._report
+        report = self.result
         report["Visited"] = ", ".join(visited)
         report["Unvisited"] = ", ".join(
             sorted(unvisited, key=unvisited_get, reverse=True)
@@ -440,8 +436,8 @@ class Actress:
         birth, report["Birth"] = self._sort_search_result(birthDict)
 
         if name and birth:
-            self.status = "ok"
-            self.result = report["Result"] = f"{birth} {name}"
+            self.status = Status.SUCCESS
+            self.final = report["Final"] = f"{birth} {name}"
             self.name = name
             self.birth = birth
 
@@ -462,49 +458,19 @@ class Actress:
             ),
         )
 
-    def print(self):
-        """Print report to stdout."""
-        if self.status == "ok":
-            print(SEP_SUCCESS, self.report, sep="\n")
-        elif self.status == "changed":
-            color_printer(SEP_CHANGED, self.report, sep="\n", red=False)
-        else:
-            color_printer(SEP_FAILED, self.report, sep="\n")
-
-    @property
-    def report(self):
-        report = self._report
-        if isinstance(report, dict):
-            log = []
-            for k, v in report.items():
-                if v:
-                    if isinstance(v, tuple):
-                        v = iter(v)
-                        log.append(f"{k:>10}: {next(v)}")
-                        log.extend(f'{"":>11} {i}' for i in v)
-                    else:
-                        log.append(f"{k:>10}: {v}")
-            report = self._report = "\n".join(log)
-        return report
-
 
 class ActressFolder(Actress):
-    __slots__ = "path"
-
     def __init__(self, path: Path, executor: ThreadPoolExecutor = None):
         super().__init__(path.name, executor)
-        self.path = self._report["Target"] = path
+        self.path = self.result["Source"] = path
 
-        if self.status == "ok" and self.result != path.name:
-            self.status = "changed"
+        if self.status == Status.SUCCESS and self.final != path.name:
+            self.status = Status.UPDATED
 
     def apply(self):
-        path = self.path
-        if self.status == "changed":
-            new = path.with_name(self.result)
-            os.rename(path, new)
-            path = new
-        return path
+        if self.status == Status.UPDATED:
+            path = self.path
+            os.rename(path, path.with_name(self.final))
 
 
 def scan_dir(top_dir: Path, newer: float = None) -> Iterator[ActressFolder]:

@@ -12,9 +12,9 @@ def parse_args():
         "dir": ("dir"),
     }
 
-    def add_target(parser, command):
+    def add_source(parser, command):
         parser.add_argument(
-            "target", help=f'the target. expect: {", ".join(valid_types[command])}.'
+            "source", help=f'the source. expect: {", ".join(valid_types[command])}.'
         )
 
     def add_newer(parser):
@@ -53,7 +53,7 @@ def parse_args():
     subparsers = parser.add_subparsers(title="commands", dest="command", required=True)
 
     # video
-    # target: dir, file, keyword
+    # source: dir, file, keyword
     command = "video"
     parser_video = subparsers.add_parser(
         command,
@@ -74,10 +74,10 @@ def parse_args():
     )
     add_newer(parser_video)
     add_quiet(parser_video)
-    add_target(parser_video, command)
+    add_source(parser_video, command)
 
     # idol
-    # target: dir, keyword
+    # source: dir, keyword
     command = "idol"
     parser_idol = subparsers.add_parser(
         command,
@@ -97,10 +97,10 @@ def parse_args():
     )
     add_newer(parser_idol)
     add_quiet(parser_idol)
-    add_target(parser_idol, command)
+    add_source(parser_idol, command)
 
     # concat
-    # target: dir
+    # source: dir
     command = "concat"
     parser_concat = subparsers.add_parser(
         command,
@@ -119,10 +119,10 @@ def parse_args():
         help="the ffmpeg directory. Search $PATH if omit.",
     )
     add_quiet(parser_concat)
-    add_target(parser_concat, command)
+    add_source(parser_concat, command)
 
     # dir
-    # target: dir
+    # source: dir
     command = "dir"
     parser_dir = subparsers.add_parser(
         command,
@@ -134,10 +134,10 @@ def parse_args():
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    add_target(parser_dir, command)
+    add_source(parser_dir, command)
 
     # birth
-    # target: year of birth
+    # source: year of birth
     command = "birth"
     parser_birth = subparsers.add_parser(
         command,
@@ -174,7 +174,7 @@ def parse_args():
         help="solo only (default %(default)s)",
     )
     parser_birth.add_argument(
-        dest="target",
+        dest="source",
         action="store",
         type=year_range,
         help="year of birth, can be a single year (e.g. 1989) or a range (e.g. 1988-1991)",
@@ -182,27 +182,27 @@ def parse_args():
 
     args = parser.parse_args()
 
-    # test target type
+    # test source type
     # add args.type to Namespace
     if args.command in valid_types:
-        target = Path(args.target)
+        source = Path(args.source)
         try:
-            target = target.resolve(strict=True)
-            args.type = "dir" if target.is_dir() else "file"
+            source = source.resolve(strict=True)
+            args.type = "dir" if source.is_dir() else "file"
         except FileNotFoundError as e:
-            if target.name != args.target:
+            if source.name != args.source:
                 parser.error(e)
-            target = target.stem
+            source = source.stem
             args.type = "keyword"
         except (OSError, RuntimeError) as e:
             parser.error(e)
         if args.type not in valid_types[args.command]:
             parser.error(
-                'expect target to be "{}", not "{}".'.format(
+                'expect source to be "{}", not "{}".'.format(
                     ", ".join(valid_types[args.command]), args.type
                 )
             )
-        args.target = target
+        args.source = source
 
     return args
 

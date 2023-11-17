@@ -1,8 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin
 
-from avinfo.connection import get_tree, xpath
-from avinfo.utils import SEP_SLIM, re_search, stderr_write, str_to_epoch, strftime
+from avinfo.connection import XPath, get_tree, xpath
+from avinfo.utils import Sep, re_search, stderr_write, str_to_epoch, strftime
 
 
 class ProductFilter:
@@ -15,10 +15,10 @@ class ProductFilter:
         self._filters = []
         if uncensored:
             # return true if the product is uncensored
-            self._filters.append(xpath('contains(p[@class="moza"], "モザイクなし")'))
+            self._filters.append(XPath('contains(p[@class="moza"], "モザイクなし")'))
         if solo:
             # return true is the product contains only one actress
-            self._filters.append(xpath('count(p[@class="cast"]/a) <= 1'))
+            self._filters.append(XPath('count(p[@class="cast"]/a) <= 1'))
 
     def run(self, tree) -> int:
         tree = tree.find('.//div[@class="act-video-list"]')
@@ -59,15 +59,17 @@ def get_lastpage(tree):
     return 1
 
 
+xpath_actress_list = XPath(
+    './/section[@id="main-area"]/section[contains(@class, "main-column")]'
+    '//td/*[@class="ttl"]/a/@href[contains(., "actress")]',
+    smart_strings=False,
+)
+
+
 def main(args):
     domain = "http://www.minnano-av.com"
     _filter = ProductFilter(
         active=args.active, uncensored=args.uncensored, solo=args.solo
-    )
-    xpath_actress_list = xpath(
-        './/section[@id="main-area"]/section[contains(@class, "main-column")]'
-        '//td/*[@class="ttl"]/a/@href[contains(., "actress")]',
-        smart_strings=False,
     )
 
     with ThreadPoolExecutor() as ex:
@@ -75,7 +77,7 @@ def main(args):
         # into pool.
         url = f"{domain}/actress_list.php"
         index_pool = [
-            ex.submit(get_tree, url, params={"birthday": i}) for i in args.target
+            ex.submit(get_tree, url, params={"birthday": i}) for i in args.source
         ]
         for ft in as_completed(index_pool):
             tree = ft.result()
@@ -122,7 +124,7 @@ def main(args):
                 f"Birth: {birth}",
                 f"Latest: {strftime(date)}",
                 f"Url: {tree.base_url}",
-                SEP_SLIM,
+                Sep.SLIM,
                 sep="\n",
             )
             result += 1

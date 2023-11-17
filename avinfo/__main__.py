@@ -1,25 +1,25 @@
 import sys
 
-from avinfo.utils import SEP_BOLD, SEP_SLIM, SEP_WIDTH, get_choice_as_int, stderr_write
 from avinfo.arguments import parse_args
+from avinfo.utils import SEP_WIDTH, Sep, Status, get_choice_as_int, stderr_write
 
 
 def process_scan(scan, args):
     changed = []
-    failed = []
+    failure = []
     total = 0
 
     for obj in scan:
         total += 1
         obj.print()
-        if obj.status == "changed":
+        if obj.status == Status.UPDATED:
             changed.append(obj)
-        elif obj.status == "failed":
-            failed.append(obj)
+        elif obj.status == Status.FAILURE:
+            failure.append(obj)
 
-    stderr_write(f"{SEP_BOLD}\n{args.command.title()} scan finished.\n")
+    stderr_write(f"{Sep.BOLD}\n{args.command.title()} scan finished.\n")
 
-    msg = f"Total: {total}. Changed: {len(changed)}. Failed: {len(failed)}."
+    msg = f"Total: {total}. Changed: {len(changed)}. Failure: {len(failure)}."
     if not changed:
         stderr_write(f"{msg}\nNo change can be made.\n")
         return
@@ -28,7 +28,7 @@ def process_scan(scan, args):
         stderr_write(msg + "\n")
     else:
         msg = (
-            f"{SEP_BOLD}\n"
+            f"{Sep.BOLD}\n"
             f"{msg}\n"
             "Please choose an option:\n"
             "1) apply changes\n"
@@ -42,20 +42,20 @@ def process_scan(scan, args):
                 break
             if choice == 4:
                 sys.exit()
-            for obj in changed if choice == 2 else failed:
+            for obj in changed if choice == 2 else failure:
                 obj.print()
 
-    stderr_write(f"{SEP_BOLD}\nApplying changes...\n")
+    stderr_write(f"{Sep.BOLD}\nApplying changes...\n")
 
-    failed.clear()
+    failure.clear()
     for obj in progress(changed):
         try:
             obj.apply()
         except OSError as e:
-            failed.append((obj.target, e))
+            failure.append((obj.source, e))
 
-    for path, e in failed:
-        stderr_write(f"Target: {path}\nError: {e}\n")
+    for path, e in failure:
+        stderr_write(f"Source: {path}\nError: {e}\n")
 
 
 def progress(sequence, width: int = SEP_WIDTH):
@@ -74,37 +74,37 @@ def main():
     args = parse_args()
 
     stderr_write(
-        f"{SEP_SLIM}\n"
+        f"{Sep.SLIM}\n"
         f'{"Adult Video Helper":^{SEP_WIDTH}}\n'
         f'{"By David Pi":^{SEP_WIDTH}}\n'
-        f"{SEP_SLIM}\n"
-        f"command: {args.command}, target: {args.target}\n"
-        f"{SEP_BOLD}\n"
+        f"{Sep.SLIM}\n"
+        f"command: {args.command}, source: {args.source}\n"
+        f"{Sep.BOLD}\n"
     )
 
     if args.command == "video":
         from avinfo import dirtime, video
 
         if args.type == "keyword":
-            video.from_string(args.target).print()
+            video.from_string(args.source).print()
         elif args.type == "dir":
-            process_scan(video.scan_dir(args.target, args.newer), args)
-            dirtime.update_dir_mtime(args.target)
+            process_scan(video.scan_dir(args.source, args.newer), args)
+            dirtime.update_dir_mtime(args.source)
         else:
-            process_scan((video.from_path(args.target),), args)
+            process_scan((video.from_path(args.source),), args)
 
     elif args.command == "idol":
         from avinfo import idol
 
         if args.type == "keyword":
-            idol.Actress(args.target).print()
+            idol.Actress(args.source).print()
         else:
-            process_scan(idol.scan_dir(args.target, args.newer), args)
+            process_scan(idol.scan_dir(args.source, args.newer), args)
 
     elif args.command == "dir":
         from avinfo import dirtime
 
-        dirtime.update_dir_mtime(args.target)
+        dirtime.update_dir_mtime(args.source)
 
     elif args.command == "concat":
         from avinfo import concat

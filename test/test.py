@@ -318,11 +318,7 @@ class Test_AVFile(unittest.TestCase):
         )
         path = Path("test.Mp4")
         for product_id, title, answer in values:
-            result = self.DuckAVFile(
-                target=path,
-                product_id=product_id,
-                title=title,
-            )._get_filename()
+            result = self.DuckAVFile(source=path)._get_filename(product_id, title)
             if answer:
                 self.assertEqual(result, answer, msg=result)
             self.assertLessEqual(len(result.encode("utf-8")), video._NAMEMAX)
@@ -341,9 +337,9 @@ class Test_Birth_List(unittest.TestCase):
         result = birth.get_lastpage(self.tree)
         self.assertGreater(result, 1)
 
-    # def test_xpath(self):
-    #     result = birth.xpath_actress_list(self.tree)
-    #     self.assertGreater(len(result), 5)
+    def test_xpath(self):
+        result = birth.xpath_actress_list(self.tree)
+        self.assertGreater(len(result), 5)
 
 
 class Test_Birth_Filter(unittest.TestCase):

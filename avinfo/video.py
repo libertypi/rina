@@ -5,10 +5,8 @@ from typing import Iterator
 
 from avinfo.scraper import ScrapeResult, _has_word, scrape
 from avinfo.utils import (
-    SEP_CHANGED,
-    SEP_FAILED,
-    SEP_SUCCESS,
-    color_printer,
+    AVInfo,
+    Status,
     re_search,
     re_sub,
     re_subn,
@@ -20,108 +18,103 @@ __all__ = ("from_string", "from_path", "scan_dir")
 _NAMEMAX = 255
 
 
-class AVString:
-    __slots__ = (
-        "target",
-        "product_id",
-        "title",
-        "publish_date",
-        "source",
-        "status",
-        "_report",
-    )
+class AVString(AVInfo):
+    """
+    Handles keyword-based media sources.
+    """
 
-    def __init__(self, target: str, result: ScrapeResult, error: str):
-        self.target = target
+    keywidth = 10
 
+    def __init__(self, source: str, result: ScrapeResult, error: str = None):
+        self.source = source
         if result:
-            self.status = "ok"
-            self.product_id = result.product_id
-            self.title = result.title
-            self.publish_date = result.publish_date
-            self.source = result.source
-            self._report = {
-                "Target": target,
-                "ProductId": self.product_id,
-                "Title": self.title,
+            self.status = Status.SUCCESS
+            self.result = {
+                "Target": source,
+                "ProductID": result.product_id,
+                "Title": result.title,
+                "PubDate": strftime(result.publish_date),
                 "NewName": None,
-                "FromName": None,
-                "PubDate": strftime(self.publish_date),
                 "FromDate": None,
-                "Source": self.source,
+                "FromName": None,
+                "Source": result.source,
             }
         else:
-            self.status = "failed"
-            self.product_id = self.title = self.publish_date = self.source = None
-            self._report = {
-                "Target": target,
-                "Error": error or "Information not found.",
+            if error:
+                self.status = Status.ERROR
+            else:
+                self.status = Status.FAILURE
+                error = "Information not found."
+            self.result = {
+                "Target": source,
+                "Error": error,
             }
-
-    def __repr__(self):
-        return (
-            f'{self.__class__.__name__}(target="{self.target}", status="{self.status}")'
-        )
-
-    def print(self):
-        """Print report to stdout."""
-        if self.status == "ok":
-            print(SEP_SUCCESS, self.report, sep="\n")
-        elif self.status == "changed":
-            color_printer(SEP_CHANGED, self.report, sep="\n", red=False)
-        else:
-            color_printer(SEP_FAILED, self.report, sep="\n")
-
-    @property
-    def report(self):
-        report = self._report
-        if isinstance(report, dict):
-            report = self._report = "\n".join(
-                f"{k:>10}: {v}" for k, v in report.items() if v
-            )
-        return report
 
 
 class AVFile(AVString):
-    __slots__ = ("new_name", "_atime")
-    target: Path
+    """
+    Manages file-based media sources, including file operations like renaming
+    and timestamp updating.
+    """
+
+    source: Path
+    newpath: Path = None
+    newdate: tuple = None
 
     def __init__(
         self,
-        target: Path,
+        source: Path,
         result: ScrapeResult,
-        error: str,
+        error: str = None,
         stat: os.stat_result = None,
-    ):
-        super().__init__(target, result, error)
-        self.new_name = self._atime = None
-
+    ) -> None:
+        if not isinstance(source, Path):
+            source = Path(source)
+        super().__init__(source, result, error)
         if not result:
             return
 
-        if self.product_id and self.title:
-            name = self._get_filename()
-            if name and name != target.name:
-                self.new_name = name
-                self._report.update(NewName=name, FromName=target.name)
-                self.status = "changed"
+        # Handling file renaming
+        if result.product_id and result.title:
+            new_name = self._get_filename(result.product_id, result.title)
+            if new_name and new_name != source.name:
+                self.newpath = source.with_name(new_name)
+                self.result.update(NewName=new_name, FromName=source.name)
+                self.status = Status.UPDATED
 
-        if self.publish_date:
+        # Handling file timestamp updating
+        if result.publish_date:
             if not stat:
-                stat = target.stat()
-            if self.publish_date != stat.st_mtime:
-                self._atime = stat.st_atime
-                self._report["FromDate"] = strftime(stat.st_mtime)
-                self.status = "changed"
+                stat = source.stat()
+            if result.publish_date != stat.st_mtime:
+                self.newdate = (stat.st_atime, result.publish_date)
+                self.result["FromDate"] = strftime(stat.st_mtime)
+                self.status = Status.UPDATED
 
-    def _get_filename(self):
-        suffix = self.target.suffix.lower()
-        namemax = _NAMEMAX - len(self.product_id.encode()) - len(suffix.encode()) - 1
+    def apply(self):
+        """
+        Implements file operations such as renaming and updating timestamps
+        based on scrape results.
+        """
+        source = self.source
+        if self.newpath:
+            os.rename(source, self.newpath)
+            source = self.newpath
+        if self.newdate:
+            os.utime(source, self.newdate)
+
+    def _get_filename(self, product_id: str, title: str):
+        """
+        Generates a valid filename based on product ID, title, and specific
+        naming rules.
+        """
+        suffix = self.source.suffix.lower()
+        namemax = _NAMEMAX - len(product_id.encode()) - len(suffix.encode()) - 1
         if namemax <= 0:
             return
 
         # Replace forbidden characters with a whitespace
-        title = re_sub(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+', " ", self.title)
+        title = re_sub(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+', " ", title)
 
         # Replace empty brackets with a space, and eliminate repeating spaces
         # opening brackets: [【「『｛（《\[(]
@@ -150,21 +143,7 @@ class AVFile(AVString):
                     break
                 return
 
-        return f"{self.product_id} {title}{suffix}"
-
-    def apply(self):
-        """Apply changes to file, returns the new path.
-
-        If there is no changed attributes, skips silently.
-        """
-        path = self.target
-        if self.new_name:
-            new = path.with_name(self.new_name)
-            os.rename(path, new)
-            path = new
-        if self._atime:
-            os.utime(path, (self._atime, self.publish_date))
-        return path
+        return f"{product_id} {title}{suffix}"
 
 
 def from_string(string: str):
@@ -178,7 +157,6 @@ def from_string(string: str):
             raise TypeError(f"expected str object, not {type(string)!r}")
         result = None
         error = str(e)
-
     return AVString(string, result, error)
 
 
@@ -186,14 +164,12 @@ def from_path(path, stat: os.stat_result = None):
     """Analyze a path, returns an AVFile object."""
 
     path = Path(path)
-
     try:
         result = scrape(path.stem)
         error = None
     except Exception as e:
         result = None
         error = str(e)
-
     return AVFile(
         path,
         result,
