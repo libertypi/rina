@@ -3,42 +3,75 @@ import datetime
 import re
 from pathlib import Path
 
+valid_types = {
+    "video": ("dir", "file", "keyword"),
+    "idol": ("dir", "keyword"),
+    "concat": ("dir",),
+    "dir": ("dir",),
+}
+
+
+def _add_source(parser, command):
+    parser.add_argument(
+        "source",
+        help=f'the source. expect types: {", ".join(valid_types[command])}',
+    )
+
+
+def _add_filter(parser: argparse.ArgumentParser, recursive=True):
+    r = parser.add_mutually_exclusive_group()
+    r.add_argument(
+        "-r",
+        dest="recursive",
+        action="store_true",
+        help="search subdirectories recursively (default %(default)s)",
+    )
+    r.add_argument(
+        "-R",
+        dest="recursive",
+        action="store_false",
+        help="do not delve into subdirectories",
+    )
+    r.set_defaults(recursive=recursive)
+    parser.add_argument(
+        "-n",
+        dest="time",
+        type=past_timestamp,
+        help="include files newer than TIME. Format: 'n[DHMS]'\n"
+        "Units: Days (D), Hours (H), Minutes (M), Seconds (S)",
+    )
+    parser.add_argument(
+        "-i",
+        "--include",
+        dest="include",
+        type=str,
+        help="search only files that match the glob",
+    )
+    parser.add_argument(
+        "-e",
+        "--exclude",
+        dest="exclude",
+        type=str,
+        help="skip files that match the glob",
+    )
+    parser.add_argument(
+        "--exclude-dir",
+        dest="exclude_dir",
+        type=str,
+        help="skip directories that match the glob",
+    )
+
+
+def _add_quiet(parser):
+    parser.add_argument(
+        "-q",
+        dest="quiet",
+        action="store_true",
+        help="apply changes without prompting (default: %(default)s)",
+    )
+
 
 def parse_args():
-    valid_types = {
-        "video": ("dir", "file", "keyword"),
-        "idol": ("dir", "keyword"),
-        "concat": ("dir"),
-        "dir": ("dir"),
-    }
-
-    def add_source(parser, command):
-        parser.add_argument(
-            "source", help=f'the source. expect: {", ".join(valid_types[command])}.'
-        )
-
-    def add_newer(parser):
-        parser.add_argument(
-            "-n",
-            dest="newer",
-            action="store",
-            nargs="?",
-            const="1D",
-            type=date_within,
-            help=(
-                "scan files newer than this timespan.\n"
-                "NEWER: n[DHMS]: n units of time. If unit is omit, presume seconds. If NEWER if omit, presume 1 day."
-            ),
-        )
-
-    def add_quiet(parser):
-        parser.add_argument(
-            "-q",
-            dest="quiet",
-            action="store_true",
-            help="apply changes without prompting (default: %(default)s)",
-        )
-
     # main parser
     parser = argparse.ArgumentParser(
         description=(
@@ -72,9 +105,9 @@ def parse_args():
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    add_newer(parser_video)
-    add_quiet(parser_video)
-    add_source(parser_video, command)
+    _add_quiet(parser_video)
+    _add_source(parser_video, command)
+    _add_filter(parser_video)
 
     # idol
     # source: dir, keyword
@@ -95,9 +128,9 @@ def parse_args():
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    add_newer(parser_idol)
-    add_quiet(parser_idol)
-    add_source(parser_idol, command)
+    _add_quiet(parser_idol)
+    _add_source(parser_idol, command)
+    _add_filter(parser_idol, False)
 
     # concat
     # source: dir
@@ -118,23 +151,23 @@ def parse_args():
         action="store",
         help="the ffmpeg directory. Search $PATH if omit.",
     )
-    add_quiet(parser_concat)
-    add_source(parser_concat, command)
+    _add_quiet(parser_concat)
+    _add_source(parser_concat, command)
+    _add_filter(parser_concat)
 
     # dir
     # source: dir
     command = "dir"
     parser_dir = subparsers.add_parser(
         command,
-        help="updates mtime of folders according to the latest file stored in it",
+        help="update directory timestamps based on the newest file they contain",
         description=(
             "description:\n"
-            "  Updates the 'Modified Time' of every folder according the latest "
-            "modified time of the files stored in it."
+            "  Updates the 'Modified Time' of directories based on the newest file they contain."
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    add_source(parser_dir, command)
+    _add_source(parser_dir, command)
 
     # birth
     # source: year of birth
@@ -158,7 +191,7 @@ def parse_args():
         dest="active",
         action="store",
         default="365D",
-        type=date_within,
+        type=past_timestamp,
         help="active in this timespan (default %(default)s)",
     )
     parser_birth.add_argument(
@@ -191,6 +224,7 @@ def parse_args():
             args.type = "dir" if source.is_dir() else "file"
         except FileNotFoundError as e:
             if source.name != args.source:
+                # a non-exist path
                 parser.error(e)
             source = source.stem
             args.type = "keyword"
@@ -198,7 +232,7 @@ def parse_args():
             parser.error(e)
         if args.type not in valid_types[args.command]:
             parser.error(
-                'expect source to be "{}", not "{}".'.format(
+                "expect source to be a {}, not a {}.".format(
                     ", ".join(valid_types[args.command]), args.type
                 )
             )
@@ -207,7 +241,12 @@ def parse_args():
     return args
 
 
-def date_within(date: str):
+def past_timestamp(date: str):
+    """
+    Converts a relative date string to a timestamp representing a past date and
+    time. For example, an input of "5D" returns the timestamp of 5 days ago from
+    now.
+    """
     date = re.fullmatch(
         r"\s*(?:(?P<days>\d+)D)?"
         r"\s*(?:(?P<hours>\d+)H)?"
@@ -229,6 +268,7 @@ def date_within(date: str):
 
 
 def year_range(years: str):
+    """Convert `'1988-1990'` to `(1988, 1989, 1990)`."""
     m = re.fullmatch(r"\s*(\d{4})(?:-(\d{4}))?\s*", years)
     if m:
         return tuple(range(int(m[1]), int(m[2] or m[1]) + 1))

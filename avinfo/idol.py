@@ -6,13 +6,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterator
+from typing import Generator
 from urllib.parse import quote, urljoin
 
 from avinfo.connection import HtmlElement, get_tree, xpath
+from avinfo.scandir import get_scanner
 from avinfo.utils import AVInfo, Status, date_searcher, re_search, re_sub
-
-__all__ = ("scan_dir",)
 
 is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
 name_finder = re.compile(rf"(?:^|[】」』｝）》\])]){is_cjk_name}(?:$|[【「『｛（《\[(])").search
@@ -357,7 +356,7 @@ class Actress(AVInfo):
     final: str = None
     keywidth = 10
 
-    def __init__(self, keyword: str, executor: ThreadPoolExecutor = None):
+    def __init__(self, keyword: str, ex: ThreadPoolExecutor = None):
         self.status = Status.FAILURE
         self.result = {
             "Source": keyword,
@@ -374,10 +373,10 @@ class Actress(AVInfo):
             return
 
         try:
-            if executor:
-                self._bfs_search(keyword, executor)
+            if ex:
+                self._bfs_search(keyword, ex)
             else:
-                with ThreadPoolExecutor(max_workers=None) as ex:
+                with ThreadPoolExecutor() as ex:
                     self._bfs_search(keyword, ex)
         except Exception as e:
             self.result["Error"] = str(e)
@@ -460,8 +459,10 @@ class Actress(AVInfo):
 
 
 class ActressFolder(Actress):
-    def __init__(self, path: Path, executor: ThreadPoolExecutor = None):
-        super().__init__(path.name, executor)
+    def __init__(self, path, ex: ThreadPoolExecutor = None):
+        if not isinstance(path, Path):
+            path = Path(path)
+        super().__init__(path.name, ex)
         self.path = self.result["Source"] = path
 
         if self.status == Status.SUCCESS and self.final != path.name:
@@ -473,20 +474,21 @@ class ActressFolder(Actress):
             os.rename(path, path.with_name(self.final))
 
 
-def scan_dir(top_dir: Path, newer: float = None) -> Iterator[ActressFolder]:
-    if not isinstance(top_dir, Path):
-        top_dir = Path(top_dir)
+def from_dir(args) -> Generator[ActressFolder, None, None]:
+    """
+    Scan a directory and yield ActressFolder objects.
 
-    outer_max = min(32, (os.cpu_count() or 1) + 4) // 2
-    with ThreadPoolExecutor(outer_max) as outer, ThreadPoolExecutor() as inner:
+    :type args: argparse.Namespace
+    """
+    m = min(32, (os.cpu_count() or 1) + 4)
+    o = m // 3
+    # Use two executors to avoid deadlock
+    with ThreadPoolExecutor(o) as outer, ThreadPoolExecutor(m - o) as inner:
         pool = [
-            outer.submit(ActressFolder, Path(entry.path), inner)
-            for entry in os.scandir(top_dir)
-            if entry.is_dir()
-            and entry.name[0] not in "#@"
-            and (newer is None or entry.stat().st_mtime >= newer)
+            outer.submit(ActressFolder, e.path, inner)
+            for e in get_scanner(args).scandir(args.source, "dir")
         ]
-        pool.append(outer.submit(ActressFolder, top_dir, inner))
-
+        if not pool:
+            pool.append(outer.submit(ActressFolder, args.source, inner))
         for ft in as_completed(pool):
             yield ft.result()

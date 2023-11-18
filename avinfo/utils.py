@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from enum import Enum, StrEnum
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional, TextIO
+from typing import Optional
 
 join_root = Path(__file__).parent.joinpath
 stdout_write = sys.stdout.write
@@ -46,12 +46,12 @@ class Status(Enum):
 
 if sys.stdout.isatty():
 
-    def color_writer(string: str, color: Color = None, file: TextIO = sys.stdout):
+    def color_writer(string: str, color: Color = None, file=sys.stdout):
         file.write(string if color is None else f"{color}{string}\033[0m")
 
 else:
 
-    def color_writer(string: str, color: Color = None, file: TextIO = sys.stdout):
+    def color_writer(string: str, color: Color = None, file=sys.stdout):
         file.write(string)
 
 

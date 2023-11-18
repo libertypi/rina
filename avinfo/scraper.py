@@ -14,11 +14,11 @@ from avinfo.connection import (
 )
 from avinfo.utils import (
     join_root,
+    re_search,
+    re_sub,
     stderr_write,
     str_to_epoch,
     strptime,
-    re_search,
-    re_sub,
 )
 
 __all__ = ("scrape",)

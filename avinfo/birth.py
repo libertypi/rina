@@ -1,8 +1,21 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from avinfo.connection import XPath, get_tree, xpath
-from avinfo.utils import Sep, re_search, stderr_write, str_to_epoch, strftime
+from avinfo.utils import AVInfo, Status, re_search, stderr_write, str_to_epoch, strftime
+
+
+class ActressPage(AVInfo):
+    keywidth = 6
+    status = Status.SUCCESS
+
+    def __init__(self, name: str, birth: str, latest: float, url: int) -> None:
+        self.result = {
+            "Name": name,
+            "Birth": birth,
+            "Latest": strftime(latest),
+            "URL": url,
+        }
 
 
 class ProductFilter:
@@ -72,7 +85,7 @@ def main(args):
         active=args.active, uncensored=args.uncensored, solo=args.solo
     )
 
-    with ThreadPoolExecutor() as ex:
+    with ThreadPoolExecutor(5) as ex:
         # scrape the 1st index of each birth year; put the 2nd-last pages
         # into pool.
         url = f"{domain}/actress_list.php"
@@ -95,6 +108,9 @@ def main(args):
             if tree is None:
                 continue
             for url in xpath_actress_list(tree):
+                # remove gabage from urls:
+                # /actress25420.html?%E6%B5%85%E6%9C%A8%E7%9C%9F%E5%A4%AE
+                url = urlunsplit(urlsplit(url)._replace(query=""))
                 if url not in page_pool:
                     page_pool[url] = ex.submit(get_tree, urljoin(domain, url))
         del index_pool
@@ -119,14 +135,12 @@ def main(args):
                 ).split(maxsplit=1)[0]
             except AttributeError:
                 birth = None
-            print(
-                f"Name: {name}",
-                f"Birth: {birth}",
-                f"Latest: {strftime(date)}",
-                f"Url: {tree.base_url}",
-                Sep.SLIM,
-                sep="\n",
-            )
+            ActressPage(
+                name=name,
+                birth=birth,
+                latest=date,
+                url=tree.base_url,
+            ).print()
             result += 1
 
     stderr_write(f"Scanned: {total}, found: {result}.\n")

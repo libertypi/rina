@@ -1,20 +1,13 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from os import DirEntry
 from pathlib import Path
-from typing import Iterator
+from typing import Generator
 
+from avinfo.scandir import get_scanner
 from avinfo.scraper import ScrapeResult, _has_word, scrape
-from avinfo.utils import (
-    AVInfo,
-    Status,
-    re_search,
-    re_sub,
-    re_subn,
-    stderr_write,
-    strftime,
-)
+from avinfo.utils import AVInfo, Status, re_search, re_sub, re_subn, strftime
 
-__all__ = ("from_string", "from_path", "scan_dir")
 _NAMEMAX = 255
 
 
@@ -63,10 +56,10 @@ class AVFile(AVString):
 
     def __init__(
         self,
-        source: Path,
+        source,
         result: ScrapeResult,
         error: str = None,
-        stat: os.stat_result = None,
+        entry: DirEntry = None,
     ) -> None:
         if not isinstance(source, Path):
             source = Path(source)
@@ -84,8 +77,7 @@ class AVFile(AVString):
 
         # Handling file timestamp updating
         if result.publish_date:
-            if not stat:
-                stat = source.stat()
+            stat = (entry or source).stat()
             if result.publish_date != stat.st_mtime:
                 self.newdate = (stat.st_atime, result.publish_date)
                 self.result["FromDate"] = strftime(stat.st_mtime)
@@ -148,7 +140,6 @@ class AVFile(AVString):
 
 def from_string(string: str):
     """Analyze a string, returns an AVString object."""
-
     try:
         result = scrape(string)
         error = None
@@ -160,9 +151,8 @@ def from_string(string: str):
     return AVString(string, result, error)
 
 
-def from_path(path, stat: os.stat_result = None):
+def from_path(path: str, entry: DirEntry = None):
     """Analyze a path, returns an AVFile object."""
-
     path = Path(path)
     try:
         result = scrape(path.stem)
@@ -170,90 +160,61 @@ def from_path(path, stat: os.stat_result = None):
     except Exception as e:
         result = None
         error = str(e)
-    return AVFile(
-        path,
-        result,
-        error,
-        stat=stat,
-    )
+    return AVFile(path, result, error, entry)
 
 
-def scan_dir(top_dir: Path, newer: float = None) -> Iterator[AVFile]:
-    """Recursively scans a dir, yields AVFile objects."""
+EXTS = {
+    "3g2",
+    "3gp",
+    "amv",
+    "asf",
+    "avi",
+    "divx",
+    "f4a",
+    "f4b",
+    "f4p",
+    "f4v",
+    "flv",
+    "hevc",
+    "iso",
+    "m2ts",
+    "m2v",
+    "m4p",
+    "m4v",
+    "mkv",
+    "mov",
+    "mp2",
+    "mp4",
+    "mpe",
+    "mpeg",
+    "mpg",
+    "mpv",
+    "mts",
+    "mxf",
+    "ogv",
+    "qt",
+    "rm",
+    "rmvb",
+    "svi",
+    "swf",
+    "ts",
+    "viv",
+    "vob",
+    "webm",
+    "wmv",
+    "yuv",
+}
 
+
+def from_dir(args) -> Generator[AVFile, None, None]:
+    """
+    Scan a directory and yield AVFile objects.
+
+    :type args: argparse.Namespace
+    """
     with ThreadPoolExecutor() as ex:
-        if newer is None:
-            ft = (
-                ex.submit(from_path, path, stat)
-                for path, stat in _probe_videos(top_dir)
-            )
-        else:
-            ft = (
-                ex.submit(from_path, path, stat)
-                for path, stat in _probe_videos(top_dir)
-                if stat.st_mtime >= newer
-            )
-        for ft in as_completed(ft):
+        for ft in as_completed(
+            ex.submit(from_path, e.path, e)
+            for e in get_scanner(args, EXTS).scandir(args.source)
+        ):
             yield ft.result()
-
-
-def _probe_videos(root):
-    ext = {
-        "3g2",
-        "3gp",
-        "amv",
-        "asf",
-        "avi",
-        "divx",
-        "f4a",
-        "f4b",
-        "f4p",
-        "f4v",
-        "flv",
-        "hevc",
-        "iso",
-        "m2ts",
-        "m2v",
-        "m4p",
-        "m4v",
-        "mkv",
-        "mov",
-        "mp2",
-        "mp4",
-        "mpe",
-        "mpeg",
-        "mpg",
-        "mpv",
-        "mts",
-        "mxf",
-        "ogv",
-        "qt",
-        "rm",
-        "rmvb",
-        "svi",
-        "swf",
-        "ts",
-        "viv",
-        "vob",
-        "webm",
-        "wmv",
-        "yuv",
-    }
-    stack = [root]
-    while stack:
-        root = stack.pop()
-        try:
-            with os.scandir(root) as it:
-                for entry in it:
-                    try:
-                        if entry.is_dir(follow_symlinks=False):
-                            if entry.name[0] not in "#@":
-                                stack.append(entry.path)
-                        else:
-                            name = entry.name.rpartition(".")
-                            if name[0] and name[2].lower() in ext:
-                                yield entry.path, entry.stat()
-                    except OSError:
-                        pass
-        except OSError as e:
-            stderr_write(f'error occurred scanning "{root}": {e}\n')

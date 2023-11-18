@@ -1,8 +1,14 @@
 import unittest
 from pathlib import Path
 
-from avinfo import birth, idol, scraper, video
+from avinfo import birth, idol, scraper, video, scandir
 from avinfo.connection import get_tree
+
+
+class DynamicClass:
+    def __init__(self, **kwargs) -> None:
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
 
 class Test_Scraper(unittest.TestCase):
@@ -363,6 +369,48 @@ class Test_Birth_Filter(unittest.TestCase):
         for k, v in values.items():
             result = birth.ProductFilter._get_col_path(self.tree, k, 10)
             self.assertEqual(result, f"td[{v}]")
+
+
+class Test_FileScanner(unittest.TestCase):
+    class DuckDirEntry(DynamicClass):
+        def __init__(self, name, mtime=0, **kwargs) -> None:
+            super().__init__(**kwargs)
+            self.name = name
+            self.mtime = mtime
+
+        def stat(self):
+            return DynamicClass(st_mtime=self.mtime)
+
+    def test_name_filter(self):
+        values = (
+            ({"exts": {"mp4", "avi"}}, ("a.mp4", "b.mp3", ".wmv"), {"a.mp4"}),
+            ({"include": "FC2*"}, ("FC2-123", "aFC2-123", "xxx"), {"FC2-123"}),
+            ({"exclude": "*.avi"}, (".avi", "avi", ".avii"), {"avi", ".avii"}),
+        )
+        for kwargs, names, answer in values:
+            scanner = scandir.FileScanner(**kwargs)
+            entries = [self.DuckDirEntry(name) for name in names]
+            for f in scanner.mainfilters:
+                entries[:] = f(entries)
+            result = {e.name for e in entries}
+            self.assertSetEqual(result, answer)
+
+    def test_mix_filter(self):
+        values = (
+            ({"newer": 1000}, {"a": 800, "b": 1000, "c": 1200}, {"b", "c"}),
+            (
+                {"include": "[ac]*", "exclude": "b*", "newer": 1000},
+                {"a": 800, "b": 1000, "c": 1200},
+                {"c"},
+            ),
+        )
+        for kwargs, info, answer in values:
+            scanner = scandir.FileScanner(**kwargs)
+            entries = [self.DuckDirEntry(name, mtime) for name, mtime in info.items()]
+            for f in scanner.mainfilters:
+                entries[:] = f(entries)
+            result = {e.name for e in entries}
+            self.assertSetEqual(result, answer)
 
 
 if __name__ == "__main__":

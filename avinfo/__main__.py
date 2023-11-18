@@ -83,13 +83,13 @@ def main():
     )
 
     if args.command == "video":
-        from avinfo import dirtime, video
+        from avinfo import scandir, video
 
         if args.type == "keyword":
             video.from_string(args.source).print()
         elif args.type == "dir":
-            process_scan(video.scan_dir(args.source, args.newer), args)
-            dirtime.update_dir_mtime(args.source)
+            process_scan(video.from_dir(args), args)
+            scandir.update_dir_mtime(args.source)
         else:
             process_scan((video.from_path(args.source),), args)
 
@@ -99,12 +99,12 @@ def main():
         if args.type == "keyword":
             idol.Actress(args.source).print()
         else:
-            process_scan(idol.scan_dir(args.source, args.newer), args)
+            process_scan(idol.from_dir(args), args)
 
     elif args.command == "dir":
-        from avinfo import dirtime
+        from avinfo import scandir
 
-        dirtime.update_dir_mtime(args.source)
+        scandir.update_dir_mtime(args.source)
 
     elif args.command == "concat":
         from avinfo import concat

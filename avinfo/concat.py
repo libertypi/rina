@@ -1,20 +1,24 @@
 import json
 import os
-import os.path as op
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
 from collections import defaultdict
+from pathlib import Path
+from typing import Tuple
 
+from avinfo.scandir import FileScanner, get_scanner
 from avinfo.utils import AVInfo, Sep, Status, get_choice_as_int, stderr_write
+
+EXTS = {"avi", "m4v", "mkv", "mov", "mp4", "wmv"}
 
 
 class VideoGroup(AVInfo):
     keywidth = 6
 
-    def __init__(self, source: tuple, output: str) -> None:
+    def __init__(self, source: Tuple[Path], output: Path) -> None:
         self.source = source
         self.output = output
         self.applied = False
@@ -74,7 +78,7 @@ class VideoGroup(AVInfo):
 
         for file, stream in diffs:
             yield Sep.SLIM
-            yield f"filename: {op.basename(file)}"
+            yield f"filename: {file.name}"
             for d in stream:
                 yield ", ".join(f"{k}: {v}" for k, v in d.items())
 
@@ -85,8 +89,8 @@ class VideoGroup(AVInfo):
             # https://www.ffmpeg.org/ffmpeg-utils.html#Quoting-and-escaping
             with os.fdopen(tmpfd, "w", encoding="utf-8") as f:
                 f.writelines(
-                    "file '{}'\n".format(path.replace("'", "'\\''"))
-                    for path in self.source
+                    "file '{}'\n".format(os.fspath(p).replace("'", "'\\''"))
+                    for p in self.source
                 )
             subprocess.run(
                 (
@@ -105,10 +109,7 @@ class VideoGroup(AVInfo):
             )
         except subprocess.CalledProcessError as e:
             stderr_write(f"{e}\n")
-            try:
-                os.unlink(self.output)
-            except FileNotFoundError:
-                pass
+            self.output.unlink(missing_ok=True)
         else:
             self.applied = True
         finally:
@@ -126,9 +127,14 @@ class VideoGroup(AVInfo):
                 stderr_write(f"Remove: {file}\n")
 
 
-def find_video_groups(root):
-    # ffmpeg requires absolute path
-    stack = [op.abspath(root)]
+def find_groups(root, scanner: FileScanner = None):
+    """
+    Find groups of video files under the same directory with consecutive
+    numbering and yields VideoGroup objects.
+    """
+    if scanner is None:
+        scanner = FileScanner(exts=EXTS)
+    # Stores seen file names to avoid conflicts
     seen = set()
     groups = defaultdict(dict)
     matcher = re.compile(
@@ -136,75 +142,56 @@ def find_video_groups(root):
         (?P<pre>.+?)
         (?P<sep>[\s._-]+(?:part|chunk|vol|cd|dvd)?[\s._-]*)
         (?P<num>0?[1-9]|[1-9][0-9]|[a-z])\s*
-        (?P<ext>\.(?:mp4|wmv|avi|m[ko4]v))
+        (?P<ext>\.[^.]+)
         """,
         flags=re.VERBOSE | re.IGNORECASE,
     ).fullmatch
 
-    while stack:
-        root = stack.pop()
-        seen.clear()
+    for _, files in scanner.walk(root):
         groups.clear()
-
-        try:
-            with os.scandir(root) as it:
-                for entry in it:
-                    name = entry.name
-                    seen.add(name)
-                    if entry.is_dir(follow_symlinks=False):
-                        if name[0] not in "#@":
-                            stack.append(entry.path)
-                    else:
-                        m = matcher(name)
-                        if not m:
-                            continue
-                        n = m["num"]
-                        is_digit = n.isdigit()
-                        # if n is a-z, convert to 1-26
-                        n = int(n) if is_digit else ord(n.lower()) - 96
-                        groups[
-                            (
-                                m["pre"],
-                                m["ext"].lower(),
-                                m["sep"],
-                                is_digit,
-                            )
-                        ][n] = entry.path
-
-        except OSError as e:
-            stderr_write(f"{e}\n")
-            continue
+        seen.clear()
+        for e in files:
+            name = e.name
+            seen.add(name)
+            m = matcher(name)
+            if not m:
+                continue
+            n = m["num"]
+            # if n is a-z, convert to 1-26
+            isdigit = n.isdigit()
+            n = int(n) if isdigit else ord(n.lower()) - 96
+            groups[(m["pre"], m["sep"], m["ext"].lower(), isdigit)][n] = e.path
 
         for k, v in groups.items():
             n = len(v)
             if 1 < n == max(v):
-                name = k[0] + k[1]
+                # consecutive numbers starting from 1
+                name = k[0] + k[2]  # pre + ext
                 if name in seen:
                     continue
-                yield VideoGroup(
-                    source=tuple(v[i] for i in range(1, n + 1)),
-                    output=op.join(root, name),
-                )
+                source = tuple(Path(v[i]) for i in range(1, n + 1))
+                yield VideoGroup(source=source, output=source[0].with_name(name))
 
 
-if os.name == "posix":
-    ffmpeg = "ffmpeg"
-    ffprobe = "ffprobe"
-else:
+if os.name == "nt":
     ffmpeg = "ffmpeg.exe"
     ffprobe = "ffprobe.exe"
+else:
+    ffmpeg = "ffmpeg"
+    ffprobe = "ffprobe"
 
 
 def _find_ffmpeg(args_ffmpeg):
     global ffmpeg, ffprobe
 
     if args_ffmpeg:
-        if op.isdir(args_ffmpeg):
-            ffmpeg = op.join(args_ffmpeg, ffmpeg)
-            ffprobe = op.join(args_ffmpeg, ffprobe)
+        args_ffmpeg = Path(args_ffmpeg)
+        if args_ffmpeg.is_dir():
+            ffmpeg = args_ffmpeg.joinpath(ffmpeg)
+            ffprobe = args_ffmpeg.joinpath(ffprobe)
         else:
             ffmpeg = args_ffmpeg
-            ffprobe = op.join(op.dirname(args_ffmpeg), ffprobe)
+            ffprobe = args_ffmpeg.with_name(ffprobe)
 
     for exe in ffmpeg, ffprobe:
         if not shutil.which(exe):
@@ -278,7 +265,7 @@ def main(args):
     _find_ffmpeg(args.ffmpeg)
 
     results = set()
-    for group in find_video_groups(args.source):
+    for group in find_groups(args.source, get_scanner(args, EXTS)):
         group.print()
         results.add(group)
 
