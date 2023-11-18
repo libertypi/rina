@@ -19,32 +19,36 @@ class FileScanner:
         newer: int = None,
     ) -> None:
         """
-        exts: a set of lower extensions without leading dot, e.g. {"mp4", "wmv"}
-        """
+        Initialize a FileScanner for scanning directories with various filters.
 
+        Parameters:
+         - recursive (bool): If True, scan directories recursively.
+         - exts (set): Set of file extensions (lower case without leading dot)
+           to include, e.g., {"mp4", "wmv"}.
+         - include (str): Glob pattern for files to include.
+         - exclude (str): Glob pattern for files to exclude.
+         - exclude_dir (str): Glob pattern for directories to exclude.
+         - newer (int): Unix timestamp; files newer than this time will be
+           included.
+        """
         self.recursive = recursive
-        # dirfilters filter only dirs, and mainfilters filter the output
         self.mainfilters = mainfilters = []
         self.dirfilters = []
 
-        # extension filter
         if exts is not None:
             mainfilters.append(self._get_ext_filter(exts))
-
-        # globs
         if include is not None:
             mainfilters.append(self._get_glob_filter(include))
         if exclude is not None:
             mainfilters.append(self._get_glob_filter(exclude, True))
         if exclude_dir is not None:
             self.dirfilters.append(self._get_glob_filter(exclude_dir, True))
-
-        # exclude mtime older than `age`
         if newer is not None:
             mainfilters.append(lambda es: (e for e in es if e.stat().st_mtime >= newer))
 
     @staticmethod
     def _get_ext_filter(exts):
+        """Create a filter function to include files based on their extensions."""
         if not isinstance(exts, (set, frozenset)):
             exts = frozenset(exts)
 
@@ -58,6 +62,13 @@ class FileScanner:
 
     @staticmethod
     def _get_glob_filter(glob: str, inverse: bool = False):
+        """
+        Create a glob-based filter function for file inclusion or exclusion.
+
+        Parameters:
+         - glob (str): A glob pattern to match file names against.
+         - inverse (bool): If True, exclude files that match the pattern.
+        """
         glob = re.compile(fnmatch.translate(glob)).match
         if inverse:
             return lambda es: (e for e in es if not glob(e.name))
@@ -65,6 +76,18 @@ class FileScanner:
             return lambda es: (e for e in es if glob(e.name))
 
     def scandir(self, root, ftype: str = "file") -> Generator[os.DirEntry, None, None]:
+        """
+        Scan a directory and yield files or directories based on filters and
+        type.
+
+        Parameters:
+         - root: Directory path to start scanning.
+         - ftype (str): Type of items to return ('file' or 'dir').
+
+        Yields:
+         - os.DirEntry: Directory entries matching the specified filters and
+           type.
+        """
         files = []
         dirs = []
         if ftype == "file":
@@ -89,10 +112,10 @@ class FileScanner:
                         except OSError:
                             is_dir = False
                         (dirs if is_dir else files).append(e)
-                    for f in dirfilters:
-                        dirs[:] = f(dirs)
-                    for f in mainfilters:
-                        output[:] = f(output)
+                for f in dirfilters:
+                    dirs[:] = f(dirs)
+                for f in mainfilters:
+                    output[:] = f(output)
             except OSError as e:
                 stderr_write(f"{e}\n")
             else:
@@ -102,6 +125,16 @@ class FileScanner:
                 break
 
     def walk(self, root):
+        """
+        Walk through directories, applying filters and yielding both files and
+        directories.
+
+        Parameters:
+         - root: Directory path to start walking.
+
+        Yields:
+         - Tuple[List, List]: A tuple containing lists of directories and files.
+        """
         recursive = self.recursive
         dirfilters = self.dirfilters
         mainfilters = self.mainfilters
@@ -118,10 +151,10 @@ class FileScanner:
                         except OSError:
                             is_dir = False
                         (dirs if is_dir else files).append(e)
-                    for f in dirfilters:
-                        dirs[:] = f(dirs)
-                    for f in mainfilters:
-                        files[:] = f(files)
+                for f in dirfilters:
+                    dirs[:] = f(dirs)
+                for f in mainfilters:
+                    files[:] = f(files)
             except OSError as e:
                 stderr_write(f"{e}\n")
             else:
