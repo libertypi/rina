@@ -13,7 +13,7 @@ from typing import Tuple
 from avinfo.scandir import FileScanner, get_scanner
 from avinfo.utils import SEP_BOLD, AVInfo, Status, get_choice_as_int, stderr_write
 
-EXTS = {"avi", "m4v", "mkv", "mov", "mp4", "wmv"}
+EXTS = {"avi", "m2ts", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ts", "wmv"}
 
 
 class VideoGroup(AVInfo):
