@@ -33,7 +33,7 @@ Rina is a command-line tool designed for managing Japanese AV content. It search
 
 ## Installation
 
-To get started, you'll need Python 3. Then clone the GitHub repository and install the required packages:
+To get started, you'll need Python 3. Then clone the GitHub repository and install the package:
 
 ```bash
 git clone https://github.com/libertypi/rina.git
@@ -41,9 +41,12 @@ cd rina
 pip install .
 ```
 
+After installation, `rina` will be accessible from the command line.
+
 ## Usage
 
 Run `rina -h` for available commands.
+
 Run `rina <command> -h` for detailed help on each command.
 
 ## Local File Structure
