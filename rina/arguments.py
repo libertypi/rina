@@ -74,11 +74,11 @@ def _add_quiet(parser):
 def parse_args():
     # main parser
     parser = argparse.ArgumentParser(
-        description=(
-            "The Ultimate AV Helper\n"
-            "Author: David Pi <libertypi@gmail.com>\n"
-            "Type '%(prog)s <command> -h' for command-specific help"
-        ),
+        description="Rina is an all-in-one Japanese AV toolbox.\n"
+        "It searches online sources and processes local files.\n"
+        "Type '%(prog)s <command> -h' for command-specific help.",
+        epilog="Author: David Pi <libertypi@gmail.com>\n"
+        "GitHub: <https://github.com/libertypi/rina>",
         formatter_class=argparse.RawTextHelpFormatter,
     )
 
@@ -93,10 +93,10 @@ def parse_args():
         help="scrape video information",
         description=(
             "Description:\n"
-            "  Scrape video information from local directories, files, or virtual filenames\n\n"
+            "  Scrape video information from local directories, files, or keywords\n\n"
             "Examples:\n"
-            "  Scrape all videos newer than 12 hours in ~/dir:\n"
-            "      %(prog)s -n 12H ~/dir\n"
+            "  Scrape all videos newer than 7 days in ~/dir:\n"
+            "      %(prog)s -n 7D ~/dir\n"
             "  Scrape a single file and apply change without prompting:\n"
             "      %(prog)s -q heyzo-2288.mp4"
         ),
@@ -261,8 +261,8 @@ def past_timestamp(date: str):
 
 
 def year_range(years: str):
-    """Convert `'1988-1990'` to `(1988, 1989, 1990)`."""
+    """Convert `'1988-1990'` to `range(1988, 1991)`."""
     m = re.fullmatch(r"\s*(\d{4})(?:-(\d{4}))?\s*", years)
     if m:
-        return tuple(range(int(m[1]), int(m[2] or m[1]) + 1))
+        return range(int(m[1]), int(m[2] or m[1]) + 1)
     raise argparse.ArgumentError()

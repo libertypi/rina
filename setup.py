@@ -4,7 +4,7 @@ setup(
     name="rina",
     version="0.1",
     description="The Ultimate AV Helper",
-    url="https://github.com/libertypi/avinfo",
+    url="https://github.com/libertypi/rina",
     author="David Pi",
     author_email="libertypi@gmail.com",
     license="MIT",
@@ -17,7 +17,7 @@ setup(
     keywords="jav, scraper",
     install_requires=["requests", "lxml"],
     python_requires=">=3.6",
-    packages=find_packages(include=["avinfo"]),
+    packages=find_packages(include=["rina"]),
     package_data={"rina": ["*.txt", "*.json"]},
     entry_points={"console_scripts": ["rina=rina.__main__:main"]},
 )

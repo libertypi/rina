@@ -10,7 +10,7 @@ from typing import Generator
 from urllib.parse import quote, urljoin
 
 from rina.connection import HtmlElement, get_tree, xpath
-from rina.scandir import FileScanner, get_scanner
+from rina.files import FileScanner, get_scanner
 from rina.utils import AVInfo, Status, date_searcher, re_search, re_sub
 
 is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"

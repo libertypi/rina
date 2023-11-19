@@ -9,7 +9,28 @@ from rina.utils import (
     Status,
     get_choice_as_int,
     stderr_write,
+    strftime,
 )
+
+
+def _print_header(args):
+    """Print the program header with command details."""
+    stderr_write(
+        f"{SEP_BOLD}\n"
+        f'{"Rina: All-in-One Japanese AV Toolbox":^{SEP_WIDTH}}\n'
+        f"{SEP_SLIM}\n"
+    )
+    config = {"command": None, "source": None}
+    config.update({k: v for k, v in vars(args).items() if v is not None})
+    kl = max(map(len, config))
+    for k, v in config.items():
+        # format certain types
+        if isinstance(v, float):
+            v = strftime(v)
+        elif isinstance(v, range):
+            v = ", ".join(map(str, v))
+        stderr_write(f"{k.title():>{kl}}: {v}\n")
+    stderr_write(f"{SEP_BOLD}\n")
 
 
 def process_stream(stream, args):
@@ -75,24 +96,16 @@ def progress(sequence, width: int = SEP_WIDTH):
 
 def main():
     args = parse_args()
-
-    stderr_write(
-        f"{SEP_SLIM}\n"
-        f'{"Adult Video Helper":^{SEP_WIDTH}}\n'
-        f'{"By David Pi":^{SEP_WIDTH}}\n'
-        f"{SEP_SLIM}\n"
-        f"command: {args.command}, source: {args.source}\n"
-        f"{SEP_BOLD}\n"
-    )
+    _print_header(args)
 
     if args.command == "video":
-        from rina import scandir, video
+        from rina import files, video
 
         if args.type == "keyword":
             video.from_string(args.source).print()
         elif args.type == "dir":
             process_stream(video.from_args(args), args)
-            scandir.update_dir_mtime(args.source)
+            files.update_dir_mtime(args.source)
         else:
             process_stream((video.from_path(args.source),), args)
 
@@ -105,9 +118,9 @@ def main():
             process_stream(idol.from_args(args), args)
 
     elif args.command == "dir":
-        from rina import scandir
+        from rina import files
 
-        scandir.update_dir_mtime(args.source)
+        files.update_dir_mtime(args.source)
 
     elif args.command == "concat":
         from rina import concat

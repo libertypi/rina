@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-# This script is intended to generate avinfo/mgs.json
+# This script is intended to generate rina/mgs.json
+# It uses data from another project of mine.
 # run `mgs.py -h` for help
 
 import argparse
@@ -68,7 +69,7 @@ def main():
     root = Path(__file__).resolve().parent.parent
     args = parse_args(
         src=root.parent.joinpath("rebuilder", "data", "mgs.json"),
-        dst=root.joinpath("avinfo", "mgs.json"),
+        dst=root.joinpath("rina", "mgs.json"),
     )
 
     print(f"Source: {args.src}\nOutput: {args.dst}", file=sys.stderr)

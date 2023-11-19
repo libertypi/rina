@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Generator
 
-from rina.scandir import FileScanner, get_scanner
+from rina.files import FileScanner, get_scanner
 from rina.scraper import ScrapeResult, _has_word, scrape
 from rina.utils import AVInfo, Status, re_search, re_sub, re_subn, strftime
 

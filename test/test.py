@@ -1,8 +1,8 @@
 import unittest
 from pathlib import Path
 
-from avinfo import birth, idol, scraper, video, scandir
-from avinfo.connection import get_tree
+from rina import birth, files, idol, scraper, video
+from rina.connection import get_tree
 
 
 class DynamicClass:
@@ -388,7 +388,7 @@ class Test_FileScanner(unittest.TestCase):
             ({"exclude": "*.avi"}, (".avi", "avi", ".avii"), {"avi", ".avii"}),
         )
         for kwargs, names, answer in values:
-            scanner = scandir.FileScanner(**kwargs)
+            scanner = files.FileScanner(**kwargs)
             entries = [self.DuckDirEntry(name) for name in names]
             for f in scanner.mainfilters:
                 entries[:] = f(entries)
@@ -405,7 +405,7 @@ class Test_FileScanner(unittest.TestCase):
             ),
         )
         for kwargs, info, answer in values:
-            scanner = scandir.FileScanner(**kwargs)
+            scanner = files.FileScanner(**kwargs)
             entries = [self.DuckDirEntry(name, mtime) for name, mtime in info.items()]
             for f in scanner.mainfilters:
                 entries[:] = f(entries)

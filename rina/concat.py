@@ -10,7 +10,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Tuple
 
-from rina.scandir import FileScanner, get_scanner
+from rina.files import FileScanner, get_scanner
 from rina.utils import SEP_BOLD, AVInfo, Status, get_choice_as_int, stderr_write
 
 EXTS = {"avi", "m2ts", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ts", "wmv"}
