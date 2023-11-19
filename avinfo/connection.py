@@ -1,3 +1,4 @@
+import logging
 from functools import lru_cache
 from random import choice as random_choice
 from threading import Semaphore
@@ -11,7 +12,7 @@ from lxml.html import HtmlElement, HTMLParser
 from lxml.html import fromstring as html_fromstring
 from requests.exceptions import HTTPError, RequestException
 
-from avinfo.utils import join_root, stderr_write
+from avinfo.utils import join_root
 
 xpath = lru_cache(XPath)
 HTTP_TIMEOUT = (9.1, 60)
@@ -106,7 +107,7 @@ session, useragents = _init_session()
 _semaphores = {}
 
 
-def get(url: str, /, pr: ParseResult = None, check: bool = True, **kwargs):
+def get(url: str, /, pr: ParseResult = None, **kwargs):
     if pr is None:
         pr = urlparse(url)
     netloc = pr.netloc
@@ -132,10 +133,7 @@ def get(url: str, /, pr: ParseResult = None, check: bool = True, **kwargs):
         semaphore = _semaphores[netloc] = Semaphore(setting["max_connection"])
 
     with semaphore:
-        res = session.get(url, headers=headers, **kwargs)
-    if check:
-        res.raise_for_status()
-    return res
+        return session.get(url, headers=headers, **kwargs)
 
 
 _parsers = {}
@@ -145,10 +143,11 @@ def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
     pr = urlparse(url)
     try:
         res = get(url, pr=pr, **kwargs)
+        res.raise_for_status()
     except HTTPError:
         return
     except RequestException as e:
-        stderr_write(f"{e}\n")
+        logging.warning(e)
         return
 
     encoding = (

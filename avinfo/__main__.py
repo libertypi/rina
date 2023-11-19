@@ -1,7 +1,15 @@
+import logging
 import sys
 
 from avinfo.arguments import parse_args
-from avinfo.utils import SEP_WIDTH, Sep, Status, get_choice_as_int, stderr_write
+from avinfo.utils import (
+    SEP_BOLD,
+    SEP_SLIM,
+    SEP_WIDTH,
+    Status,
+    get_choice_as_int,
+    stderr_write,
+)
 
 
 def process_scan(scan, args):
@@ -17,7 +25,7 @@ def process_scan(scan, args):
         elif obj.status == Status.FAILURE:
             failure.append(obj)
 
-    stderr_write(f"{Sep.BOLD}\n{args.command.title()} scan finished.\n")
+    stderr_write(f"{SEP_BOLD}\n{args.command.title()} scan finished.\n")
 
     msg = f"Total: {total}. Changed: {len(changed)}. Failure: {len(failure)}."
     if not changed:
@@ -28,7 +36,7 @@ def process_scan(scan, args):
         stderr_write(msg + "\n")
     else:
         msg = (
-            f"{Sep.BOLD}\n"
+            f"{SEP_BOLD}\n"
             f"{msg}\n"
             "Please choose an option:\n"
             "1) apply changes\n"
@@ -45,17 +53,13 @@ def process_scan(scan, args):
             for obj in changed if choice == 2 else failure:
                 obj.print()
 
-    stderr_write(f"{Sep.BOLD}\nApplying changes...\n")
+    stderr_write(f"{SEP_BOLD}\nApplying changes...\n")
 
-    failure.clear()
     for obj in progress(changed):
         try:
             obj.apply()
         except OSError as e:
-            failure.append((obj.source, e))
-
-    for path, e in failure:
-        stderr_write(f"Source: {path}\nError: {e}\n")
+            logging.error(e)
 
 
 def progress(sequence, width: int = SEP_WIDTH):
@@ -74,12 +78,12 @@ def main():
     args = parse_args()
 
     stderr_write(
-        f"{Sep.SLIM}\n"
+        f"{SEP_SLIM}\n"
         f'{"Adult Video Helper":^{SEP_WIDTH}}\n'
         f'{"By David Pi":^{SEP_WIDTH}}\n'
-        f"{Sep.SLIM}\n"
+        f"{SEP_SLIM}\n"
         f"command: {args.command}, source: {args.source}\n"
-        f"{Sep.BOLD}\n"
+        f"{SEP_BOLD}\n"
     )
 
     if args.command == "video":

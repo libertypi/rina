@@ -1,6 +1,5 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from os import DirEntry
 from pathlib import Path
 from typing import Generator
 
@@ -32,15 +31,17 @@ class AVString(AVInfo):
                 "FromName": None,
                 "Source": result.source,
             }
-        else:
-            if error:
-                self.status = Status.ERROR
-            else:
-                self.status = Status.FAILURE
-                error = "Information not found."
+        elif error:
+            self.status = Status.ERROR
             self.result = {
                 "Target": source,
                 "Error": error,
+            }
+        else:
+            self.status = Status.FAILURE
+            self.result = {
+                "Target": source,
+                "Result": "Information not found.",
             }
 
 
@@ -56,10 +57,10 @@ class AVFile(AVString):
 
     def __init__(
         self,
-        source,
+        source: Path,
         result: ScrapeResult,
         error: str = None,
-        entry: DirEntry = None,
+        entry: os.DirEntry = None,
     ) -> None:
         if not isinstance(source, Path):
             source = Path(source)
@@ -151,7 +152,7 @@ def from_string(string: str):
     return AVString(string, result, error)
 
 
-def from_path(path: str, entry: DirEntry = None):
+def from_path(path: str, entry: os.DirEntry = None):
     """Analyze a path, returns an AVFile object."""
     path = Path(path)
     try:

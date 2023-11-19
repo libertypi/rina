@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import shutil
@@ -10,7 +11,14 @@ from pathlib import Path
 from typing import Tuple
 
 from avinfo.scandir import FileScanner, get_scanner
-from avinfo.utils import AVInfo, Sep, Status, get_choice_as_int, stderr_write
+from avinfo.utils import (
+    SEP_BOLD,
+    SEP_SLIM,
+    AVInfo,
+    Status,
+    get_choice_as_int,
+    stderr_write,
+)
 
 EXTS = {"avi", "m4v", "mkv", "mov", "mp4", "wmv"}
 
@@ -77,7 +85,7 @@ class VideoGroup(AVInfo):
             return
 
         for file, stream in diffs:
-            yield Sep.SLIM
+            yield SEP_SLIM
             yield f"filename: {file.name}"
             for d in stream:
                 yield ", ".join(f"{k}: {v}" for k, v in d.items())
@@ -108,7 +116,7 @@ class VideoGroup(AVInfo):
                 check=True,
             )
         except subprocess.CalledProcessError as e:
-            stderr_write(f"{e}\n")
+            logging.error(e)
             self.output.unlink(missing_ok=True)
         else:
             self.applied = True
@@ -122,7 +130,7 @@ class VideoGroup(AVInfo):
             try:
                 os.unlink(file)
             except OSError as e:
-                stderr_write(f"{e}\n")
+                logging.error(e)
             else:
                 stderr_write(f"Remove: {file}\n")
 
@@ -195,9 +203,8 @@ def _find_ffmpeg(args_ffmpeg):
 
     for exe in ffmpeg, ffprobe:
         if not shutil.which(exe):
-            stderr_write(
-                f"Error: {exe} not found. Please be sure it can be "
-                "found in $PATH or the directory passed via '-f' option.\n"
+            logging.error(
+                "{exe} not found. Please be sure it can be found in $PATH or the directory passed via '-f' option."
             )
             sys.exit(1)
 
@@ -210,7 +217,7 @@ def user_filter(items, question: str, initial_print: bool = True):
     if not items:
         return
     msg = (
-        f"{Sep.BOLD}\n"
+        f"{SEP_BOLD}\n"
         f"{question}\n"
         "1) yes\n"
         "2) no\n"
@@ -227,7 +234,7 @@ def user_filter(items, question: str, initial_print: bool = True):
     elif choice == 3:
         # select items
         msg = (
-            f"{Sep.BOLD}\n"
+            f"{SEP_BOLD}\n"
             f"Please choose an option ({{}} of {len(items)} items):\n"
             "1) select this item\n"
             "2) skip this item\n"
@@ -271,7 +278,7 @@ def main(args):
 
     stderr_write(
         "{}\nScan finished, {} files can be concatenated into {} files.\n".format(
-            Sep.BOLD, sum(len(v.source) for v in results), len(results)
+            SEP_BOLD, sum(len(v.source) for v in results), len(results)
         )
     )
     if not results:

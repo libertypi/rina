@@ -1,4 +1,5 @@
 import fnmatch
+import logging
 import os
 import re
 from collections import deque
@@ -117,7 +118,7 @@ class FileScanner:
                 for f in mainfilters:
                     output[:] = f(output)
             except OSError as e:
-                stderr_write(f"{e}\n")
+                logging.error(e)
             else:
                 que.extend(dirs)
                 yield from output
@@ -156,7 +157,7 @@ class FileScanner:
                 for f in mainfilters:
                     files[:] = f(files)
             except OSError as e:
-                stderr_write(f"{e}\n")
+                logging.error(e)
             else:
                 que.extend(dirs)
                 yield dirs, files
@@ -207,7 +208,7 @@ def _update_dirtime(root, total=0, updated=0):
                     if mtime > newest:
                         newest = mtime
     except OSError as e:
-        stderr_write(f"{e}\n")
+        logging.error(e)
         return 0, total, updated
     # Process subdirectories after closing the parent's file handle
     for e in dirs:
@@ -228,5 +229,5 @@ def _update_dirtime(root, total=0, updated=0):
                     )
                 )
         except OSError as e:
-            stderr_write(f"{e}\n")
+            logging.error(e)
     return newest, total, updated

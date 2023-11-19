@@ -1,3 +1,4 @@
+import logging
 import re
 import sys
 import time
@@ -8,8 +9,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+SEP_WIDTH = 50
+SEP_BOLD = "=" * SEP_WIDTH
+SEP_SLIM = "-" * SEP_WIDTH
+
 join_root = Path(__file__).parent.joinpath
-stdout_write = sys.stdout.write
 stderr_write = sys.stderr.write
 date_searcher = re.compile(
     r"""(?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
@@ -21,12 +25,7 @@ date_searcher = re.compile(
     flags=re.VERBOSE,
 ).search
 
-SEP_WIDTH = 50
-
-
-class Sep(StrEnum):
-    BOLD = "=" * SEP_WIDTH
-    SLIM = "-" * SEP_WIDTH
+logging.basicConfig(format="%(levelname)s: %(message)s")
 
 
 class Color(StrEnum):

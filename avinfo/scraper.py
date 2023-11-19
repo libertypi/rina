@@ -1,6 +1,8 @@
 import datetime
 import json
+import logging
 import re
+from abc import ABC
 from dataclasses import dataclass
 from typing import Optional
 
@@ -12,16 +14,7 @@ from avinfo.connection import (
     html_fromstring,
     xpath,
 )
-from avinfo.utils import (
-    join_root,
-    re_search,
-    re_sub,
-    stderr_write,
-    str_to_epoch,
-    strptime,
-)
-
-__all__ = ("scrape",)
+from avinfo.utils import join_root, re_search, re_sub, str_to_epoch, strptime
 
 # Regular expressions
 _subspace = re.compile(r"\s+").sub
@@ -40,7 +33,8 @@ def get_year_regex(year: int):
       - 56 -> [0-4][0-9]|5[0-6]
       - 59 -> [0-5][0-9]
     """
-    assert 0 <= year <= 99, f"value out of range: {year}"
+    if not 0 <= year <= 99:
+        raise ValueError(f"value out of range: {year}")
     digit_reg = lambda n: f"[0-{n}]" if n > 1 else "[01]" if n else "0"
     tens, ones = divmod(year, 10)
     if tens > 0 and ones < 9:
@@ -61,7 +55,7 @@ class ScrapeResult:
     publish_date: float = None
 
 
-class Scraper:
+class Scraper(ABC):
     """Base class for scrapers."""
 
     __slots__ = ("string", "match", "keyword", "_mask")
@@ -75,7 +69,7 @@ class Scraper:
         self._mask = None
 
     def search(self):
-        for func in self._native, self._javbus, self._javdb:
+        for func in self._search, self._javbus, self._javdb:
             result = func()
             if result:
                 try:
@@ -92,15 +86,13 @@ class Scraper:
                     )
                     return result
 
-    def _native(self) -> Optional[ScrapeResult]:
+    def _search(self) -> Optional[ScrapeResult]:
         pass
 
     def _javbus(self):
-        res = get(
-            f"https://www.javbus.com/uncensored/search/{self.keyword}", check=False
-        )
+        res = get(f"https://www.javbus.com/uncensored/search/{self.keyword}")
         if "member.php?mod=logging" in res.url:
-            self._warn("JavBus is walled, consider switching network.")
+            logging.warning("JavBus is walled, consider switching network.")
             return
         try:
             res.raise_for_status()
@@ -132,7 +124,7 @@ class Scraper:
                 './/a[@class="movie-box"]//span'
             )
         except AttributeError as e:
-            self._warn(e)
+            self.error(e)
             return
 
         mask = self._get_keyword_mask()
@@ -196,8 +188,15 @@ class Scraper:
 
         return product_id
 
-    def _warn(self, e: Exception):
-        stderr_write(f"error ({self.string}): {e}\n")
+    def warning(self, msg):
+        logging.warning(
+            f"[Class: {self.__class__.__name__}] [Input: {self.string}] {msg}"
+        )
+
+    def error(self, msg):
+        logging.error(
+            f"[Class: {self.__class__.__name__}] [Input: {self.string}] {msg}"
+        )
 
 
 class StudioMatcher(Scraper):
@@ -227,9 +226,9 @@ class StudioMatcher(Scraper):
 
         m = self.studio_match = re_search(self._std_re, self.string)
         if m:
-            self._native = getattr(self, m.lastgroup)
+            self._search = getattr(self, m.lastgroup)
         elif match["s3"] and match["s4"]:
-            self._native = self._mesubuta
+            self._search = self._mesubuta
 
         result = super().search()
 
@@ -237,10 +236,10 @@ class StudioMatcher(Scraper):
             try:
                 result.publish_date = strptime(match["s1"], self.datefmt)
             except ValueError as e:
-                self._warn(e)
+                self.warning(e)
         return result
 
-    def _native(self) -> Optional[ScrapeResult]:
+    def _search(self) -> Optional[ScrapeResult]:
         tree = get_tree(f"https://www.javbus.com/{self.keyword}")
 
         if tree is None:
@@ -254,7 +253,7 @@ class StudioMatcher(Scraper):
         try:
             title = tree.findtext("h3").strip()
         except AttributeError as e:
-            self._warn(e)
+            self.error(e)
             return
 
         product_id = ""
@@ -308,7 +307,7 @@ class StudioMatcher(Scraper):
         try:
             title = tree.findtext('.//div[@class="heading"]/h1')
         except AttributeError as e:
-            self._warn(e)
+            self.error(e)
             return
 
         date = xpath(
@@ -337,9 +336,9 @@ class StudioMatcher(Scraper):
             url = "https://www.1pondo.tv"
             source = "1pondo.tv"
         try:
-            data = get(
-                f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json"
-            ).json()
+            data = get(f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
+            data.raise_for_status()
+            data = data.json()
             return ScrapeResult(
                 product_id=data["MovieID"],
                 title=data["Title"],
@@ -349,7 +348,7 @@ class StudioMatcher(Scraper):
         except HTTPError:
             pass
         except (ValueError, KeyError) as e:
-            self._warn(e)
+            self.error(e)
 
     def _10mu(self):
         self.studio = "10mu"
@@ -401,7 +400,7 @@ class Heyzo(Scraper):
     source = "heyzo.com"
     regex = r"heyzo[^0-9]*(?P<heyzo>[0-9]{4})"
 
-    def _native(self):
+    def _search(self):
         uid = self.match["heyzo"]
         self.keyword = f"HEYZO-{uid}"
 
@@ -419,7 +418,7 @@ class Heyzo(Scraper):
         except TypeError:
             pass
         except (ValueError, KeyError) as e:
-            self._warn(e)
+            self.warning(e)
 
         tree = tree.find('.//div[@id="wrapper"]//div[@id="movie"]')
         try:
@@ -428,7 +427,7 @@ class Heyzo(Scraper):
                 './/table[@class="movieInfo"]//*[@class="table-release-day"]'
             ).text_content()
         except AttributeError as e:
-            self._warn(e)
+            self.error(e)
         else:
             return ScrapeResult(
                 product_id=self.keyword,
@@ -444,7 +443,7 @@ class FC2(Scraper):
     source = "fc2.com"
     regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{4,10})"
 
-    def _native(self):
+    def _search(self):
         uid = self.match["fc2"]
         self.keyword = f"FC2-{uid}"
 
@@ -452,7 +451,7 @@ class FC2(Scraper):
         if tree is None:
             return
         if "payarticle" in tree.base_url:
-            self._warn(f"FC2 is walled, consider switching network.")
+            logging.warning(f"FC2 is walled, consider switching network.")
             return
         if tree.find('.//div[@class="items_notfound_wp"]') is not None:
             return
@@ -481,7 +480,7 @@ class Heydouga(Scraper):
     source = "heydouga.com"
     regex = r"heydouga[^0-9]*(?P<h1>[0-9]{4})[^0-9]+(?P<heydou>[0-9]{3,6})"
 
-    def _native(self, url: str = None):
+    def _search(self, url: str = None):
         if not url:
             m1, m2 = self.match.group("h1", "heydou")
             self.keyword = f"heydouga-{m1}-{m2}"
@@ -510,10 +509,10 @@ class AV9898(Heydouga):
     __slots__ = ()
     regex = r"av9898[^0-9]+(?P<av98>[0-9]{3,})"
 
-    def _native(self):
+    def _search(self):
         uid = self.match["av98"]
         self.keyword = f"AV9898-{uid}"
-        return super()._native(
+        return super()._search(
             f"https://av9898.heydouga.com/monthly/av9898/moviepages/{uid}/"
         )
 
@@ -522,10 +521,10 @@ class Honnamatv(Heydouga):
     __slots__ = ()
     regex = r"honnamatv[^0-9]*(?P<honna>[0-9]{3,})"
 
-    def _native(self):
+    def _search(self):
         uid = self.match["honna"]
         self.keyword = f"honnamatv-{uid}"
-        return super()._native(
+        return super()._search(
             f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{uid}/"
         )
 
@@ -536,7 +535,7 @@ class X1X(Scraper):
     source = "x1x.com"
     regex = r"x1x(?:\.com)?[\s-]+(?P<x1x>[0-9]{6})"
 
-    def _native(self):
+    def _search(self):
         uid = self.match["x1x"]
         self.keyword = f"x1x-{uid}"
 
@@ -554,7 +553,7 @@ class X1X(Scraper):
                 '/following-sibling::dd[contains(., "20")])'
             )(tree)
         except TypeError as e:
-            self._warn(e)
+            self.error(e)
         else:
             return ScrapeResult(
                 product_id=self.keyword,
@@ -570,12 +569,13 @@ class SM_Miracle(Scraper):
     source = "sm-miracle.com"
     regex = r"sm[\s-]*miracle(?:[\s-]+no)?[\s.-]+e?(?P<sm>[0-9]{4})"
 
-    def _native(self):
+    def _search(self):
         uid = "e" + self.match["sm"]
         self.keyword = f"sm-miracle-{uid}"
 
         try:
             data = get(f"https://sm-miracle.com/movie/{uid}.dat")
+            data.raise_for_status()
         except HTTPError:
             return
 
@@ -594,7 +594,7 @@ class H4610(Scraper):
     uncensored_only = True
     regex = r"(?P<h41>h4610|[ch]0930)\W+(?P<h4610>[a-z]+[0-9]+)"
 
-    def _native(self):
+    def _search(self):
         m1, m2 = self.match.group("h41", "h4610")
         self.keyword = f"{m1.upper()}-{m2}"
 
@@ -614,7 +614,7 @@ class H4610(Scraper):
                 '/following-sibling::dd[contains(., "20")])'
             )(tree)
             if isinstance(e, (ValueError, KeyError)):
-                self._warn(e)
+                self.warning(e)
 
         return ScrapeResult(
             product_id=self.keyword,
@@ -630,7 +630,7 @@ class Kin8(Scraper):
     source = "kin8tengoku.com"
     regex = r"kin8(?:tengoku)?[^0-9]*(?P<kin8>[0-9]{4})"
 
-    def _native(self):
+    def _search(self):
         uid = self.match["kin8"]
         self.keyword = f"kin8-{uid}"
 
@@ -645,7 +645,7 @@ class Kin8(Scraper):
         try:
             title = title.partition("限定配信 ")
         except AttributeError as e:
-            self._warn(e)
+            self.error(e)
             return
         date = xpath(
             'string(.//div[@id="main"]'
@@ -667,7 +667,7 @@ class GirlsDelta(Scraper):
     source = "girlsdelta.com"
     regex = r"girls[\s-]?delta[^0-9]*(?P<gd>[0-9]{3,4})"
 
-    def _native(self):
+    def _search(self):
         uid = self.match["gd"]
         self.keyword = f"GirlsDelta-{uid}"
 
@@ -708,7 +708,7 @@ class UncensoredMatcher(Scraper):
         r"([a-z]{1,4}(?:3d2?|2d|2m)+[a-z]{1,4}|r18|t28)[\s-]*([0-9]{2,6})",
     )
 
-    def _native(self):
+    def _search(self):
         self.keyword = "-".join(filter(None, self.match.groups()))
 
 
@@ -717,7 +717,7 @@ class OneKGiri(Scraper):
     uncensored_only = True
     regex = rf"((?:{REG_Y})(?:{REG_M})(?:{REG_D}))[\s-]+([a-z]{{3,8}})(?:-(?P<kg>[a-z]{{3,6}}))?"
 
-    def _native(self):
+    def _search(self):
         m = self.match
         i = m.lastindex
         self.keyword = f"{m[i-2]}-{m[i-1]}_{m[i]}"
@@ -733,7 +733,7 @@ class PatternSearcher(Scraper):
         with open(join_root(filename), "r", encoding="utf-8") as f:
             cls.mgs_get = json.load(f).get
 
-    def _native(self):
+    def _search(self):
         m = self.match
         uid = m["uid"]
         self.keyword = f'{uid.upper()}-{m["num"]}'
@@ -757,7 +757,7 @@ class PatternSearcher(Scraper):
         try:
             title = re_sub(r"^(\s*【.*?】)+|【[^】]*映像付】|\+\d+分\b", "", tree.findtext("h1"))
         except (AttributeError, TypeError) as e:
-            self._warn(e)
+            self.error(e)
             return
 
         xp = xpath(
@@ -834,7 +834,7 @@ class DateSearcher:
                 source=cls.source,
             )
         except ValueError as e:
-            stderr_write(f"parsing date failed '{m[0]}': {e}\n")
+            logging.error(f"[{cls.__name__}] [{m[0]}] {e}")
 
 
 def _load_json_ld(tree: HtmlElement):
