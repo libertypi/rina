@@ -11,14 +11,7 @@ from pathlib import Path
 from typing import Tuple
 
 from avinfo.scandir import FileScanner, get_scanner
-from avinfo.utils import (
-    SEP_BOLD,
-    SEP_SLIM,
-    AVInfo,
-    Status,
-    get_choice_as_int,
-    stderr_write,
-)
+from avinfo.utils import SEP_BOLD, AVInfo, Status, get_choice_as_int, stderr_write
 
 EXTS = {"avi", "m4v", "mkv", "mov", "mp4", "wmv"}
 
@@ -85,10 +78,9 @@ class VideoGroup(AVInfo):
             return
 
         for file, stream in diffs:
-            yield SEP_SLIM
-            yield f"filename: {file.name}"
+            yield file.name
             for d in stream:
-                yield ", ".join(f"{k}: {v}" for k, v in d.items())
+                yield "- " + "|".join(f"{k}={v}" for k, v in d.items())
 
     def apply(self):
         tmpfd, tmpfile = tempfile.mkstemp()
@@ -272,7 +264,7 @@ def main(args):
     _find_ffmpeg(args.ffmpeg)
 
     results = set()
-    for group in find_groups(args.source, get_scanner(args, EXTS)):
+    for group in find_groups(args.source, get_scanner(args, exts=EXTS)):
         group.print()
         results.add(group)
 
@@ -286,7 +278,7 @@ def main(args):
         return
 
     if not args.quiet:
-        results = set(user_filter(results, "Apply concatenations?", False))
+        results = set(user_filter(results, "Proceed with concatenation?", False))
 
     # problematic groups
     skips = {g for g in results if g.status != Status.UPDATED}

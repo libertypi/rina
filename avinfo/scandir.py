@@ -165,7 +165,7 @@ class FileScanner:
                 break
 
 
-def get_scanner(args, exts: set = None):
+def get_scanner(args, exts=None):
     """
     Construct a FileScanner based on arguments.
 
@@ -177,7 +177,7 @@ def get_scanner(args, exts: set = None):
         include=args.include,
         exclude=args.exclude,
         exclude_dir=args.exclude_dir,
-        newer=args.time,
+        newer=args.newer,
     )
 
 
@@ -201,12 +201,19 @@ def _update_dirtime(root, total=0, updated=0):
     try:
         with os.scandir(root) as it:
             for e in it:
-                if e.is_dir():
+                try:
+                    is_dir = e.is_dir()
+                except OSError:
+                    is_dir = False
+                if is_dir:
                     dirs.append(e)
-                else:
+                    continue
+                try:
                     mtime = e.stat().st_mtime
-                    if mtime > newest:
-                        newest = mtime
+                except OSError:
+                    continue
+                if mtime > newest:
+                    newest = mtime
     except OSError as e:
         logging.error(e)
         return 0, total, updated

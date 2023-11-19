@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Generator
 
-from avinfo.scandir import get_scanner
+from avinfo.scandir import get_scanner, FileScanner
 from avinfo.scraper import ScrapeResult, _has_word, scrape
 from avinfo.utils import AVInfo, Status, re_search, re_sub, re_subn, strftime
 
@@ -207,15 +207,19 @@ EXTS = {
 }
 
 
-def from_dir(args) -> Generator[AVFile, None, None]:
-    """
-    Scan a directory and yield AVFile objects.
+def from_dir(root, scanner: FileScanner = None) -> Generator[AVFile, None, None]:
+    """Scan a directory and yield AVFile objects."""
+    if scanner is None:
+        scanner = FileScanner(exts=EXTS)
 
-    :type args: argparse.Namespace
-    """
     with ThreadPoolExecutor() as ex:
         for ft in as_completed(
-            ex.submit(from_path, e.path, e)
-            for e in get_scanner(args, EXTS).scandir(args.source)
+            ex.submit(from_path, entry.path, entry)
+            for entry in scanner.scandir(root, "file")
         ):
             yield ft.result()
+
+
+def from_args(args):
+    """:type args: argparse.Namespace"""
+    return from_dir(args.source, get_scanner(args, exts=EXTS))

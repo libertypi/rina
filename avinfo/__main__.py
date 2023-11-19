@@ -1,23 +1,25 @@
 import logging
 import sys
+from typing import Generator
 
 from avinfo.arguments import parse_args
 from avinfo.utils import (
     SEP_BOLD,
     SEP_SLIM,
     SEP_WIDTH,
+    AVInfo,
     Status,
     get_choice_as_int,
     stderr_write,
 )
 
 
-def process_scan(scan, args):
+def process_stream(stream: Generator[AVInfo, None, None], args):
     changed = []
     failure = []
     total = 0
 
-    for obj in scan:
+    for obj in stream:
         total += 1
         obj.print()
         if obj.status == Status.UPDATED:
@@ -54,7 +56,6 @@ def process_scan(scan, args):
                 obj.print()
 
     stderr_write(f"{SEP_BOLD}\nApplying changes...\n")
-
     for obj in progress(changed):
         try:
             obj.apply()
@@ -92,18 +93,18 @@ def main():
         if args.type == "keyword":
             video.from_string(args.source).print()
         elif args.type == "dir":
-            process_scan(video.from_dir(args), args)
+            process_stream(video.from_args(args), args)
             scandir.update_dir_mtime(args.source)
         else:
-            process_scan((video.from_path(args.source),), args)
+            process_stream((video.from_path(args.source),), args)
 
     elif args.command == "idol":
         from avinfo import idol
 
         if args.type == "keyword":
-            idol.Actress(args.source).print()
+            idol.Idol(args.source).print()
         else:
-            process_scan(idol.from_dir(args), args)
+            process_stream(idol.from_args(args), args)
 
     elif args.command == "dir":
         from avinfo import scandir

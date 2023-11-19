@@ -10,7 +10,7 @@ from typing import Generator
 from urllib.parse import quote, urljoin
 
 from avinfo.connection import HtmlElement, get_tree, xpath
-from avinfo.scandir import get_scanner
+from avinfo.scandir import get_scanner, FileScanner
 from avinfo.utils import AVInfo, Status, date_searcher, re_search, re_sub
 
 is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
@@ -350,7 +350,7 @@ class Etigoya(Wiki):
 _WIKI_LIST = (Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Msin, Manko, Etigoya)
 
 
-class Actress(AVInfo):
+class Idol(AVInfo):
     name: str = None
     birth: str = None
     final: str = None
@@ -458,7 +458,7 @@ class Actress(AVInfo):
         )
 
 
-class ActressFolder(Actress):
+class IdolFolder(Idol):
     def __init__(self, path, ex: ThreadPoolExecutor = None):
         if not isinstance(path, Path):
             path = Path(path)
@@ -474,21 +474,27 @@ class ActressFolder(Actress):
             os.rename(path, path.with_name(self.final))
 
 
-def from_dir(args) -> Generator[ActressFolder, None, None]:
-    """
-    Scan a directory and yield ActressFolder objects.
+def from_dir(root, scanner: FileScanner = None) -> Generator[IdolFolder, None, None]:
+    """Scan a directory and yield ActressFolder objects."""
+    if scanner is None:
+        scanner = FileScanner(recursive=False)
 
-    :type args: argparse.Namespace
-    """
+    # Use two executors to avoid deadlock
     m = min(32, (os.cpu_count() or 1) + 4)
     o = m // 3
-    # Use two executors to avoid deadlock
     with ThreadPoolExecutor(o) as outer, ThreadPoolExecutor(m - o) as inner:
         pool = [
-            outer.submit(ActressFolder, e.path, inner)
-            for e in get_scanner(args).scandir(args.source, "dir")
+            outer.submit(IdolFolder, e.path, inner)
+            for e in scanner.scandir(root, "dir")
         ]
+        # If there is no subdirectory, add the root.
         if not pool:
-            pool.append(outer.submit(ActressFolder, args.source, inner))
+            pool.append(outer.submit(IdolFolder, root, inner))
+
         for ft in as_completed(pool):
             yield ft.result()
+
+
+def from_args(args):
+    """:type args: argparse.Namespace"""
+    return from_dir(args.source, get_scanner(args))

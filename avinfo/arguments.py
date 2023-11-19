@@ -35,9 +35,9 @@ def _add_filter(parser: argparse.ArgumentParser, recursive=True):
     r.set_defaults(recursive=recursive)
     parser.add_argument(
         "-n",
-        dest="time",
+        dest="newer",
         type=past_timestamp,
-        help="include files newer than TIME. Format: 'n[DHMS]'\n"
+        help="include files newer than NEWER. Format: 'n[DHMS]'\n"
         "Units: Days (D), Hours (H), Minutes (M), Seconds (S)",
     )
     parser.add_argument(
@@ -149,7 +149,7 @@ def parse_args():
         "-f",
         dest="ffmpeg",
         action="store",
-        help="the ffmpeg directory. Search $PATH if omit.",
+        help="the ffmpeg directory. Search $PATH if omit",
     )
     _add_quiet(parser_concat)
     _add_source(parser_concat, command)

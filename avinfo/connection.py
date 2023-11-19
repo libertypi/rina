@@ -94,7 +94,7 @@ def _init_session(retries=7, backoff=0.3, uafile="useragents.txt"):
     adapter = requests.adapters.HTTPAdapter(
         max_retries=urllib3.Retry(
             total=retries,
-            status_forcelist=frozenset((429, 500, 502, 503, 504, 521, 524)),
+            status_forcelist={429, 500, 502, 503, 504, 521, 524},
             backoff_factor=backoff,
         )
     )
