@@ -11,9 +11,9 @@ Rina is a command-line tool designed for managing Japanese AV content. It search
 - Offers flexible and customizable scanning options.
 - **Try**: `rina video <directory>`
 
-### Idol Biography Search
+### Idol Identity Search
 - **Command**: `idol`
-- Searches online for real names, aliases, and ages on JAV idols, aiming to identify their most recognized identities.
+- Cross-searches for names, aliases, and ages of JAV idols, aiming to identify their most recognized identities.
 - Renames local folders to reflect the idol's name and birth year.
 - Try: `rina idol <your favorite idol>`
 
