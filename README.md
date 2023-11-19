@@ -1,4 +1,4 @@
-# Rina: All-in-One Japanese AV Toolbox
+# Rina: All-in-One JAV Toolbox
 
 Rina is a command-line tool designed for managing Japanese AV content. It searches through a wide range of online databases and processes local files.
 
