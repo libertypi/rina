@@ -9,7 +9,7 @@ Rina is a command-line tool designed for managing Japanese AV content. It search
 - Extracts JAV IDs from local filenames and retrieves data from online databases.
 - Renames video files based on ID and title. Updates file timestamps to match the release dates.
 - Offers flexible and customizable scanning options.
-- Try: `rina video <directory>`
+- **Try**: `rina video <directory>`
 
 ### Idol Biography Search
 - **Command**: `idol`
