@@ -55,10 +55,10 @@ Rina works best with the following file structure. Each folder is named after an
 
 ```
 .
-├── <idol name>
+├── <idol name 1>
 │   ├── video 1.wmv
 │   └── video 2.mp4
-├── <idol name>
+├── <idol name 2>
 │   ├── video 1.mkv
 │   ├── video 2.avi
 │   └── video 3.mpeg
