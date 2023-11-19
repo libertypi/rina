@@ -12,7 +12,7 @@ from lxml.html import HtmlElement, HTMLParser
 from lxml.html import fromstring as html_fromstring
 from requests.exceptions import HTTPError, RequestException
 
-from avinfo.utils import join_root
+from rina.utils import join_root
 
 xpath = lru_cache(XPath)
 HTTP_TIMEOUT = (9.1, 60)
@@ -72,8 +72,7 @@ def _init_site(netloc: str, setting: dict):
 def _init_session(retries=7, backoff=0.3, uafile="useragents.txt"):
     with open(join_root(uafile), "r", encoding="utf-8") as f:
         useragents = tuple(filter(None, map(str.strip, f)))
-    if not useragents:
-        raise ValueError(f"Corrupted useragent file: {uafile}")
+    assert useragents, f"empty useragent file: {uafile}"
 
     session = requests.Session()
     session.headers.update(

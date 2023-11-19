@@ -1,8 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-from avinfo.connection import XPath, get_tree, xpath
-from avinfo.utils import AVInfo, Status, re_search, stderr_write, str_to_epoch, strftime
+from rina.connection import XPath, get_tree, xpath
+from rina.utils import AVInfo, Status, re_search, stderr_write, str_to_epoch, strftime
 
 
 class ActressPage(AVInfo):
@@ -33,7 +33,9 @@ class ProductFilter:
             # return true is the product contains only one actress
             self._filters.append(XPath('count(p[@class="cast"]/a) <= 1'))
 
-    def run(self, tree) -> int:
+    def get_latest(self, tree) -> int:
+        """Find the most recent product's publish date that passes all set
+        filters."""
         tree = tree.find('.//div[@class="act-video-list"]')
         path_product = self._get_col_path(tree, "作品タイトル", 2)
         path_date = self._get_col_path(tree, "発売日", 3)
@@ -124,8 +126,8 @@ def main(args):
             if tree is None:
                 continue
             tree = tree.find('.//section[@id="main-area"]')
-            date = _filter.run(tree)
-            if not date:
+            latest = _filter.get_latest(tree)
+            if not latest:
                 continue
 
             name = tree.findtext("section/h1")
@@ -138,7 +140,7 @@ def main(args):
             ActressPage(
                 name=name,
                 birth=birth,
-                latest=date,
+                latest=latest,
                 url=tree.base_url,
             ).print()
             result += 1

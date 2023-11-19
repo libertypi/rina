@@ -1,20 +1,18 @@
 import logging
 import sys
-from typing import Generator
 
-from avinfo.arguments import parse_args
-from avinfo.utils import (
+from rina.arguments import parse_args
+from rina.utils import (
     SEP_BOLD,
     SEP_SLIM,
     SEP_WIDTH,
-    AVInfo,
     Status,
     get_choice_as_int,
     stderr_write,
 )
 
 
-def process_stream(stream: Generator[AVInfo, None, None], args):
+def process_stream(stream, args):
     changed = []
     failure = []
     total = 0
@@ -88,7 +86,7 @@ def main():
     )
 
     if args.command == "video":
-        from avinfo import scandir, video
+        from rina import scandir, video
 
         if args.type == "keyword":
             video.from_string(args.source).print()
@@ -99,7 +97,7 @@ def main():
             process_stream((video.from_path(args.source),), args)
 
     elif args.command == "idol":
-        from avinfo import idol
+        from rina import idol
 
         if args.type == "keyword":
             idol.Idol(args.source).print()
@@ -107,17 +105,17 @@ def main():
             process_stream(idol.from_args(args), args)
 
     elif args.command == "dir":
-        from avinfo import scandir
+        from rina import scandir
 
         scandir.update_dir_mtime(args.source)
 
     elif args.command == "concat":
-        from avinfo import concat
+        from rina import concat
 
         concat.main(args)
 
     elif args.command == "birth":
-        from avinfo import birth
+        from rina import birth
 
         birth.main(args)
 

@@ -6,7 +6,7 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Optional
 
-from avinfo.connection import (
+from rina.connection import (
     HtmlElement,
     HTTPError,
     get,
@@ -14,7 +14,7 @@ from avinfo.connection import (
     html_fromstring,
     xpath,
 )
-from avinfo.utils import join_root, re_search, re_sub, str_to_epoch, strptime
+from rina.utils import join_root, re_search, re_sub, str_to_epoch, strptime
 
 # Regular expressions
 _subspace = re.compile(r"\s+").sub
@@ -58,7 +58,6 @@ class ScrapeResult:
 class Scraper(ABC):
     """Base class for scrapers."""
 
-    __slots__ = ("string", "match", "keyword", "_mask")
     regex: str
     keyword: str
     uncensored_only: bool = False
@@ -395,7 +394,6 @@ class StudioMatcher(Scraper):
 
 
 class Heyzo(Scraper):
-    __slots__ = ()
     uncensored_only = True
     source = "heyzo.com"
     regex = r"heyzo[^0-9]*(?P<heyzo>[0-9]{4})"
@@ -438,7 +436,6 @@ class Heyzo(Scraper):
 
 
 class FC2(Scraper):
-    __slots__ = ()
     uncensored_only = True
     source = "fc2.com"
     regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{4,10})"
@@ -475,7 +472,6 @@ class FC2(Scraper):
 
 
 class Heydouga(Scraper):
-    __slots__ = ()
     uncensored_only = True
     source = "heydouga.com"
     regex = r"heydouga[^0-9]*(?P<h1>[0-9]{4})[^0-9]+(?P<heydou>[0-9]{3,6})"
@@ -506,7 +502,6 @@ class Heydouga(Scraper):
 
 
 class AV9898(Heydouga):
-    __slots__ = ()
     regex = r"av9898[^0-9]+(?P<av98>[0-9]{3,})"
 
     def _search(self):
@@ -518,7 +513,6 @@ class AV9898(Heydouga):
 
 
 class Honnamatv(Heydouga):
-    __slots__ = ()
     regex = r"honnamatv[^0-9]*(?P<honna>[0-9]{3,})"
 
     def _search(self):
@@ -530,7 +524,6 @@ class Honnamatv(Heydouga):
 
 
 class X1X(Scraper):
-    __slots__ = ()
     uncensored_only = True
     source = "x1x.com"
     regex = r"x1x(?:\.com)?[\s-]+(?P<x1x>[0-9]{6})"
@@ -564,7 +557,6 @@ class X1X(Scraper):
 
 
 class SM_Miracle(Scraper):
-    __slots__ = ()
     uncensored_only = True
     source = "sm-miracle.com"
     regex = r"sm[\s-]*miracle(?:[\s-]+no)?[\s.-]+e?(?P<sm>[0-9]{4})"
@@ -590,7 +582,6 @@ class SM_Miracle(Scraper):
 
 
 class H4610(Scraper):
-    __slots__ = ()
     uncensored_only = True
     regex = r"(?P<h41>h4610|[ch]0930)\W+(?P<h4610>[a-z]+[0-9]+)"
 
@@ -625,7 +616,6 @@ class H4610(Scraper):
 
 
 class Kin8(Scraper):
-    __slots__ = ()
     uncensored_only = True
     source = "kin8tengoku.com"
     regex = r"kin8(?:tengoku)?[^0-9]*(?P<kin8>[0-9]{4})"
@@ -662,7 +652,6 @@ class Kin8(Scraper):
 
 
 class GirlsDelta(Scraper):
-    __slots__ = ()
     uncensored_only = True
     source = "girlsdelta.com"
     regex = r"girls[\s-]?delta[^0-9]*(?P<gd>[0-9]{3,4})"
@@ -694,7 +683,6 @@ class GirlsDelta(Scraper):
 
 
 class UncensoredMatcher(Scraper):
-    __slots__ = ()
     uncensored_only = True
     regex = (
         r"((?:gs|jiro|ka|kosatsu|mldo|ot|red|sg|sky|sr|tr|wl)[0-9]{3})",
@@ -713,7 +701,6 @@ class UncensoredMatcher(Scraper):
 
 
 class OneKGiri(Scraper):
-    __slots__ = ()
     uncensored_only = True
     regex = rf"((?:{REG_Y})(?:{REG_M})(?:{REG_D}))[\s-]+([a-z]{{3,8}})(?:-(?P<kg>[a-z]{{3,6}}))?"
 
@@ -724,14 +711,15 @@ class OneKGiri(Scraper):
 
 
 class PatternSearcher(Scraper):
-    __slots__ = ()
     regex = r"[0-9]{,5}(?P<uid>[a-z]{2,10})-?(?P<z>0)*(?P<num>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:[hm]hb[0-9]{,2})?"
     mgs_get = None
 
     @classmethod
     def _load_mgs(cls, filename: str = "mgs.json"):
         with open(join_root(filename), "r", encoding="utf-8") as f:
-            cls.mgs_get = json.load(f).get
+            mgs = json.load(f)
+        assert mgs, f"empty MGS data: {filename}"
+        cls.mgs_get = mgs.get
 
     def _search(self):
         m = self.match
@@ -856,18 +844,15 @@ def _load_json_ld(tree: HtmlElement):
 
 
 def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
-    """Combine one or more scraper regexes to form a single pattern.
-
-    After called, the `regex` attributes of input classes are deleted in order
-    to free some memory.
-    """
+    """Combine one or more scraper regexes to form a single pattern."""
     item = []
     for scraper in args:
-        if isinstance(scraper.regex, str):
-            item.append(scraper.regex)
+        regex = scraper.regex
+        assert regex, f"empty regex attribute: {scraper}"
+        if isinstance(regex, str):
+            item.append(regex)
         else:
-            item.extend(scraper.regex)
-        del scraper.regex
+            item.extend(regex)
 
     result = "|".join(item)
     assert "_" not in result, f'"_" in regex: {result}'

@@ -6,7 +6,7 @@ from collections import deque
 from pathlib import Path
 from typing import Generator
 
-from avinfo.utils import stderr_write, strftime
+from rina.utils import stderr_write, strftime
 
 
 class FileScanner:
@@ -89,8 +89,8 @@ class FileScanner:
          - os.DirEntry: Directory entries matching the specified filters and
            type.
         """
-        files = []
         dirs = []
+        files = []
         if ftype == "file":
             output = files
         elif ftype == "dir":

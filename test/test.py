@@ -357,9 +357,9 @@ class Test_Birth_Filter(unittest.TestCase):
             self.tree = get_tree(self.url)
 
     def test_filter(self):
-        result_1 = birth.ProductFilter(20, False, False).run(self.tree)
-        result_2 = birth.ProductFilter(20, True, False).run(self.tree)
-        result_3 = birth.ProductFilter(20, True, True).run(self.tree)
+        result_1 = birth.ProductFilter(20, False, False).get_latest(self.tree)
+        result_2 = birth.ProductFilter(20, True, False).get_latest(self.tree)
+        result_3 = birth.ProductFilter(20, True, True).get_latest(self.tree)
         self.assertGreater(result_1, 1)
         self.assertGreater(result_2, 1)
         self.assertGreater(result_3, 1)

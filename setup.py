@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="avinfo",
+    name="rina",
     version="0.1",
     description="The Ultimate AV Helper",
     url="https://github.com/libertypi/avinfo",
@@ -16,8 +16,8 @@ setup(
     ],
     keywords="jav, scraper",
     install_requires=["requests", "lxml"],
-    python_requires=">=3.5",
+    python_requires=">=3.6",
     packages=find_packages(include=["avinfo"]),
-    package_data={"avinfo": ["*.txt", "*.json"]},
-    entry_points={"console_scripts": ["avinfo=avinfo.__main__:main"]},
+    package_data={"rina": ["*.txt", "*.json"]},
+    entry_points={"console_scripts": ["rina=rina.__main__:main"]},
 )

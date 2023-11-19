@@ -3,9 +3,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Generator
 
-from avinfo.scandir import get_scanner, FileScanner
-from avinfo.scraper import ScrapeResult, _has_word, scrape
-from avinfo.utils import AVInfo, Status, re_search, re_sub, re_subn, strftime
+from rina.scandir import FileScanner, get_scanner
+from rina.scraper import ScrapeResult, _has_word, scrape
+from rina.utils import AVInfo, Status, re_search, re_sub, re_subn, strftime
 
 _NAMEMAX = 255
 

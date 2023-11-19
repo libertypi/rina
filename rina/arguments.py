@@ -77,7 +77,7 @@ def parse_args():
         description=(
             "The Ultimate AV Helper\n"
             "Author: David Pi <libertypi@gmail.com>\n"
-            "Type '%(prog)s <command> -h' for more details."
+            "Type '%(prog)s <command> -h' for command-specific help"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -88,129 +88,122 @@ def parse_args():
     # video
     # source: dir, file, keyword
     command = "video"
-    parser_video = subparsers.add_parser(
-        command,
+    subparser = subparsers.add_parser(
+        "video",
         help="scrape video information",
         description=(
-            "description:\n"
-            "  Scrape video information for:\n"
-            "  - Local directories.\n"
-            "  - Local file.\n"
-            "  - A virtual filename.\n\n"
-            "examples:\n"
-            "  - scrape all videos newer than 12 hours in ~/dir:\n"
+            "Description:\n"
+            "  Scrape video information from local directories, files, or virtual filenames\n\n"
+            "Examples:\n"
+            "  Scrape all videos newer than 12 hours in ~/dir:\n"
             "      %(prog)s -n 12H ~/dir\n"
-            "  - scrape a single file and apply change:\n"
+            "  Scrape a single file and apply change without prompting:\n"
             "      %(prog)s -q heyzo-2288.mp4"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    _add_quiet(parser_video)
-    _add_source(parser_video, command)
-    _add_filter(parser_video)
+    _add_quiet(subparser)
+    _add_source(subparser, command)
+    _add_filter(subparser)
 
     # idol
     # source: dir, keyword
     command = "idol"
-    parser_idol = subparsers.add_parser(
-        command,
+    subparser = subparsers.add_parser(
+        "idol",
         help="search for idol biography",
         description=(
-            "description:\n"
-            "  Search for idol biography for:\n"
-            "  - Local directories.\n"
-            "  - An idol name.\n\n"
-            "examples:\n"
-            "  - search idols based on all folder names under ~/dir:\n"
+            "Description:\n"
+            "  Search for idol biographies in local directories or by idol names\n\n"
+            "Examples:\n"
+            "  Search idols based on folder names under ~/dir:\n"
             "      %(prog)s ~/dir\n"
-            "  - search for a single actress:\n"
+            "  Search for a specific actress:\n"
             "      %(prog)s 和登こころ"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    _add_quiet(parser_idol)
-    _add_source(parser_idol, command)
-    _add_filter(parser_idol, False)
+    _add_quiet(subparser)
+    _add_source(subparser, command)
+    _add_filter(subparser, False)
 
     # concat
     # source: dir
     command = "concat"
-    parser_concat = subparsers.add_parser(
-        command,
-        help="concat consecutive videos",
+    subparser = subparsers.add_parser(
+        "concat",
+        help="concatenate consecutive videos",
         description=(
-            "description:\n"
-            "  Search and concat consecutive videos: "
-            "[file_1.mp4, file_2.mp4...] -> file.mp4"
+            "Description:\n"
+            "  Search and concatenate consecutive videos into a single file\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser_concat.add_argument(
+    subparser.add_argument(
         "-f",
         dest="ffmpeg",
         action="store",
-        help="the ffmpeg directory. Search $PATH if omit",
+        help="specify ffmpeg directory (searches $PATH if omitted)",
     )
-    _add_quiet(parser_concat)
-    _add_source(parser_concat, command)
-    _add_filter(parser_concat)
+    _add_quiet(subparser)
+    _add_source(subparser, command)
+    _add_filter(subparser)
 
     # dir
     # source: dir
     command = "dir"
-    parser_dir = subparsers.add_parser(
+    subparser = subparsers.add_parser(
         command,
-        help="update directory timestamps based on the newest file they contain",
+        help="update directory timestamps",
         description=(
-            "description:\n"
-            "  Updates the 'Modified Time' of directories based on the newest file they contain."
+            "Description:\n"
+            "  Update directory 'Modified Time' based on the newest file contained"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    _add_source(parser_dir, command)
+    _add_source(subparser, command)
 
     # birth
-    # source: year of birth
     command = "birth"
-    parser_birth = subparsers.add_parser(
-        command,
-        help="search for idols based on years of birth",
+    subparser = subparsers.add_parser(
+        "birth",
+        help="search idols by birth year",
         description=(
-            "description:\n"
-            "  Search for idols based on years of birth and lastest publications.\n\n"
-            "examples:\n"
-            "  search for 1990-born idols who are active in the past year:\n"
-            "    %(prog)s 1990\n"
-            "  search for 1989-1991 idols who have uncensored and solo publications within 90 days:\n"
-            "    %(prog)s -u -s -a 90D 1989-1991\n"
+            "Description:\n"
+            "  Search for idols based on birth year and latest publications\n\n"
+            "Examples:\n"
+            "  Search for 1990-born idols active in the past year:\n"
+            "    %(prog)s -a 365D 1990\n"
+            "  Search for idols born between 1989-1991 with specific criteria:\n"
+            "    %(prog)s -u -s -a 90D 1989-1991"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser_birth.add_argument(
+    subparser.add_argument(
         "-a",
         dest="active",
         action="store",
         default="365D",
         type=past_timestamp,
-        help="active in this timespan (default %(default)s)",
+        help="active within specified timespan (default %(default)s)",
     )
-    parser_birth.add_argument(
+    subparser.add_argument(
         "-u",
         dest="uncensored",
         action="store_true",
-        help="uncensored only (default %(default)s)",
+        help="filter for uncensored content (default %(default)s)",
     )
-    parser_birth.add_argument(
+    subparser.add_argument(
         "-s",
         dest="solo",
         action="store_true",
-        help="solo only (default %(default)s)",
+        help="filter for solo performances (default %(default)s)",
     )
-    parser_birth.add_argument(
+    subparser.add_argument(
         dest="source",
         action="store",
         type=year_range,
-        help="year of birth, can be a single year (e.g. 1989) or a range (e.g. 1988-1991)",
+        help="specify year of birth (single year or range, e.g., 1989 or 1988-1991)",
     )
 
     args = parser.parse_args()

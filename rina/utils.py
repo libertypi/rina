@@ -68,15 +68,15 @@ class AVInfo(ABC):
     # Used for formatting output
     keywidth: int = None
     # Cached text for report generation
-    _report_text: str = None
     _headers: dict = {}
+    _report: str = None
 
     def print(self):
         """
         Method to format and print media information.
         """
         status = self.status
-        if self._report_text is None:
+        if self._report is None:
             # Create a header for the current status
             try:
                 items = [self._headers[status.name]]
@@ -96,8 +96,8 @@ class AVInfo(ABC):
                 else:
                     items.append(f"{k:>{kw}}: {v}\n")
             # Combine into a single text
-            self._report_text = "".join(items)
-        color_writer(self._report_text, color=status.value)
+            self._report = "".join(items)
+        color_writer(self._report, color=status.value)
 
     def apply(self):
         raise NotImplementedError
@@ -109,11 +109,11 @@ def get_choice_as_int(msg: str, max_opt: int) -> int:
         try:
             choice = int(input())
         except ValueError:
-            pass
-        else:
-            if 1 <= choice <= max_opt:
-                return choice
-        stderr_write("Invalid option.\n")
+            stderr_write("Please enter a valid number.\n")
+            continue
+        if 1 <= choice <= max_opt:
+            return choice
+        stderr_write(f"Invalid option. Please enter a number from 1 to {max_opt}.\n")
 
 
 def strptime(string: str, fmt: str) -> float:
