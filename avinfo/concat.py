@@ -268,14 +268,14 @@ def main(args):
         group.print()
         results.add(group)
 
+    if not results:
+        stderr_write("Scan finished. No change can be made.\n")
+        return
     stderr_write(
         "{}\nScan finished, {} files can be concatenated into {} files.\n".format(
             SEP_BOLD, sum(len(v.source) for v in results), len(results)
         )
     )
-    if not results:
-        stderr_write("No change can be made.\n")
-        return
 
     if not args.quiet:
         results = set(user_filter(results, "Proceed with concatenation?", False))

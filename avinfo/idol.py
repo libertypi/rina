@@ -373,13 +373,13 @@ class Idol(AVInfo):
             return
 
         try:
-            if ex:
-                self._bfs_search(keyword, ex)
-            else:
+            if ex is None:
                 with ThreadPoolExecutor() as ex:
                     self._bfs_search(keyword, ex)
+            else:
+                self._bfs_search(keyword, ex)
         except Exception as e:
-            self.result["Error"] = str(e)
+            self.result["Error"] = e
             self.status = Status.ERROR
 
     def _bfs_search(self, keyword: str, ex: ThreadPoolExecutor):

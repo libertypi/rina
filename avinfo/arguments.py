@@ -37,8 +37,8 @@ def _add_filter(parser: argparse.ArgumentParser, recursive=True):
         "-n",
         dest="newer",
         type=past_timestamp,
-        help="include files newer than NEWER. Format: 'n[DHMS]'\n"
-        "Units: Days (D), Hours (H), Minutes (M), Seconds (S)",
+        help='include files newer than "n[DHMS]", e.g., "5D" for newer than 5 days\n'
+        "Units: Days (D), Hours (H), Minutes (M), Seconds (S)\n",
     )
     parser.add_argument(
         "-i",

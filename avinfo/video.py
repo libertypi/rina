@@ -17,7 +17,7 @@ class AVString(AVInfo):
 
     keywidth = 10
 
-    def __init__(self, source: str, result: ScrapeResult, error: str = None):
+    def __init__(self, source: str, result: ScrapeResult, error: Exception = None):
         self.source = source
         if result:
             self.status = Status.SUCCESS
@@ -31,17 +31,17 @@ class AVString(AVInfo):
                 "FromName": None,
                 "Source": result.source,
             }
-        elif error:
-            self.status = Status.ERROR
-            self.result = {
-                "Target": source,
-                "Error": error,
-            }
-        else:
+        elif error is None:
             self.status = Status.FAILURE
             self.result = {
                 "Target": source,
                 "Result": "Information not found.",
+            }
+        else:
+            self.status = Status.ERROR
+            self.result = {
+                "Target": source,
+                "Error": error,
             }
 
 
@@ -59,7 +59,7 @@ class AVFile(AVString):
         self,
         source: Path,
         result: ScrapeResult,
-        error: str = None,
+        error: Exception = None,
         entry: os.DirEntry = None,
     ) -> None:
         if not isinstance(source, Path):
@@ -145,10 +145,8 @@ def from_string(string: str):
         result = scrape(string)
         error = None
     except Exception as e:
-        if not isinstance(string, str):
-            raise TypeError(f"expected str object, not {type(string)!r}")
         result = None
-        error = str(e)
+        error = e
     return AVString(string, result, error)
 
 
@@ -160,7 +158,7 @@ def from_path(path: str, entry: os.DirEntry = None):
         error = None
     except Exception as e:
         result = None
-        error = str(e)
+        error = e
     return AVFile(path, result, error, entry)
 
 
