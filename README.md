@@ -6,7 +6,7 @@ Rina is a command-line tool designed for managing Japanese AV content. It search
 
 ### Video Scraping
 - **Command**: `video`
-- Extracts JAV IDs from local filenames and retrieves data from online databases.
+- Extracts JAV IDs from local files and scrapes data from online databases.
 - Renames video files based on ID and title. Updates file timestamps to match the release dates.
 - Offers flexible and customizable scanning options.
 - **Try**: `rina video <directory>`
@@ -25,7 +25,7 @@ Rina is a command-line tool designed for managing Japanese AV content. It search
 
 ### Video Concatenation
 - **Command**: `concat`
-- Identifies and losslessly concatenates consecutive video files into a single file using FFmpeg.
+- Identifies and losslessly concatenates consecutive videos into a single file.
 
 ### Directory Timestamp Update
 - **Command**: `dir`
