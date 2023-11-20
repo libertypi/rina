@@ -3,7 +3,7 @@ import logging
 from functools import lru_cache
 from random import choice as random_choice
 from threading import Semaphore
-from typing import Optional
+from typing import Optional, Tuple
 from urllib.parse import ParseResult, urlparse
 
 import requests
@@ -29,7 +29,7 @@ SITE_SETTINGS = {
         "headers": {"Accept-Language": "zh"},
     },
     "javdb.com": {
-        "max_connection": 1,
+        "max_connection": 2,
         "cookies": {"over18": "1", "locale": "zh"},
     },
     "adult.contents.fc2.com": {
@@ -49,24 +49,6 @@ SITE_SETTINGS = {
         "cookies": {"age": "off"},
     },
 }
-
-
-@lru_cache
-def _get_setting(netloc: str):
-    domain_settings = SITE_SETTINGS.get(netloc)
-    if domain_settings is None:
-        return DEFAULT_SETTING
-    setting = DEFAULT_SETTING.copy()
-    setting.update(domain_settings)
-    return setting
-
-
-def _init_site(netloc: str, setting: dict):
-    if setting["cookies"]:
-        sc = session.cookies.set_cookie
-        cc = requests.cookies.create_cookie
-        for k, v in setting["cookies"].items():
-            sc(cc(name=k, value=v, domain=netloc))
 
 
 def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
@@ -102,25 +84,38 @@ def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
     return session, useragents
 
 
-session, useragents = _init_session()
-_semaphores = {}
+def _init_site(netloc: str) -> Tuple[dict, Semaphore]:
+    """Initialize the setting and semaphore for a domain."""
+    result = SITE_SETTINGS.get(netloc)
+    if not result:
+        setting = DEFAULT_SETTING
+    else:
+        setting = DEFAULT_SETTING.copy()
+        setting.update(result)
+        # initialize cookies
+        if setting["cookies"]:
+            sc = session.cookies.set_cookie
+            cc = requests.cookies.create_cookie
+            for k, v in setting["cookies"].items():
+                sc(cc(name=k, value=v, domain=netloc))
+    return setting, Semaphore(setting["max_connection"])
+
+
+_settings = {}
 
 
 def get(url: str, *, pr: ParseResult = None, **kwargs):
     if pr is None:
         pr = urlparse(url)
-    netloc = pr.netloc
-    setting = _get_setting(netloc)
     try:
-        semaphore = _semaphores[netloc]
+        setting, semaphore = _settings[pr.netloc]
     except KeyError:
-        _init_site(netloc, setting)
-        semaphore = _semaphores[netloc] = Semaphore(setting["max_connection"])
+        setting, semaphore = _settings[pr.netloc] = _init_site(pr.netloc)
 
     headers = setting["headers"]
     headers = headers.copy() if headers else {}
     headers.setdefault("User-Agent", random_choice(useragents))
-    headers.setdefault("Referer", f"{pr.scheme}://{netloc}/")
+    headers.setdefault("Referer", f"{pr.scheme}://{pr.netloc}/")
 
     with semaphore:
         return session.get(url, headers=headers, timeout=HTTP_TIMEOUT, **kwargs)
@@ -132,16 +127,17 @@ _parsers = {}
 def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
     pr = urlparse(url)
     try:
-        res = get(url, pr=pr, **kwargs)
-        res.raise_for_status()
+        response = get(url, pr=pr, **kwargs)
+        response.raise_for_status()
     except HTTPError:
         return
     except RequestException as e:
         logging.warning(e)
         return
-
     encoding = (
-        _get_setting(pr.netloc)["encoding"] or res.encoding or res.apparent_encoding
+        _settings[pr.netloc][0]["encoding"]
+        or response.encoding
+        or response.apparent_encoding
     ).lower()
     try:
         parser = _parsers[encoding]
@@ -150,7 +146,8 @@ def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
             parser = _parsers[encoding] = HTMLParser(encoding=encoding)
         except LookupError:
             parser = _parsers[encoding] = None
-    return html_fromstring(res.content, base_url=res.url, parser=parser)
+    return html_fromstring(response.content, base_url=response.url, parser=parser)
 
 
+session, useragents = _init_session()
 xpath = lru_cache(XPath)
