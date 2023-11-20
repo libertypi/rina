@@ -17,7 +17,7 @@ class FileScanner:
         include: str = None,
         exclude: str = None,
         exclude_dir: str = None,
-        newer: int = None,
+        newer: float = None,
     ) -> None:
         """
         Initialize a FileScanner for scanning directories with various filters.
@@ -29,8 +29,7 @@ class FileScanner:
          - include (str): Glob pattern for files to include.
          - exclude (str): Glob pattern for files to exclude.
          - exclude_dir (str): Glob pattern for directories to exclude.
-         - newer (int): Unix timestamp; files newer than this time will be
-           included.
+         - newer (float): Timestamp; files newer than this will be included.
         """
         self.recursive = recursive
         self.mainfilters = mainfilters = []

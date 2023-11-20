@@ -17,7 +17,7 @@ def _print_header(args):
     """Print the program header with command details."""
     stderr_write(
         f"{SEP_BOLD}\n"
-        f'{"Rina: All-in-One Japanese AV Toolbox":^{SEP_WIDTH}}\n'
+        f'{"Rina: The All-in-One Japanese AV Toolbox":^{SEP_WIDTH}}\n'
         f"{SEP_SLIM}\n"
     )
     config = {"command": None, "source": None}
