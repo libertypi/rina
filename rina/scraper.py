@@ -9,6 +9,7 @@ from typing import Optional
 from rina.connection import (
     HtmlElement,
     HTTPError,
+    RequestException,
     get,
     get_tree,
     html_fromstring,
@@ -89,17 +90,20 @@ class Scraper(ABC):
         pass
 
     def _javbus(self):
-        res = get(f"https://www.javbus.com/uncensored/search/{self.keyword}")
-        if "member.php?mod=logging" in res.url:
-            logging.warning("JavBus is walled, consider switching network.")
-            return
         try:
+            res = get(f"https://www.javbus.com/uncensored/search/{self.keyword}")
+            if "member.php?mod=logging" in res.url:
+                logging.warning("JavBus is walled, consider switching network.")
+                return
             res.raise_for_status()
             ok = True
         except HTTPError:
             if self.uncensored_only:
                 return
             ok = False
+        except RequestException as e:
+            logging.warning(e)
+            return
 
         tree = html_fromstring(res.content)
         if ok:
@@ -337,6 +341,12 @@ class StudioMatcher(Scraper):
         try:
             data = get(f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
             data.raise_for_status()
+        except HTTPError:
+            return
+        except RequestException as e:
+            logging.warning(e)
+            return
+        try:
             data = data.json()
             return ScrapeResult(
                 product_id=data["MovieID"],
@@ -344,8 +354,6 @@ class StudioMatcher(Scraper):
                 publish_date=str_to_epoch(data["Release"]),
                 source=source,
             )
-        except HTTPError:
-            pass
         except (ValueError, KeyError) as e:
             self.error(e)
 
@@ -569,6 +577,9 @@ class SM_Miracle(Scraper):
             data = get(f"https://sm-miracle.com/movie/{uid}.dat")
             data.raise_for_status()
         except HTTPError:
+            return
+        except RequestException as e:
+            logging.warning(e)
             return
 
         return ScrapeResult(
