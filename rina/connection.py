@@ -1,3 +1,4 @@
+import json
 import logging
 from functools import lru_cache
 from random import choice as random_choice
@@ -69,10 +70,10 @@ def _init_site(netloc: str, setting: dict):
             sc(cc(name=k, value=v, domain=netloc))
 
 
-def _init_session(retries=7, backoff=0.3, uafile="useragents.txt"):
+def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
     with open(join_root(uafile), "r", encoding="utf-8") as f:
-        useragents = tuple(filter(None, map(str.strip, f)))
-    assert useragents, f"empty useragent file: {uafile}"
+        useragents = json.load(f)
+    assert useragents, f"empty useragent data: {uafile}"
 
     session = requests.Session()
     session.headers.update(

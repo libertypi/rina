@@ -24,6 +24,6 @@ setup(
     install_requires=["requests", "lxml"],
     python_requires=">=3.6",
     packages=find_packages(include=["rina"]),
-    package_data={"rina": ["*.txt", "*.json"]},
+    package_data={"rina": ["*.json"]},
     entry_points={"console_scripts": ["rina=rina.__main__:main"]},
 )

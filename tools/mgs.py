@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-# This script is intended to generate rina/mgs.json
-# It uses data from another project of mine.
+# This script is intended to generate `rina/mgs.json`
+# Data source: `./mgs_src.json` from my `rebuilder` project
 # run `mgs.py -h` for help
 
 import argparse
@@ -13,7 +13,7 @@ from operator import itemgetter
 from pathlib import Path
 
 
-def parse_args(src: Path, dst: Path):
+def parse_args(source: Path, dest: Path):
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
@@ -36,7 +36,7 @@ def parse_args(src: Path, dst: Path):
         dest="src",
         action="store",
         type=Path,
-        default=src,
+        default=source,
         help="path to data source (default: %(default)s)",
     )
     parser.add_argument(
@@ -44,7 +44,7 @@ def parse_args(src: Path, dst: Path):
         dest="dst",
         action="store",
         type=Path,
-        default=dst,
+        default=dest,
         help="path to output file (default: %(default)s)",
     )
     return parser.parse_args()
@@ -66,10 +66,10 @@ def bisect_slice(a: list, x, d: dict):
 
 
 def main():
-    root = Path(__file__).resolve().parent.parent
+    source = Path(__file__).resolve().with_name("mgs_src.json")
     args = parse_args(
-        src=root.parent.joinpath("rebuilder", "data", "mgs.json"),
-        dst=root.joinpath("rina", "mgs.json"),
+        source=source,
+        dest=source.parent.parent.joinpath("rina/mgs.json"),
     )
 
     print(f"Source: {args.src}\nOutput: {args.dst}", file=sys.stderr)
