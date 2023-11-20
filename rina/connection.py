@@ -116,8 +116,7 @@ def get(url: str, /, pr: ParseResult = None, **kwargs):
     headers = setting["headers"]
     if headers:
         headers = headers.copy()
-        if "User-Agent" not in headers:
-            headers["User-Agent"] = random_choice(useragents)
+        headers.setdefault("User-Agent", random_choice(useragents))
     else:
         headers = {"User-Agent": random_choice(useragents)}
     headers.setdefault("Referer", f"{pr.scheme}://{netloc}/")
