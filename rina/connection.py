@@ -15,7 +15,6 @@ from requests.exceptions import HTTPError, RequestException
 
 from rina.utils import join_root
 
-xpath = lru_cache(XPath)
 HTTP_TIMEOUT = (9.1, 60)
 DEFAULT_SETTING = {
     "max_connection": 5,
@@ -107,32 +106,24 @@ session, useragents = _init_session()
 _semaphores = {}
 
 
-def get(url: str, /, pr: ParseResult = None, **kwargs):
+def get(url: str, *, pr: ParseResult = None, **kwargs):
     if pr is None:
         pr = urlparse(url)
     netloc = pr.netloc
     setting = _get_setting(netloc)
-
-    headers = setting["headers"]
-    if headers:
-        headers = headers.copy()
-        headers.setdefault("User-Agent", random_choice(useragents))
-    else:
-        headers = {"User-Agent": random_choice(useragents)}
-    headers.setdefault("Referer", f"{pr.scheme}://{netloc}/")
-    if "headers" in kwargs:
-        headers.update(kwargs.pop("headers"))
-
-    kwargs.setdefault("timeout", HTTP_TIMEOUT)
-
     try:
         semaphore = _semaphores[netloc]
     except KeyError:
         _init_site(netloc, setting)
         semaphore = _semaphores[netloc] = Semaphore(setting["max_connection"])
 
+    headers = setting["headers"]
+    headers = headers.copy() if headers else {}
+    headers.setdefault("User-Agent", random_choice(useragents))
+    headers.setdefault("Referer", f"{pr.scheme}://{netloc}/")
+
     with semaphore:
-        return session.get(url, headers=headers, **kwargs)
+        return session.get(url, headers=headers, timeout=HTTP_TIMEOUT, **kwargs)
 
 
 _parsers = {}
@@ -160,3 +151,6 @@ def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
         except LookupError:
             parser = _parsers[encoding] = None
     return html_fromstring(res.content, base_url=res.url, parser=parser)
+
+
+xpath = lru_cache(XPath)

@@ -119,7 +119,7 @@ def parse_args():
             "  Search idols based on folder names under ~/dir:\n"
             "      %(prog)s ~/dir\n"
             "  Search for a specific actress:\n"
-            "      %(prog)s 和登こころ"
+            "      %(prog)s 小柳結衣"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -225,7 +225,7 @@ def parse_args():
             parser.error(e)
         if args.type not in valid_types[args.command]:
             parser.error(
-                "expect source to be a {}, not a {}.".format(
+                "expect source type to be '{}', not {}.".format(
                     ", ".join(valid_types[args.command]), args.type
                 )
             )
@@ -234,7 +234,7 @@ def parse_args():
     return args
 
 
-def past_timestamp(date: str):
+def past_timestamp(date: str) -> float:
     """
     Converts a relative date string to a timestamp representing a past date and
     time. For example, an input of "5D" returns the timestamp of 5 days ago from
@@ -260,7 +260,7 @@ def past_timestamp(date: str):
     raise argparse.ArgumentError()
 
 
-def year_range(years: str):
+def year_range(years: str) -> range:
     """Convert `'1988-1990'` to `range(1988, 1991)`."""
     m = re.fullmatch(r"\s*(\d{4})(?:-(\d{4}))?\s*", years)
     if m:
