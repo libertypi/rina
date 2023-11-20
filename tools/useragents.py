@@ -9,7 +9,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 
 
-def parse_args(src: Path, dst: Path):
+def parse_args():
     parser = ArgumentParser()
     parser.add_argument(
         "-p",
@@ -19,41 +19,24 @@ def parse_args(src: Path, dst: Path):
         default=0.5,
         help="includes only useragents above this share percentage (default: %(default)s)",
     )
-    parser.add_argument(
-        "-s",
-        dest="src",
-        action="store",
-        type=Path,
-        default=src,
-        help="path to the data source (default: %(default)s)",
-    )
-    parser.add_argument(
-        "-d",
-        dest="dst",
-        action="store",
-        type=Path,
-        default=dst,
-        help="path to the output file (default: %(default)s)",
-    )
     return parser.parse_args()
 
 
 def main():
-    src = Path(__file__).resolve().with_name("useragents_src.json")
-    args = parse_args(
-        src=src,
-        dst=src.parent.parent.joinpath("rina/useragents.json"),
-    )
-    print(f"Source: {args.src}\nOutput: {args.dst}")
+    args = parse_args()
 
-    with open(args.src, "r", encoding="utf-8") as f:
+    src = Path(__file__).resolve().with_name("useragents_src.json")
+    dst = src.parents[1].joinpath("rina/useragents.json")
+    print(f"Source: {src}\nOutput: {dst}")
+
+    with open(src, "r", encoding="utf-8") as f:
         useragents = (d["ua"] for d in json.load(f) if d["pct"] >= args.pct)
         useragents = sorted(set(filter(None, map(str.strip, useragents))))
 
     if not useragents:
         raise ValueError(f"no valid useragents found in {src}.")
 
-    with open(args.dst, "w", encoding="utf-8") as f:
+    with open(dst, "w", encoding="utf-8") as f:
         json.dump(useragents, f, separators=(",", ":"))
 
     print(f"{len(useragents)} useragents has been written to disk.")

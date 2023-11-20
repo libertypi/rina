@@ -7,13 +7,14 @@
 import argparse
 import json
 import re
+import shutil
 import sys
 from collections import defaultdict
 from operator import itemgetter
 from pathlib import Path
 
 
-def parse_args(src: Path, dst: Path):
+def parse_args():
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
@@ -21,7 +22,7 @@ def parse_args(src: Path, dst: Path):
         dest="freq",
         action="store",
         type=int,
-        default=3,
+        default=2,
         help="cut the dict to this frequency (default: %(default)s)",
     )
     group.add_argument(
@@ -30,22 +31,6 @@ def parse_args(src: Path, dst: Path):
         action="store",
         type=int,
         help="cut the dict to this length, 0 for unlimited",
-    )
-    parser.add_argument(
-        "-s",
-        dest="src",
-        action="store",
-        type=Path,
-        default=src,
-        help="path to the data source (default: %(default)s)",
-    )
-    parser.add_argument(
-        "-d",
-        dest="dst",
-        action="store",
-        type=Path,
-        default=dst,
-        help="path to the output file (default: %(default)s)",
     )
     return parser.parse_args()
 
@@ -66,16 +51,19 @@ def bisect_slice(a: list, x, d: dict):
 
 
 def main():
+    args = parse_args()
+
     src = Path(__file__).resolve().with_name("mgs_src.json")
-    args = parse_args(
-        src=src,
-        dst=src.parent.parent.joinpath("rina/mgs.json"),
-    )
+    dst = src.parents[1].joinpath("rina/mgs.json")
+    print(f"Source: {src}\nOutput: {dst}", file=sys.stderr)
 
-    print(f"Source: {args.src}\nOutput: {args.dst}", file=sys.stderr)
-
+    # copy source from `rebuilder` project
     try:
-        with open(args.src, "r", encoding="utf-8") as f:
+        shutil.copy(src.parents[2].joinpath("rebuilder/data/mgs_src.json"), src)
+    except FileNotFoundError as e:
+        pass
+    try:
+        with open(src, "r", encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, ValueError) as e:
         sys.exit(e)
@@ -130,17 +118,17 @@ def main():
     data.sort(key=itemgetter(1, 0))
     data = dict(data)
     try:
-        with open(args.dst, "r+", encoding="utf-8") as f:
+        with open(dst, "r+", encoding="utf-8") as f:
             if json.load(f) == data:
-                print(f"{args.dst.name} is up to date.", file=sys.stderr)
+                print(f"{dst.name} is up to date.", file=sys.stderr)
                 return
             f.seek(0)
             json.dump(data, f, separators=(",", ":"))
             f.truncate()
     except (FileNotFoundError, ValueError):
-        with open(args.dst, "w", encoding="utf-8") as f:
+        with open(dst, "w", encoding="utf-8") as f:
             json.dump(data, f, separators=(",", ":"))
-    print(f"Update: '{args.dst}'", file=sys.stderr)
+    print(f"Update: '{dst}'", file=sys.stderr)
 
 
 if __name__ == "__main__":
