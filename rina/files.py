@@ -70,7 +70,10 @@ class FileScanner:
          - glob (str): A glob pattern to match file names against.
          - inverse (bool): If True, exclude files that match the pattern.
         """
-        glob = re.compile(fnmatch.translate(glob)).match
+        glob = re.compile(
+            pattern=fnmatch.translate(glob),
+            flags=(re.IGNORECASE if os.name == "nt" else 0),
+        ).match
         if inverse:
             return lambda es: (e for e in es if not glob(e.name))
         else:

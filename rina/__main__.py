@@ -75,14 +75,14 @@ def process_stream(stream, args):
                 obj.print()
 
     stderr_write(f"{SEP_BOLD}\nApplying changes...\n")
-    for obj in progress(changed):
+    for obj in progressbar(changed):
         try:
             obj.apply()
         except OSError as e:
             logging.error(e)
 
 
-def progress(sequence, width: int = SEP_WIDTH):
+def progressbar(sequence, width: int = SEP_WIDTH):
     """Make an iterator that returns values from the input sequence while
     printing a progress bar."""
     total = len(sequence)
