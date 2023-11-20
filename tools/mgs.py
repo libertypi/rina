@@ -13,7 +13,7 @@ from operator import itemgetter
 from pathlib import Path
 
 
-def parse_args(source: Path, dest: Path):
+def parse_args(src: Path, dst: Path):
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
@@ -36,16 +36,16 @@ def parse_args(source: Path, dest: Path):
         dest="src",
         action="store",
         type=Path,
-        default=source,
-        help="path to data source (default: %(default)s)",
+        default=src,
+        help="path to the data source (default: %(default)s)",
     )
     parser.add_argument(
         "-d",
         dest="dst",
         action="store",
         type=Path,
-        default=dest,
-        help="path to output file (default: %(default)s)",
+        default=dst,
+        help="path to the output file (default: %(default)s)",
     )
     return parser.parse_args()
 
@@ -66,10 +66,10 @@ def bisect_slice(a: list, x, d: dict):
 
 
 def main():
-    source = Path(__file__).resolve().with_name("mgs_src.json")
+    src = Path(__file__).resolve().with_name("mgs_src.json")
     args = parse_args(
-        source=source,
-        dest=source.parent.parent.joinpath("rina/mgs.json"),
+        src=src,
+        dst=src.parent.parent.joinpath("rina/mgs.json"),
     )
 
     print(f"Source: {args.src}\nOutput: {args.dst}", file=sys.stderr)
