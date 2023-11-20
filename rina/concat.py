@@ -17,9 +17,9 @@ EXTS = {"avi", "m2ts", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ts", "wmv"}
 
 
 class VideoGroup(AVInfo):
-    keywidth = 6
+    keywidth = 7
 
-    def __init__(self, source: Tuple[Path], output: Path) -> None:
+    def __init__(self, source: Tuple[Path], output: Path, exist: bool) -> None:
         self.source = source
         self.output = output
         self.applied = False
@@ -27,17 +27,19 @@ class VideoGroup(AVInfo):
             "Source": source,
             "Output": output,
         }
-        try:
-            diff_streams = tuple(self._find_diff())
-        except Exception as e:
-            self.status = Status.ERROR
-            self.result["Error"] = str(e)
-            return
-        if diff_streams:
+        if exist:
             self.status = Status.WARNING
-            self.result["Diff"] = diff_streams
+            self.result["Warning"] = "Output file exists."
         else:
             self.status = Status.UPDATED
+        try:
+            diff_streams = tuple(self._find_diff())
+            if diff_streams:
+                self.status = Status.WARNING
+                self.result["Diffs"] = diff_streams
+        except Exception as e:
+            self.status = Status.ERROR
+            self.result["Error"] = e
 
     def _find_diff(self):
         """
@@ -134,8 +136,6 @@ def find_groups(root, scanner: FileScanner = None):
     """
     if scanner is None:
         scanner = FileScanner(exts=EXTS)
-    # Stores seen file names to avoid conflicts
-    seen = set()
     groups = defaultdict(dict)
     matcher = re.compile(
         r"""
@@ -149,11 +149,8 @@ def find_groups(root, scanner: FileScanner = None):
 
     for _, files in scanner.walk(root):
         groups.clear()
-        seen.clear()
         for e in files:
-            name = e.name
-            seen.add(name)
-            m = matcher(name)
+            m = matcher(e.name)
             if not m:
                 continue
             n = m["num"]
@@ -167,10 +164,12 @@ def find_groups(root, scanner: FileScanner = None):
             if 1 < n == max(v):
                 # consecutive numbers starting from 1
                 name = k[0] + k[2]  # pre + ext
-                if name in seen:
-                    continue
                 source = tuple(Path(v[i]) for i in range(1, n + 1))
-                yield VideoGroup(source=source, output=source[0].with_name(name))
+                yield VideoGroup(
+                    source=source,
+                    output=source[0].with_name(name),
+                    exist=any(name == e.name for e in files),
+                )
 
 
 if os.name == "nt":
