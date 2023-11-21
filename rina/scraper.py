@@ -23,7 +23,7 @@ _subdash = re.compile(r"[-_+]+").sub
 _subbraces = re.compile(r"[\s()\[\].-]+").sub
 _valid_id = re.compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
 _has_word = re.compile(r"\w").search
-_clean_re = re.compile(
+_sub_trash = re.compile(
     r"""\b(
     ([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}@|
     [\[(](([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}|hd|jav)[\])]|
@@ -888,7 +888,7 @@ def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
 def scrape(string: str) -> Optional[ScrapeResult]:
     """Scrape information from a string."""
 
-    string = _clean_re(" ", _subdash("-", string.lower()))
+    string = _sub_trash(" ", _subdash("-", string.lower()))
 
     m = _search_re(string)
     if m:
