@@ -37,6 +37,7 @@ SITE_SETTINGS = {
         "headers": {"Accept-Language": "ja"},
     },
     "www.mgstage.com": {
+        "max_connection": 10,
         "cookies": {"adc": "1"},
     },
     "www.caribbeancom.com": {

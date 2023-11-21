@@ -19,9 +19,19 @@ from rina.utils import join_root, re_search, re_sub, str_to_epoch, strptime
 
 # Regular expressions
 _subspace = re.compile(r"\s+").sub
+_subdash = re.compile(r"[-_+]+").sub
 _subbraces = re.compile(r"[\s()\[\].-]+").sub
 _valid_id = re.compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
 _has_word = re.compile(r"\w").search
+_clean_re = re.compile(
+    r"""\b(
+    ([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}@|
+    [\[(](([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}|hd|jav)[\])]|
+    ([a-z]+2048|\d+sht|thzu?|168x|44x|hotavxxx|nyap2p|3xplanet|sogclub|sis001|sexinsex|hhd800)(\.[a-z]{2,4})?|
+    dioguitar23|(un|de)?censored|nodrm|fhd|1000[\s-]?giri
+    )\b|\s+""",
+    flags=re.VERBOSE,
+).sub
 _trans_sep = {ord(c): r"[\s_-]*0*" for c in " _-"}
 
 
@@ -95,17 +105,17 @@ class Scraper(ABC):
                 logging.warning("JavBus is walled, consider switching network.")
                 return
             res.raise_for_status()
-            ok = True
+            http_ok = True
         except HTTPError:
             if self.uncensored_only:
                 return
-            ok = False
+            http_ok = False
         except RequestException as e:
             logging.warning(e)
             return
 
         tree = html_fromstring(res.content)
-        if ok:
+        if http_ok:
             result = self._parse_javbus(tree)
             if result or self.uncensored_only:
                 return result
@@ -121,16 +131,10 @@ class Scraper(ABC):
             return self._parse_javbus(tree)
 
     def _parse_javbus(self, tree: HtmlElement):
-        try:
-            tree = tree.find('.//div[@id="waterfall"]').iterfind(
-                './/a[@class="movie-box"]//span'
-            )
-        except AttributeError as e:
-            self.error(e)
-            return
-
         mask = self._get_keyword_mask()
-        for span in tree:
+        for span in tree.iterfind(
+            './/div[@id="waterfall"]//a[@class="movie-box"]//span'
+        ):
             product_id = span.findtext("date[1]", "")
             if mask(product_id):
                 title = span.text
@@ -139,7 +143,6 @@ class Scraper(ABC):
                         title = re_sub(r"^【(お得|特価)】\s*", "", title)
                 except IndexError:
                     continue
-
                 return ScrapeResult(
                     product_id=product_id,
                     title=title,
@@ -170,7 +173,8 @@ class Scraper(ABC):
         mask = self._mask
         if not mask:
             mask = self._mask = re.compile(
-                rf"\s*{self.keyword.translate(_trans_sep)}\s*", flags=re.I
+                rf"\s*{self.keyword.translate(_trans_sep)}\s*",
+                re.IGNORECASE,
             ).fullmatch
         return mask
 
@@ -721,7 +725,9 @@ class OneKGiri(Scraper):
 
 
 class PatternSearcher(Scraper):
-    regex = r"[0-9]{,5}(?P<uid>[a-z]{2,10})-?(?P<z>0)*(?P<num>(?(z)[0-9]{3,8}|[0-9]{2,8}))(?:[hm]hb[0-9]{,2})?"
+    """MGS scraper."""
+
+    regex = r"(?P<num>[0-9]{,5})(?P<pre>[a-z]{2,9})-?(?=[0-9]*?[1-9])(?P<sfx>[0-9]{2,8})(?:(?P<hhb>[hm]hb[0-9]{,2})|ch?)?"
     mgs_get = None
 
     @classmethod
@@ -732,48 +738,55 @@ class PatternSearcher(Scraper):
         cls.mgs_get = mgs.get
 
     def _search(self):
-        m = self.match
-        uid = m["uid"]
-        self.keyword = f'{uid.upper()}-{m["num"]}'
+        num, pre, sfx = self.match.group("num", "pre", "sfx")
+
+        if len(sfx) > 3:
+            sfx = sfx.lstrip("0").zfill(3)  # 00079 -> 079
+        self.keyword = f"{pre.upper()}-{sfx}"
 
         try:
-            number = self.mgs_get(uid)
+            nums = self.mgs_get(pre)
         except TypeError:
             self._load_mgs()
-            number = self.mgs_get(uid)
-        if number is None:
-            return
+            nums = self.mgs_get(pre)
 
-        number += self.keyword
-        tree = get_tree(f"https://www.mgstage.com/product/product_detail/{number}/")
-        if tree is None or number not in tree.base_url:
-            return
-
-        tree = tree.find(
-            './/article[@id="center_column"]/div[@class="common_detail_cover"]'
-        )
-        try:
-            title = re_sub(r"^(\s*【.*?】)+|【[^】]*映像付】|\+\d+分\b", "", tree.findtext("h1"))
-        except (AttributeError, TypeError) as e:
-            self.error(e)
+        if len(num) > 1 and not self.match["hhb"]:
+            nums = (num, *(i for i in nums if num != i)) if nums else (num,)
+        elif not nums:
             return
 
         xp = xpath(
-            "string(.//table/tr/th[contains(., $title)]"
-            '/following-sibling::td[contains(., "20")])'
+            'string(.//table/tr/th[contains(., $title)]/following-sibling::td[contains(., "20")])'
         )
-        date = xp(tree, title="発売日") or xp(tree, title="開始日")
+        for num in nums:
+            num += self.keyword
+            tree = get_tree(f"https://www.mgstage.com/product/product_detail/{num}/")
+            if tree is None or num not in tree.base_url:
+                continue
 
-        return ScrapeResult(
-            product_id=self.keyword,
-            title=title,
-            publish_date=str_to_epoch(date),
-            source="mgstage.com",
-        )
+            tree = tree.find(
+                './/article[@id="center_column"]/div[@class="common_detail_cover"]'
+            )
+            try:
+                title = re_sub(
+                    r"^(\s*【.*?】)+|【[^】]*映像付】|\+\d+分\b", "", tree.findtext("h1")
+                )
+            except (AttributeError, TypeError) as e:
+                self.error(e)
+                return
+
+            date = xp(tree, title="発売日") or xp(tree, title="開始日")
+            return ScrapeResult(
+                product_id=self.keyword,
+                title=title,
+                publish_date=str_to_epoch(date),
+                source="mgstage.com",
+            )
 
 
 class DateSearcher:
     source = "date string"
+    fmt = {}
 
     def _init_regex():
         template = [
@@ -810,13 +823,10 @@ class DateSearcher:
             "b": r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
             "B": r"(january|february|march|april|may|june|july|august|september|october|november|december)",
         }  # yapf: disable
-        regex = tuple(t.format_map(fmt) for t in template)
 
-        fmt.clear()
-        return regex, fmt
+        return tuple(t.format_map(fmt) for t in template)
 
-    regex, fmt = _init_regex()
-    del _init_regex
+    regex = _init_regex()
 
     @classmethod
     def search(cls, m: re.Match):
@@ -878,7 +888,7 @@ def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
 def scrape(string: str) -> Optional[ScrapeResult]:
     """Scrape information from a string."""
 
-    string = _clean_re(" ", string.lower()).replace("_", "-")
+    string = _clean_re(" ", _subdash("-", string.lower()))
 
     m = _search_re(string)
     if m:
@@ -914,16 +924,3 @@ _search_map = {
 _search_re = _combine_scraper_regex(*_search_map.values()).search
 _iter_re = _combine_scraper_regex(PatternSearcher).finditer
 _date_re = _combine_scraper_regex(DateSearcher).search
-_clean_re = re.compile(
-    r"""
-    \s*\[(?:[a-z0-9.-]+\.[a-z]{2,4}|f?hd|jav)\]\s*|
-    (?:[\s\[_-]+|\b)(?:
-        (?:[a-z]+2048|\d+sht|thzu?|168x|44x)\.[a-z]{2,4}|
-        (?:hotavxxx|nyap2p|3xplanet|sogclub|sis001|sexinsex)(?:\.[a-z]{2,4})?|
-        [a-z0-9.-]+\.[a-z]{2,4}@|
-        dioguitar23|uncensored|nodrm|fhd|tokyo[\s_-]?hot|1000[\s_-]?giri
-    )(?:[\s\]_-]+|\b)|
-    \s+
-    """,
-    flags=re.VERBOSE,
-).sub

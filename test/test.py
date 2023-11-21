@@ -174,6 +174,7 @@ class Test_Scraper(unittest.TestCase):
         values = {
             "siro-1204": ("SIRO-1204", "体験撮影438", 1349136000),
             "DANDY-241": ("DANDY-241", "風呂", 1308355200),
+            "PPP-001": ("PPP-001", "吉田美鈴", 1498348800),
         }
         self._run_test(values, source)
 

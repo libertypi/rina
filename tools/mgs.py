@@ -2,7 +2,6 @@
 
 # This script is intended to generate `rina/mgs.json`
 # Data source: `./mgs_src.json` from my `rebuilder` project
-# run `mgs.py -h` for help
 
 import argparse
 import json
@@ -16,8 +15,7 @@ from pathlib import Path
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(
+    parser.add_argument(
         "-f",
         dest="freq",
         action="store",
@@ -25,32 +23,29 @@ def parse_args():
         default=2,
         help="cut the dict to this frequency (default: %(default)s)",
     )
-    group.add_argument(
-        "-l",
-        dest="length",
-        action="store",
-        type=int,
-        help="cut the dict to this length, 0 for unlimited",
-    )
     return parser.parse_args()
 
 
-def bisect_slice(a: list, x, d: dict):
-    """Slice a reversely sorted list `a` to the first element whose value in `d`
-    is smaller than `x`.
-    """
+def reverse_bisect_left(a: list, x: int, i: int):
+    """Locate the cut point `c` so that every `e[i]` in `a[:c]` have
+    `e[i] >= x`. Note that `a` is reverse-sorted list of tuples."""
     lo = 0
     hi = len(a)
     while lo < hi:
         mid = (lo + hi) // 2
-        if x > d[a[mid]]:
+        if a[mid][i] < x:
             hi = mid
         else:
             lo = mid + 1
-    return a[:lo]
+    return lo
 
 
 def main():
+    """
+    Source format: [num][prefix]-[suffix] (e.g., 001AVGP-136)
+    Output format: {prefix: [num1, num2, ...], ...}
+    Only keeps prefix-num pairs that appear more than `args.freq` times
+    """
     args = parse_args()
 
     src = Path(__file__).resolve().with_name("mgs_src.json")
@@ -64,70 +59,63 @@ def main():
         pass
     try:
         with open(src, "r", encoding="utf-8") as f:
-            data = json.load(f)
+            result = json.load(f)
     except (OSError, ValueError) as e:
         sys.exit(e)
 
-    regex = re.compile(r"([0-9]*)([a-z]{2,10})[_-]?([0-9]{2,8})").fullmatch
-    group = defaultdict(set)
-    for i in filter(None, map(regex, map(str.lower, data))):
-        group[i[2], i[1]].add(int(i[3]))
+    # Group data from source, using a set to eliminate duplications.
+    # groups[(prefix, num)] = {suffix1, suffix2, ...}
+    regex = re.compile(r"([0-9]*)([a-z]{2,})-([0-9]{2,})").fullmatch
+    groups = defaultdict(set)
+    sfx_len = set()
+    for i in filter(None, map(regex, map(str.lower, result))):
+        groups[i[2], i[1]].add(int(i[3]))
+        sfx_len.add(len(i[3]))
 
-    # (prefix, digit): frequency
-    group = dict(zip(group, map(len, group.values())))
+    # Measure the frequency and sort the groups:
+    # 1. with prefix so it looks nice
+    # 2. with frequency, from the highest to the lowest, so the program starts
+    #    with a more common `num`
+    # groups = [(prefix, num, frequency), ...]
+    groups = sorted(((*k, len(v)) for k, v in groups.items()))
+    get_third = itemgetter(2)
+    groups.sort(key=get_third, reverse=True)
+    total = sum(map(get_third, groups))
 
-    # list of tuples, sorted reversely by frequency
-    # [0]: prefix, [1]: digit
-    data = sorted(group)
-    data.sort(key=group.get, reverse=True)
-
-    # Trim data to `length` or `freq`. For the prefixes with multiple digits, keep
-    # the most frequent one.
-    tmp = {}
-    setdefault = tmp.setdefault
-    if args.length is None:
-        for k, v in bisect_slice(data, args.freq, group):
-            setdefault(k, v)
-    else:
-        i = args.length if args.length > 0 else len(data)
-        for k, v in data:
-            if setdefault(k, v) == v:
-                i -= 1
-                if not i:
-                    break
-
-    data[:] = tmp.items()
-    if not data:
+    # Slice the list so that all items have a frequency >= args.freq
+    groups = groups[: reverse_bisect_left(groups, args.freq, 2)]
+    if not groups:
         sys.exit("Empty result.")
 
-    length = len(data)
-    total_entry = sum(group.values())
-    used_entry = sum(map(group.get, data))
-    key_len = frozenset(map(len, tmp))
-    val_len = frozenset(map(len, tmp.values()))
+    # Produce the result
+    result = defaultdict(list)
+    for prefix, num, _ in groups:
+        result[prefix].append(num)
+
+    covered = sum(map(get_third, groups))
+    pre_len = frozenset(len(v[0]) for v in groups)
+    num_len = frozenset(len(v[1]) for v in groups)
     print(
         "Result:\n"
-        f"  Dictionary length: {length}\n"
-        f"  Product coverage : {used_entry} / {total_entry} ({used_entry / total_entry:.1%})\n"
-        f"  Prefix coverage  : {length} / {len(group)} ({length / len(group):.1%})\n"
-        f"  Minimum frequency: {group[data[-1]]}\n"
-        f"  Key length range : {{{min(key_len)},{max(key_len)}}}\n"
-        f"  Val length range : {{{min(val_len)},{max(val_len)}}}"
+        f"  Dictionary length: {len(result)}\n"
+        f"  Product coverage : {covered} / {total} ({covered / total:.1%})\n"
+        f"  Frequency range  : {min(map(get_third, groups))} - {max(map(get_third, groups))}\n"
+        f"  Num len range    : {{{min(num_len)},{max(num_len)}}}\n"
+        f"  Prefix len range : {{{min(pre_len)},{max(pre_len)}}}\n"
+        f"  Suffix len range : {{{min(sfx_len)},{max(sfx_len)}}}"
     )
 
-    data.sort(key=itemgetter(1, 0))
-    data = dict(data)
     try:
         with open(dst, "r+", encoding="utf-8") as f:
-            if json.load(f) == data:
+            if json.load(f) == result:
                 print(f"{dst.name} is up to date.", file=sys.stderr)
                 return
             f.seek(0)
-            json.dump(data, f, separators=(",", ":"))
+            json.dump(result, f, separators=(",", ":"))
             f.truncate()
     except (FileNotFoundError, ValueError):
         with open(dst, "w", encoding="utf-8") as f:
-            json.dump(data, f, separators=(",", ":"))
+            json.dump(result, f, separators=(",", ":"))
     print(f"Update: '{dst}'", file=sys.stderr)
 
 
