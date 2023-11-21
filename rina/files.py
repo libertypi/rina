@@ -10,6 +10,9 @@ from rina.utils import stderr_write, strftime
 
 
 class FileScanner:
+    _exts: set = None
+    _newer: float = None
+
     def __init__(
         self,
         recursive: bool = True,
@@ -36,7 +39,9 @@ class FileScanner:
         self.dirfilters = []
 
         if exts is not None:
-            mainfilters.append(self._get_ext_filter(exts))
+            assert isinstance(exts, set), "expect `exts` to be 'set'"
+            self._exts = exts
+            mainfilters.append(self._ext_filter)
         if include is not None:
             mainfilters.append(self._get_glob_filter(include))
         if exclude is not None:
@@ -44,21 +49,8 @@ class FileScanner:
         if exclude_dir is not None:
             self.dirfilters.append(self._get_glob_filter(exclude_dir, True))
         if newer is not None:
-            mainfilters.append(lambda es: (e for e in es if e.stat().st_mtime >= newer))
-
-    @staticmethod
-    def _get_ext_filter(exts):
-        """Create a filter function to include files based on their extensions."""
-        if not isinstance(exts, (set, frozenset)):
-            exts = frozenset(exts)
-
-        def _ext_filter(es):
-            for e in es:
-                parts = e.name.rpartition(".")
-                if parts[0] and parts[2].lower() in exts:
-                    yield e
-
-        return _ext_filter
+            self._newer = newer
+            mainfilters.append(self._mtime_filter)
 
     @staticmethod
     def _get_glob_filter(glob: str, inverse: bool = False):
@@ -77,6 +69,24 @@ class FileScanner:
             return lambda es: (e for e in es if not glob(e.name))
         else:
             return lambda es: (e for e in es if glob(e.name))
+
+    def _ext_filter(self, es):
+        """Filter function to include files based on their extensions."""
+        exts = self._exts
+        for e in es:
+            parts = e.name.rpartition(".")
+            if parts[0] and parts[2].lower() in exts:
+                yield e
+
+    def _mtime_filter(self, es):
+        """Filter function to include files based on their mtime."""
+        newer = self._newer
+        for e in es:
+            try:
+                if e.stat().st_mtime > newer:
+                    yield e
+            except OSError:
+                pass
 
     def scandir(self, root, ftype: str = "file") -> Generator[os.DirEntry, None, None]:
         """
@@ -115,10 +125,10 @@ class FileScanner:
                         except OSError:
                             is_dir = False
                         (dirs if is_dir else files).append(e)
-                for f in dirfilters:
-                    dirs[:] = f(dirs)
-                for f in mainfilters:
-                    output[:] = f(output)
+                    for f in dirfilters:
+                        dirs[:] = f(dirs)
+                    for f in mainfilters:
+                        output[:] = f(output)
             except OSError as e:
                 logging.error(e)
             else:
@@ -154,10 +164,10 @@ class FileScanner:
                         except OSError:
                             is_dir = False
                         (dirs if is_dir else files).append(e)
-                for f in dirfilters:
-                    dirs[:] = f(dirs)
-                for f in mainfilters:
-                    files[:] = f(files)
+                    for f in dirfilters:
+                        dirs[:] = f(dirs)
+                    for f in mainfilters:
+                        files[:] = f(files)
             except OSError as e:
                 logging.error(e)
             else:
@@ -204,7 +214,7 @@ def _update_dirtime(root, total=0, updated=0):
         with os.scandir(root) as it:
             for e in it:
                 try:
-                    is_dir = e.is_dir()
+                    is_dir = e.is_dir(follow_symlinks=False)
                 except OSError:
                     is_dir = False
                 if is_dir:

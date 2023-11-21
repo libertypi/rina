@@ -34,8 +34,7 @@ def get_year_regex(year: int):
       - 56 -> [0-4][0-9]|5[0-6]
       - 59 -> [0-5][0-9]
     """
-    if not 0 <= year <= 99:
-        raise ValueError(f"value out of range: {year}")
+    assert 0 <= year <= 99, f"value out of range: {year}"
     digit_reg = lambda n: f"[0-{n}]" if n > 1 else "[01]" if n else "0"
     tens, ones = divmod(year, 10)
     if tens > 0 and ones < 9:
