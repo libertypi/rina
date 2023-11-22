@@ -59,7 +59,7 @@ class ScrapeResult:
 
 
 class Scraper(ABC):
-    """Base class for scrapers."""
+    """Base class for all scrapers."""
 
     regex: str
     keyword: str
@@ -91,6 +91,11 @@ class Scraper(ABC):
                     return result
 
     def _search(self) -> Optional[ScrapeResult]:
+        """
+        Abstract method to be implemented by subclasses:
+         - Set `self.keyword`
+         - Conduct site-specific searches
+        """
         raise NotImplementedError
 
     def _javbus(self):
