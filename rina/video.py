@@ -5,7 +5,7 @@ from typing import Generator
 
 from rina.files import DiskScanner, get_scanner
 from rina.scraper import ScrapeResult, _has_word, scrape
-from rina.utils import AVInfo, Status, re_search, re_sub, re_subn, strftime
+from rina.utils import AVInfo, Status, re_search, re_sub, strftime
 
 _NAMEMAX = 255
 
@@ -98,27 +98,28 @@ class AVFile(AVString):
 
     def _get_filename(self, product_id: str, title: str):
         """
-        Generates a valid filename based on product ID, title, and specific
-        naming rules.
+        Generates a valid filename based on product ID, and title.
         """
         suffix = self.source.suffix.lower()
         namemax = _NAMEMAX - len(product_id.encode()) - len(suffix.encode()) - 1
         if namemax <= 0:
             return
 
-        # Replace forbidden characters with a whitespace
-        title = re_sub(r'[\x00-\x1f\x7f\s<>:"/\\|?* 　]+', " ", title)
-
-        # Replace empty brackets with a space, and eliminate repeating spaces
+        # Remove characters
+        title = re_sub(r"[\x00-\x1f\x7f*]+", "", title)
+        # Replace with '-'
+        title = re_sub(r'[<>:"/\\|?-]+', "-", title)
+        # Replace empty brackets with a space, and compress all spaces
         # opening brackets: [【「『｛（《\[(]
         # closing brackets: [】」』｝）》\])]
-        m = True
-        while m:
-            title, m = re_subn(r"[【「『｛（《\[(]\s*[】」』｝）》\])]|\s{2,}", " ", title)
-
+        title = re_sub(r"\s*[【「『｛（《\[(]\s*[】」』｝）》\])]\s*|\s+", " ", title)
         # Strip certain leading and trailing characters
-        strip_re = r"^[-_\s。.,、？！!…]+|[-_\s。.,、]+$"
-        title = re_sub(strip_re, "", title)
+        strip_chars = " -_。.,、"
+        title = title.lstrip(" -_。.,、？！!…").rstrip(strip_chars)
+
+        if len(title.encode("utf-8")) > namemax:
+            # Remove spaces before and after non-word characters
+            title = re_sub(r"\s+(?=[^\w\s])|(?<=[^\w\s])\s+", "", title)
 
         while len(title.encode("utf-8")) > namemax:
             # Truncate title:
@@ -128,7 +129,7 @@ class AVFile(AVString):
             # ...]↑     |   ...↑
             m = re_search(r".*?\w.*(?:[】」』｝）》\])？！!…](?=.)|(?=\W))", title)
             if m:
-                title = re_sub(strip_re, "", m[0])
+                title = m[0].rstrip(strip_chars)
             else:
                 # No suitable breakpoint is found, do a hard cut
                 title = title.encode("utf-8")[:namemax].decode("utf-8", "ignore")

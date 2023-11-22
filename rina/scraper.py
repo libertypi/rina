@@ -70,12 +70,12 @@ class Scraper(ABC):
 
     regex: str
     keyword: str
-    uncensored_only: bool = False
+    uncensored: bool = False
+    _mask = None
 
-    def __init__(self, string: str, match: re.Match) -> None:
-        self.string = string
+    def __init__(self, match: re.Match) -> None:
         self.match = match
-        self._mask = None
+        self.string = match.string
 
     def search(self):
         for func in self._search, self._javbus, self._javdb:
@@ -88,7 +88,7 @@ class Scraper(ABC):
                     continue
                 if _valid_id(product_id) and _has_word(title):
                     result.title = title
-                    result.product_id = self._process_id(product_id)
+                    result.product_id = self._add_suffix(product_id)
                     assert (
                         isinstance(result.publish_date, float)
                         or result.publish_date is None
@@ -107,7 +107,7 @@ class Scraper(ABC):
             res.raise_for_status()
             http_ok = True
         except HTTPError:
-            if self.uncensored_only:
+            if self.uncensored:
                 return
             http_ok = False
         except RequestException as e:
@@ -117,7 +117,7 @@ class Scraper(ABC):
         tree = html_fromstring(res.content)
         if http_ok:
             result = self._parse_javbus(tree)
-            if result or self.uncensored_only:
+            if result or self.uncensored:
                 return result
 
         result = xpath(
@@ -178,20 +178,15 @@ class Scraper(ABC):
             ).fullmatch
         return mask
 
-    def _process_id(self, product_id: str) -> str:
+    def _add_suffix(self, product_id: str) -> str:
         m = self.match
         suffix = re_search(
-            r"^\s*(?:(?:f?hd|sd|cd|dvd|vol|[hm]hb|part)\s?|(?:216|108|72|48)0p\s)*"
+            r"^\s*(?:(?:f?hd|cd|dvd|vol|[hm]hb|part)\s*|(?:4k|sd|(?:216|108|72|48)0p)\s+)*"
             r"(?P<s>[1-9][0-9]?|[a-d])\b",
             _subbraces(" ", self.string[m.end(m.lastindex) :]),
         )
-
         if suffix:
-            suffix = suffix["s"]
-            if suffix in "abcd":
-                suffix = suffix.upper()
-            return f"{product_id}-{suffix}"
-
+            return f'{product_id}-{suffix["s"].upper()}'
         return product_id
 
     def warning(self, msg):
@@ -206,7 +201,7 @@ class Scraper(ABC):
 
 
 class StudioScraper(Scraper):
-    uncensored_only = True
+    uncensored = True
     regex = r"(?P<studio>(?P<s1>{m}{d}{y}|(?P<s4>{y}{m}{d}))-(?P<s2>[0-9]{{2,4}})(?:-(?P<s3>0[0-9]))?)".format(
         y=rf"(?:{REG_Y})",
         m=rf"(?:{REG_M})",
@@ -387,7 +382,7 @@ class StudioScraper(Scraper):
         if self.match["s3"]:
             self.keyword = "_".join(self.match.group("s1", "s2", "s3"))
 
-    def _process_id(self, product_id: str) -> str:
+    def _add_suffix(self, product_id: str) -> str:
         result = [product_id, self.studio] if self.studio else [product_id]
 
         i = self.match.end()
@@ -405,7 +400,7 @@ class StudioScraper(Scraper):
 
 
 class HeyzoScraper(Scraper):
-    uncensored_only = True
+    uncensored = True
     source = "heyzo.com"
     regex = r"heyzo[^0-9]*(?P<heyzo>[0-9]{4})"
 
@@ -447,7 +442,7 @@ class HeyzoScraper(Scraper):
 
 
 class FC2Scraper(Scraper):
-    uncensored_only = True
+    uncensored = True
     source = "fc2.com"
     regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{4,10})"
 
@@ -483,7 +478,7 @@ class FC2Scraper(Scraper):
 
 
 class HeydougaScraper(Scraper):
-    uncensored_only = True
+    uncensored = True
     source = "heydouga.com"
     regex = r"heydouga[^0-9]*(?P<h1>[0-9]{4})[^0-9]+(?P<heydou>[0-9]{3,6})"
 
@@ -535,7 +530,7 @@ class HonnamatvScraper(HeydougaScraper):
 
 
 class X1XScraper(Scraper):
-    uncensored_only = True
+    uncensored = True
     source = "x1x.com"
     regex = r"x1x(?:\.com)?[\s-]+(?P<x1x>[0-9]{6})"
 
@@ -568,7 +563,7 @@ class X1XScraper(Scraper):
 
 
 class SMMiracleScraper(Scraper):
-    uncensored_only = True
+    uncensored = True
     source = "sm-miracle.com"
     regex = r"sm[\s-]*miracle(?:[\s-]+no)?[\s.-]+e?(?P<sm>[0-9]{4})"
 
@@ -596,7 +591,7 @@ class SMMiracleScraper(Scraper):
 
 
 class H4610Scraper(Scraper):
-    uncensored_only = True
+    uncensored = True
     regex = r"(?P<h41>h4610|[ch]0930)\W+(?P<h4610>[a-z]+[0-9]+)"
 
     def _search(self):
@@ -630,7 +625,7 @@ class H4610Scraper(Scraper):
 
 
 class Kin8Scraper(Scraper):
-    uncensored_only = True
+    uncensored = True
     source = "kin8tengoku.com"
     regex = r"kin8(?:tengoku)?[^0-9]*(?P<kin8>[0-9]{4})"
 
@@ -666,7 +661,7 @@ class Kin8Scraper(Scraper):
 
 
 class GirlsDeltaScraper(Scraper):
-    uncensored_only = True
+    uncensored = True
     source = "girlsdelta.com"
     regex = r"girls[\s-]?delta[^0-9]*(?P<gd>[0-9]{3,4})"
 
@@ -697,7 +692,7 @@ class GirlsDeltaScraper(Scraper):
 
 
 class UncensoredScraper(Scraper):
-    uncensored_only = True
+    uncensored = True
     regex = (
         r"((?:gs|jiro|ka|kosatsu|mldo|ot|red|sg|sky|sr|tr|wl)[0-9]{3})",
         r"((?:(?:ham|liv)esamurai|it|jpgc|jup|kb?|lb|ma|n|pf|pp|sp|tar|wald)[0-2][0-9]{3})",
@@ -715,7 +710,7 @@ class UncensoredScraper(Scraper):
 
 
 class OneKGiriScraper(Scraper):
-    uncensored_only = True
+    uncensored = True
     regex = rf"((?:{REG_Y})(?:{REG_M})(?:{REG_D}))[\s-]+([a-z]{{3,8}})(?:-(?P<kg>[a-z]{{3,6}}))?"
 
     def _search(self):
@@ -725,7 +720,8 @@ class OneKGiriScraper(Scraper):
 
 
 class MGSScraper(Scraper):
-    regex = r"(?P<num>[0-9]{,5})(?P<pre>[a-z]{2,9})-?(?=[0-9]*?[1-9])(?P<sfx>[0-9]{2,8})(?:(?P<hhb>[hm]hb[0-9]{,2})|ch?)?"
+    # This regex is compiled as is and using finditer
+    regex = r"\b(?:[0-9]?|(?P<num>[0-9]{2,5}))(?P<pre>[a-z]{2,9})-?(?=[0-9]*?[1-9])(?P<sfx>[0-9]{2,8})(?:[a-d]?|(?P<hhb>)[hm]hb[0-9]{,2})\b"
     mgs_get = None
 
     @classmethod
@@ -748,7 +744,7 @@ class MGSScraper(Scraper):
             self._load_mgs()
             nums = self.mgs_get(pre)
 
-        if len(num) > 1 and not self.match["hhb"]:
+        if num and self.match["hhb"] is None:
             nums = (num, *(i for i in nums if num != i)) if nums else (num,)
         elif not nums:
             return
@@ -757,9 +753,10 @@ class MGSScraper(Scraper):
             'string(.//table/tr/th[contains(., $title)]/following-sibling::td[contains(., "20")])'
         )
         for num in nums:
-            num += self.keyword
-            tree = get_tree(f"https://www.mgstage.com/product/product_detail/{num}/")
-            if tree is None or num not in tree.base_url:
+            tree = get_tree(
+                f"https://www.mgstage.com/product/product_detail/{num}{self.keyword}/"
+            )
+            if tree is None or self.keyword not in tree.base_url:
                 continue
 
             tree = tree.find(
@@ -861,7 +858,7 @@ def _load_json_ld(tree: HtmlElement):
         )
 
 
-def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
+def _combine_regex(*args: Scraper, b=r"\b") -> re.Pattern:
     """Combine one or more scraper regexes to form a single pattern."""
     item = []
     for scraper in args:
@@ -873,13 +870,12 @@ def _combine_scraper_regex(*args: Scraper, b=r"\b") -> re.Pattern:
             item.extend(regex)
 
     result = "|".join(item)
-    assert "_" not in result, f'"_" in regex: {result}'
-
     if len(item) == 1:
         result = f"{b}{result}{b}"
     else:
         result = f"{b}(?:{result}){b}"
 
+    assert "_" not in result, f'"_" in regex: {result}'
     return re.compile(result)
 
 
@@ -888,23 +884,22 @@ def scrape(string: str) -> Optional[ScrapeResult]:
 
     string = _sub_trash(" ", _subdash("-", string.lower()))
 
-    m = _search_re(string)
+    m = _maker_matcher(string)
     if m:
-        result = _search_map[m.lastgroup](string, m).search()
+        result = _scraper_map[m.lastgroup](m).search()
         if result:
             return result
-
-    for m in _iter_re(string):
-        result = MGSScraper(string, m).search()
-        if result:
-            return result
-
-    m = _date_re(string)
+    else:
+        for m in _general_matcher(string):
+            result = MGSScraper(m).search()
+            if result:
+                return result
+    m = _date_matcher(string)
     if m:
         return DateSearcher.search(m)
 
 
-_search_map = {
+_scraper_map = {
     "studio": StudioScraper,
     "heyzo": HeyzoScraper,
     "fc2": FC2Scraper,
@@ -919,6 +914,6 @@ _search_map = {
     None: UncensoredScraper,
     "kg": OneKGiriScraper,
 }
-_search_re = _combine_scraper_regex(*_search_map.values()).search
-_iter_re = _combine_scraper_regex(MGSScraper).finditer
-_date_re = _combine_scraper_regex(DateSearcher).search
+_maker_matcher = _combine_regex(*_scraper_map.values()).search
+_general_matcher = re.compile(MGSScraper.regex).finditer
+_date_matcher = _combine_regex(DateSearcher).search

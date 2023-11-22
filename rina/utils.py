@@ -152,7 +152,3 @@ def re_search(pattern: str, string: str, flags: int = 0):
 
 def re_sub(pattern: str, repl, string: str, count: int = 0, flags: int = 0):
     return cached_compile(pattern, flags).sub(repl, string, count)
-
-
-def re_subn(pattern: str, repl, string: str, count: int = 0, flags: int = 0):
-    return cached_compile(pattern, flags).subn(repl, string, count)

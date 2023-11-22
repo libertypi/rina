@@ -46,23 +46,23 @@ def process_stream(stream, args):
         elif obj.status == Status.FAILURE:
             failure.append(obj)
 
-    stderr_write(f"{SEP_BOLD}\n{args.command.title()} scan finished.\n")
-
-    msg = f"Total: {total}. Changed: {len(changed)}. Failure: {len(failure)}."
+    if total:
+        stderr_write(f"{SEP_BOLD}\n")
+    stderr_write(
+        f"{args.command.title()} scan finished.\n"
+        f"Total: {total}. Changed: {len(changed)}. Failure: {len(failure)}.\n"
+    )
     if not changed:
-        stderr_write(f"{msg}\nNo change can be made.\n")
+        stderr_write("No change can be made.\n")
         return
 
-    if args.quiet:
-        stderr_write(msg + "\n")
-    else:
+    if not args.quiet:
         msg = (
             f"{SEP_BOLD}\n"
-            f"{msg}\n"
             "Please choose an option:\n"
-            "1) apply changes\n"
-            "2) reload changes\n"
-            "3) reload failures\n"
+            f"1) apply changes ({len(changed)} items)\n"
+            f"2) reload changes ({len(changed)} items)\n"
+            f"3) reload failures ({len(failure)} items)\n"
             "4) quit\n"
         )
         while True:
