@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 
 from rina import birth, files, idol, scraper, video
-from rina.connection import get_tree
+from rina.network import get_tree
 
 
 class DynamicClass:

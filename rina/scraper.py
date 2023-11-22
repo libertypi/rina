@@ -6,15 +6,8 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Optional
 
-from rina.connection import (
-    HtmlElement,
-    HTTPError,
-    RequestException,
-    get,
-    get_tree,
-    html_fromstring,
-    xpath,
-)
+from rina import network
+from rina.network import get, get_tree, html_fromstring, random_choice, xpath
 from rina.utils import join_root, re_search, re_sub, str_to_epoch, strptime
 
 # Regular expressions
@@ -72,6 +65,8 @@ class Scraper(ABC):
     keyword: str
     uncensored: bool = False
     _mask = None
+    # shared among subclasses
+    _javdb_domains: list = None
 
     def __init__(self, match: re.Match) -> None:
         self.match = match
@@ -106,11 +101,11 @@ class Scraper(ABC):
                 return
             res.raise_for_status()
             http_ok = True
-        except HTTPError:
+        except network.HTTPError:
             if self.uncensored:
                 return
             http_ok = False
-        except RequestException as e:
+        except network.RequestException as e:
             logging.warning(e)
             return
 
@@ -130,7 +125,7 @@ class Scraper(ABC):
         if tree is not None:
             return self._parse_javbus(tree)
 
-    def _parse_javbus(self, tree: HtmlElement):
+    def _parse_javbus(self, tree: network.HtmlElement):
         mask = self._get_keyword_mask()
         for span in tree.iterfind(
             './/div[@id="waterfall"]//a[@class="movie-box"]//span'
@@ -151,7 +146,12 @@ class Scraper(ABC):
                 )
 
     def _javdb(self):
-        tree = get_tree(f"https://javdb.com/search?q={self.keyword}&f=all")
+        try:
+            domain = random_choice(self._javdb_domains)
+        except TypeError:
+            tree = self._set_javdb_alt_domains()
+        else:
+            tree = get_tree(f"{domain}search?q={self.keyword}&f=all")
         if tree is None or "/search" not in tree.base_url:
             return
 
@@ -168,6 +168,29 @@ class Scraper(ABC):
                     publish_date=str_to_epoch(v.findtext('../div[@class="meta"]')),
                     source="javdb.com",
                 )
+
+    def _set_javdb_alt_domains(self):
+        domains = ["https://javdb.com/"]
+        tree = get_tree(f"{domains[0]}search?q={self.keyword}&f=all")
+        if tree is None:
+            return
+        for d in tree.xpath(
+            ".//nav[@class='sub-header']/div[@class='content']/text()[contains(., '最新域名')]"
+            "/following-sibling::a/@href[not(contains(., '.app'))]",
+            smart_strings=False,
+        ):
+            pr = network.urlparse(d)
+            if not (pr.scheme and pr.netloc):
+                continue
+            d = f"{pr.scheme}://{pr.netloc}/"
+            if d in domains:
+                continue
+            domains.append(d)
+            network.set_alias(pr.netloc, "javdb.com")
+        if len(domains) == 1:
+            self.warning(f"unable to find alt domains on page: {tree.base_url}")
+        Scraper._javdb_domains = domains
+        return tree
 
     def _get_keyword_mask(self):
         mask = self._mask
@@ -339,9 +362,9 @@ class StudioScraper(Scraper):
         try:
             data = get(f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
             data.raise_for_status()
-        except HTTPError:
+        except network.HTTPError:
             return
-        except RequestException as e:
+        except network.RequestException as e:
             logging.warning(e)
             return
         try:
@@ -574,9 +597,9 @@ class SMMiracleScraper(Scraper):
         try:
             data = get(f"https://sm-miracle.com/movie/{uid}.dat")
             data.raise_for_status()
-        except HTTPError:
+        except network.HTTPError:
             return
-        except RequestException as e:
+        except network.RequestException as e:
             logging.warning(e)
             return
 
@@ -720,7 +743,8 @@ class OneKGiriScraper(Scraper):
 
 
 class MGSScraper(Scraper):
-    # This regex is compiled as is and using finditer
+    # This regex is compiled as is and matched with finditer. <hhb> matches
+    # empty string so it does not consume the sequence number.
     regex = r"\b(?:[0-9]?|(?P<num>[0-9]{2,5}))(?P<pre>[a-z]{2,9})-?(?=[0-9]*?[1-9])(?P<sfx>[0-9]{2,8})(?:[a-d]?|(?P<hhb>)[hm]hb[0-9]{,2})\b"
     mgs_get = None
 
@@ -840,7 +864,7 @@ class DateSearcher:
             logging.error(f"[{cls.__name__}] [{m[0]}] {e}")
 
 
-def _load_json_ld(tree: HtmlElement):
+def _load_json_ld(tree: network.HtmlElement):
     """Loads JSON-LD from tree.
 
     Raise TypeError if there is no json-ld, ValueError if parsing failed.

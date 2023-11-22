@@ -89,7 +89,7 @@ class DiskScanner:
         exts = self.exts
         for e in es:
             p = e.name.rpartition(".")
-            if p[0].strip(".") and p[2].lower() in exts:
+            if p[0].rstrip(".") and p[2].lower() in exts:
                 yield e
 
     def _mtime_filter(self, es):

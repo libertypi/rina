@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-from rina.connection import XPath, get_tree, xpath
+from rina.network import XPath, get_tree, xpath
 from rina.utils import AVInfo, Status, re_search, stderr_write, str_to_epoch, strftime
 
 

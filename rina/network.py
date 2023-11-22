@@ -29,7 +29,7 @@ SITE_SETTINGS = {
         "headers": {"Accept-Language": "zh"},
     },
     "javdb.com": {
-        "max_connection": 2,
+        "max_connection": 1,
         "cookies": {"over18": "1", "locale": "zh"},
     },
     "adult.contents.fc2.com": {
@@ -50,6 +50,10 @@ SITE_SETTINGS = {
         "cookies": {"age": "off"},
     },
 }
+
+
+def set_alias(name: str, value: str):
+    SITE_SETTINGS[name] = SITE_SETTINGS[value]
 
 
 def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):

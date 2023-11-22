@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Generator
 
 from rina.files import DiskScanner, get_scanner
-from rina.scraper import ScrapeResult, _has_word, scrape
+from rina.scraper import ScrapeResult, scrape
 from rina.utils import AVInfo, Status, re_search, re_sub, strftime
 
 _NAMEMAX = 255
@@ -131,9 +131,10 @@ class AVFile(AVString):
             if m:
                 title = m[0].rstrip(strip_chars)
             else:
-                # No suitable breakpoint is found, do a hard cut
+                # There is no non-word chars in the title, no suitable
+                # breakpoint is found, do a hard cut
                 title = title.encode("utf-8")[:namemax].decode("utf-8", "ignore")
-                if _has_word(title):
+                if title:
                     break
                 return
 
