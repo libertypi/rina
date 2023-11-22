@@ -28,7 +28,7 @@ _sub_trash = re.compile(
     ([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}@|
     [\[(](([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}|hd|jav)[\])]|
     ([a-z]+2048|\d+sht|thzu?|168x|44x|hotavxxx|nyap2p|3xplanet|sogclub|sis001|sexinsex|hhd800)(\.[a-z]{2,4})?|
-    dioguitar23|(un|de)?censored|nodrm|fhd|1000[\s-]?giri
+    dioguitar23|(un|de)censored|nodrm|fhd|1000[\s-]*giri
     )\b|\s+""",
     flags=re.VERBOSE,
 ).sub
@@ -96,7 +96,7 @@ class Scraper(ABC):
                     return result
 
     def _search(self) -> Optional[ScrapeResult]:
-        pass
+        raise NotImplementedError
 
     def _javbus(self):
         try:
@@ -205,7 +205,7 @@ class Scraper(ABC):
         )
 
 
-class StudioMatcher(Scraper):
+class StudioScraper(Scraper):
     uncensored_only = True
     regex = r"(?P<studio>(?P<s1>{m}{d}{y}|(?P<s4>{y}{m}{d}))-(?P<s2>[0-9]{{2,4}})(?:-(?P<s3>0[0-9]))?)".format(
         y=rf"(?:{REG_Y})",
@@ -404,7 +404,7 @@ class StudioMatcher(Scraper):
         return "-".join(result)
 
 
-class Heyzo(Scraper):
+class HeyzoScraper(Scraper):
     uncensored_only = True
     source = "heyzo.com"
     regex = r"heyzo[^0-9]*(?P<heyzo>[0-9]{4})"
@@ -446,7 +446,7 @@ class Heyzo(Scraper):
             )
 
 
-class FC2(Scraper):
+class FC2Scraper(Scraper):
     uncensored_only = True
     source = "fc2.com"
     regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{4,10})"
@@ -482,7 +482,7 @@ class FC2(Scraper):
         )
 
 
-class Heydouga(Scraper):
+class HeydougaScraper(Scraper):
     uncensored_only = True
     source = "heydouga.com"
     regex = r"heydouga[^0-9]*(?P<h1>[0-9]{4})[^0-9]+(?P<heydou>[0-9]{3,6})"
@@ -512,7 +512,7 @@ class Heydouga(Scraper):
         )
 
 
-class AV9898(Heydouga):
+class AV9898Scraper(HeydougaScraper):
     regex = r"av9898[^0-9]+(?P<av98>[0-9]{3,})"
 
     def _search(self):
@@ -523,7 +523,7 @@ class AV9898(Heydouga):
         )
 
 
-class Honnamatv(Heydouga):
+class HonnamatvScraper(HeydougaScraper):
     regex = r"honnamatv[^0-9]*(?P<honna>[0-9]{3,})"
 
     def _search(self):
@@ -534,7 +534,7 @@ class Honnamatv(Heydouga):
         )
 
 
-class X1X(Scraper):
+class X1XScraper(Scraper):
     uncensored_only = True
     source = "x1x.com"
     regex = r"x1x(?:\.com)?[\s-]+(?P<x1x>[0-9]{6})"
@@ -567,7 +567,7 @@ class X1X(Scraper):
             )
 
 
-class SM_Miracle(Scraper):
+class SMMiracleScraper(Scraper):
     uncensored_only = True
     source = "sm-miracle.com"
     regex = r"sm[\s-]*miracle(?:[\s-]+no)?[\s.-]+e?(?P<sm>[0-9]{4})"
@@ -595,7 +595,7 @@ class SM_Miracle(Scraper):
         )
 
 
-class H4610(Scraper):
+class H4610Scraper(Scraper):
     uncensored_only = True
     regex = r"(?P<h41>h4610|[ch]0930)\W+(?P<h4610>[a-z]+[0-9]+)"
 
@@ -629,7 +629,7 @@ class H4610(Scraper):
         )
 
 
-class Kin8(Scraper):
+class Kin8Scraper(Scraper):
     uncensored_only = True
     source = "kin8tengoku.com"
     regex = r"kin8(?:tengoku)?[^0-9]*(?P<kin8>[0-9]{4})"
@@ -665,7 +665,7 @@ class Kin8(Scraper):
         )
 
 
-class GirlsDelta(Scraper):
+class GirlsDeltaScraper(Scraper):
     uncensored_only = True
     source = "girlsdelta.com"
     regex = r"girls[\s-]?delta[^0-9]*(?P<gd>[0-9]{3,4})"
@@ -696,7 +696,7 @@ class GirlsDelta(Scraper):
         )
 
 
-class UncensoredMatcher(Scraper):
+class UncensoredScraper(Scraper):
     uncensored_only = True
     regex = (
         r"((?:gs|jiro|ka|kosatsu|mldo|ot|red|sg|sky|sr|tr|wl)[0-9]{3})",
@@ -714,7 +714,7 @@ class UncensoredMatcher(Scraper):
         self.keyword = "-".join(filter(None, self.match.groups()))
 
 
-class OneKGiri(Scraper):
+class OneKGiriScraper(Scraper):
     uncensored_only = True
     regex = rf"((?:{REG_Y})(?:{REG_M})(?:{REG_D}))[\s-]+([a-z]{{3,8}})(?:-(?P<kg>[a-z]{{3,6}}))?"
 
@@ -724,9 +724,7 @@ class OneKGiri(Scraper):
         self.keyword = f"{m[i-2]}-{m[i-1]}_{m[i]}"
 
 
-class PatternSearcher(Scraper):
-    """MGS scraper."""
-
+class MGSScraper(Scraper):
     regex = r"(?P<num>[0-9]{,5})(?P<pre>[a-z]{2,9})-?(?=[0-9]*?[1-9])(?P<sfx>[0-9]{2,8})(?:(?P<hhb>[hm]hb[0-9]{,2})|ch?)?"
     mgs_get = None
 
@@ -897,7 +895,7 @@ def scrape(string: str) -> Optional[ScrapeResult]:
             return result
 
     for m in _iter_re(string):
-        result = PatternSearcher(string, m).search()
+        result = MGSScraper(string, m).search()
         if result:
             return result
 
@@ -907,20 +905,20 @@ def scrape(string: str) -> Optional[ScrapeResult]:
 
 
 _search_map = {
-    "studio": StudioMatcher,
-    "heyzo": Heyzo,
-    "fc2": FC2,
-    "heydou": Heydouga,
-    "av98": AV9898,
-    "honna": Honnamatv,
-    "x1x": X1X,
-    "sm": SM_Miracle,
-    "h4610": H4610,
-    "kin8": Kin8,
-    "gd": GirlsDelta,
-    None: UncensoredMatcher,
-    "kg": OneKGiri,
+    "studio": StudioScraper,
+    "heyzo": HeyzoScraper,
+    "fc2": FC2Scraper,
+    "heydou": HeydougaScraper,
+    "av98": AV9898Scraper,
+    "honna": HonnamatvScraper,
+    "x1x": X1XScraper,
+    "sm": SMMiracleScraper,
+    "h4610": H4610Scraper,
+    "kin8": Kin8Scraper,
+    "gd": GirlsDeltaScraper,
+    None: UncensoredScraper,
+    "kg": OneKGiriScraper,
 }
 _search_re = _combine_scraper_regex(*_search_map.values()).search
-_iter_re = _combine_scraper_regex(PatternSearcher).finditer
+_iter_re = _combine_scraper_regex(MGSScraper).finditer
 _date_re = _combine_scraper_regex(DateSearcher).search

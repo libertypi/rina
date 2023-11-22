@@ -10,7 +10,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Tuple
 
-from rina.files import FileScanner, get_scanner
+from rina.files import DiskScanner, get_scanner
 from rina.utils import SEP_BOLD, AVInfo, Status, get_choice_as_int, stderr_write
 
 EXTS = {"avi", "m2ts", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ts", "wmv"}
@@ -129,13 +129,13 @@ class VideoGroup(AVInfo):
                 stderr_write(f"Remove: {file}\n")
 
 
-def find_groups(root, scanner: FileScanner = None):
+def find_groups(root, scanner: DiskScanner = None):
     """
     Find groups of video files under the same directory with consecutive
     numbering and yields VideoGroup objects.
     """
     if scanner is None:
-        scanner = FileScanner(exts=EXTS)
+        scanner = DiskScanner(exts=EXTS)
     groups = defaultdict(dict)
     matcher = re.compile(
         r"""

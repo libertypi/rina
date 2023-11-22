@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Generator
 
-from rina.files import FileScanner, get_scanner
+from rina.files import DiskScanner, get_scanner
 from rina.scraper import ScrapeResult, _has_word, scrape
 from rina.utils import AVInfo, Status, re_search, re_sub, re_subn, strftime
 
@@ -205,15 +205,14 @@ EXTS = {
 }
 
 
-def from_dir(root, scanner: FileScanner = None) -> Generator[AVFile, None, None]:
+def from_dir(root, scanner: DiskScanner = None) -> Generator[AVFile, None, None]:
     """Scan a directory and yield AVFile objects."""
     if scanner is None:
-        scanner = FileScanner(exts=EXTS)
+        scanner = DiskScanner(exts=EXTS)
 
     with ThreadPoolExecutor() as ex:
         for ft in as_completed(
-            ex.submit(from_path, entry.path, entry)
-            for entry in scanner.scandir(root, "file")
+            ex.submit(from_path, e.path, e) for e in scanner.scandir(root)
         ):
             yield ft.result()
 

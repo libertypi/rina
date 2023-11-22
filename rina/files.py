@@ -9,48 +9,59 @@ from typing import Generator
 from rina.utils import stderr_write, strftime
 
 
-class FileScanner:
-    _exts: set = None
-    _newer: float = None
+class DiskScanner:
+    exts: set = None
+    newer: float = None
 
     def __init__(
         self,
-        recursive: bool = True,
+        *,
+        ftype: str = "file",
         exts: set = None,
+        recursive: bool = True,
         include: str = None,
         exclude: str = None,
         exclude_dir: str = None,
         newer: float = None,
     ) -> None:
         """
-        Initialize a FileScanner for scanning directories with various filters.
+        Initialize a DiskScanner for scanning directories with various filters.
 
         Parameters:
-         - recursive (bool): If True, scan directories recursively.
-         - exts (set): Set of file extensions (lower case without leading dot)
+         - ftype (str): Type of items to return in `scandir` and to apply glob
+           and time filters ('file' or 'dir').
+         - exts (set): File extensions (lower case without leading dot)
            to include, e.g., {"mp4", "wmv"}.
-         - include (str): Glob pattern for files to include.
-         - exclude (str): Glob pattern for files to exclude.
+         - recursive (bool): If True, scan directories recursively.
+         - include (str): Glob pattern for <ftype> to include.
+         - exclude (str): Glob pattern for <ftype> to exclude.
          - exclude_dir (str): Glob pattern for directories to exclude.
-         - newer (float): Timestamp; files newer than this will be included.
+         - newer (float): Timestamp; <ftype> newer than this will be included.
         """
-        self.recursive = recursive
-        self.mainfilters = mainfilters = []
+        self.filefilters = []
         self.dirfilters = []
+        if ftype == "file":
+            outputfilters = self.filefilters
+        elif ftype == "dir":
+            outputfilters = self.dirfilters
+        else:
+            raise ValueError(f"Invalid ftype: Expected 'file' or 'dir', not '{ftype}'.")
+        self.ftype = ftype
+        self.recursive = recursive
 
         if exts is not None:
             assert isinstance(exts, set), "expect `exts` to be 'set'"
-            self._exts = exts
-            mainfilters.append(self._ext_filter)
+            self.exts = exts
+            self.filefilters.append(self._ext_filter)
         if include is not None:
-            mainfilters.append(self._get_glob_filter(include))
+            outputfilters.append(self._get_glob_filter(include))
         if exclude is not None:
-            mainfilters.append(self._get_glob_filter(exclude, True))
+            outputfilters.append(self._get_glob_filter(exclude, True))
         if exclude_dir is not None:
             self.dirfilters.append(self._get_glob_filter(exclude_dir, True))
         if newer is not None:
-            self._newer = newer
-            mainfilters.append(self._mtime_filter)
+            self.newer = newer
+            outputfilters.append(self._mtime_filter)
 
     @staticmethod
     def _get_glob_filter(glob: str, inverse: bool = False):
@@ -71,31 +82,33 @@ class FileScanner:
             return lambda es: (e for e in es if glob(e.name))
 
     def _ext_filter(self, es):
-        """Filter function to include files based on their extensions."""
-        exts = self._exts
+        """
+        Filter function to include files based on their extensions. Extension is
+        everything from the last dot to the end, ignoring leading dots.
+        """
+        exts = self.exts
         for e in es:
-            parts = e.name.rpartition(".")
-            if parts[0] and parts[2].lower() in exts:
+            p = e.name.rpartition(".")
+            if p[0].strip(".") and p[2].lower() in exts:
                 yield e
 
     def _mtime_filter(self, es):
         """Filter function to include files based on their mtime."""
-        newer = self._newer
+        newer = self.newer
         for e in es:
             try:
-                if e.stat().st_mtime > newer:
+                if e.stat().st_mtime >= newer:
                     yield e
             except OSError:
                 pass
 
-    def scandir(self, root, ftype: str = "file") -> Generator[os.DirEntry, None, None]:
+    def scandir(self, root) -> Generator[os.DirEntry, None, None]:
         """
         Scan a directory and yield files or directories based on filters and
         type.
 
         Parameters:
          - root: Directory path to start scanning.
-         - ftype (str): Type of items to return ('file' or 'dir').
 
         Yields:
          - os.DirEntry: Directory entries matching the specified filters and
@@ -103,15 +116,10 @@ class FileScanner:
         """
         dirs = []
         files = []
-        if ftype == "file":
-            output = files
-        elif ftype == "dir":
-            output = dirs
-        else:
-            raise ValueError(f"Invalid ftype: '{ftype}'. Expected 'file' or 'dir'.")
-        recursive = self.recursive
+        output = files if self.ftype == "file" else dirs
         dirfilters = self.dirfilters
-        mainfilters = self.mainfilters
+        filefilters = self.filefilters
+        recursive = self.recursive
         que = deque((root,))
         while que:
             root = que.popleft()
@@ -127,8 +135,8 @@ class FileScanner:
                         (dirs if is_dir else files).append(e)
                     for f in dirfilters:
                         dirs[:] = f(dirs)
-                    for f in mainfilters:
-                        output[:] = f(output)
+                    for f in filefilters:
+                        files[:] = f(output)
             except OSError as e:
                 logging.error(e)
             else:
@@ -148,9 +156,10 @@ class FileScanner:
         Yields:
          - Tuple[List, List]: A tuple containing lists of directories and files.
         """
-        recursive = self.recursive
+        assert self.ftype == "file", 'Calling walk() when ftype != "file"'
         dirfilters = self.dirfilters
-        mainfilters = self.mainfilters
+        filefilters = self.filefilters
+        recursive = self.recursive
         que = deque((root,))
         while que:
             root = que.popleft()
@@ -166,7 +175,7 @@ class FileScanner:
                         (dirs if is_dir else files).append(e)
                     for f in dirfilters:
                         dirs[:] = f(dirs)
-                    for f in mainfilters:
+                    for f in filefilters:
                         files[:] = f(files)
             except OSError as e:
                 logging.error(e)
@@ -177,15 +186,16 @@ class FileScanner:
                 break
 
 
-def get_scanner(args, exts=None):
+def get_scanner(args, ftype: str = "file", exts=None):
     """
-    Construct a FileScanner based on arguments.
+    Construct a DiskScanner based on arguments.
 
     :type args: argparse.Namespace
     """
-    return FileScanner(
-        recursive=args.recursive,
+    return DiskScanner(
+        ftype=ftype,
         exts=exts,
+        recursive=args.recursive,
         include=args.include,
         exclude=args.exclude,
         exclude_dir=args.exclude_dir,

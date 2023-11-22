@@ -372,7 +372,7 @@ class Test_Birth_Filter(unittest.TestCase):
             self.assertEqual(result, f"td[{v}]")
 
 
-class Test_FileScanner(unittest.TestCase):
+class Test_DiskScanner(unittest.TestCase):
     class DuckDirEntry(DynamicClass):
         def __init__(self, name, mtime=0, **kwargs) -> None:
             super().__init__(**kwargs)
@@ -389,9 +389,9 @@ class Test_FileScanner(unittest.TestCase):
             ({"exclude": "*.avi"}, (".avi", "avi", ".avii"), {"avi", ".avii"}),
         )
         for kwargs, names, answer in values:
-            scanner = files.FileScanner(**kwargs)
+            scanner = files.DiskScanner(**kwargs)
             entries = [self.DuckDirEntry(name) for name in names]
-            for f in scanner.mainfilters:
+            for f in scanner.filefilters:
                 entries[:] = f(entries)
             result = {e.name for e in entries}
             self.assertSetEqual(result, answer)
@@ -406,9 +406,9 @@ class Test_FileScanner(unittest.TestCase):
             ),
         )
         for kwargs, info, answer in values:
-            scanner = files.FileScanner(**kwargs)
+            scanner = files.DiskScanner(**kwargs)
             entries = [self.DuckDirEntry(name, mtime) for name, mtime in info.items()]
-            for f in scanner.mainfilters:
+            for f in scanner.filefilters:
                 entries[:] = f(entries)
             result = {e.name for e in entries}
             self.assertSetEqual(result, answer)
