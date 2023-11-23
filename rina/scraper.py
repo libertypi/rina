@@ -10,23 +10,6 @@ from rina import network
 from rina.network import get, get_tree, html_fromstring, random_choice, xpath
 from rina.utils import join_root, re_search, re_sub, str_to_epoch, strptime
 
-# Regular expressions
-_subspace = re.compile(r"\s+").sub
-_subdash = re.compile(r"[-_+]+").sub
-_subbraces = re.compile(r"[\s()\[\].-]+").sub
-_valid_id = re.compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
-_has_word = re.compile(r"\w").search
-_sub_trash = re.compile(
-    r"""\b(
-    ([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}@|
-    [\[(](([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}|hd|jav)[\])]|
-    ([a-z]+2048|\d+sht|thzu?|168x|44x|hotavxxx|nyap2p|3xplanet|sogclub|sis001|sexinsex|hhd800)(\.[a-z]{2,4})?|
-    dioguitar23|(un|de)censored|nodrm|fhd|1000[\s-]*giri
-    )\b|\s+""",
-    flags=re.VERBOSE,
-).sub
-_trans_sep = {ord(c): r"[\s_-]*0*" for c in " _-"}
-
 
 def get_year_regex(year: int):
     """Computing the regex that matches double digits from 00 - `year`. `year`
@@ -45,9 +28,24 @@ def get_year_regex(year: int):
     return digit_reg(tens) + digit_reg(ones)
 
 
+# Regular expressions
 REG_Y = get_year_regex(datetime.date.today().year % 100)
 REG_M = r"0[1-9]|1[0-2]"
 REG_D = r"[12][0-9]|0[1-9]|3[01]"
+_subspace = re.compile(r"\s+").sub
+_subdash = re.compile(r"[-_+]+").sub
+_subbraces = re.compile(r"[\s()\[\].-]+").sub
+_valid_id = re.compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
+_has_word = re.compile(r"\w").search
+_sub_trash = re.compile(
+    r"""\b(
+    ([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}@|
+    [\[(](([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}|hd|jav)[\])]|
+    ([a-z]+2048|\d+sht|thzu?|168x|44x|hotavxxx|nyap2p|3xplanet|sogclub|sis001|sexinsex|hhd800)(\.[a-z]{2,4})?|
+    dioguitar23|(un|de)censored|nodrm|fhd|1000[\s-]*giri
+    )\b|\s+""",
+    flags=re.VERBOSE,
+).sub
 
 
 @dataclass
@@ -200,10 +198,12 @@ class Scraper(ABC):
     def _get_keyword_mask(self):
         mask = self._mask
         if not mask:
-            mask = self._mask = re.compile(
-                rf"\s*{self.keyword.translate(_trans_sep)}\s*",
-                re.IGNORECASE,
-            ).fullmatch
+            mask = re_sub(
+                r"[\s_-]+((?=\d))?",
+                lambda m: r"[\s_-]*" if m[1] is None else r"[\s_-]*0*",
+                self.keyword,
+            )
+            mask = self._mask = re.compile(rf"\s*{mask}\s*", re.IGNORECASE).fullmatch
         return mask
 
     def _add_suffix(self, product_id: str) -> str:
