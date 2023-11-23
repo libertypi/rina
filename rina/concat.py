@@ -134,41 +134,63 @@ def find_groups(root, scanner: DiskScanner = None):
     Find groups of video files under the same directory with consecutive
     numbering and yields VideoGroup objects.
     """
+
+    # Filename: "ABP-403-A Title.mp4"
+    # lstem: "ABP-403-""
+    # seq: "A"
+    # rstem: " Title"
+    # ext: "mp4"
+
     if scanner is None:
         scanner = DiskScanner(exts=EXTS)
-    groups = defaultdict(dict)
-    matcher = re.compile(
-        r"""
-        (?P<pre>.+?)
-        (?P<sep>[\s._-]+(?:part|chunk|vol|cd|dvd)?[\s._-]*)
-        (?P<num>0?[1-9]|[1-9][0-9]|[a-z])\s*
-        (?P<ext>\.[^.]+)
-        """,
-        flags=re.VERBOSE | re.IGNORECASE,
-    ).fullmatch
 
+    # Regex to find a sequence number in the filename
+    seq_finder = re.compile(r"(?<![0-9])[0-9]{1,2}(?![0-9])|\b[A-Za-z]\b").finditer
+
+    # Cleaners for `lstem` and `rstem`
+    lcleaner = re.compile(
+        r"([-_.\s【「『｛（《\[(]+(cd|dvd|vol|part|chunk))?[-_.\s【「『｛（《\[(]*\Z",
+        flags=re.IGNORECASE,
+    ).sub
+    rcleaner = re.compile(r"\A[-_.\s】」』｝）》\])]+").sub
+
+    groups = defaultdict(dict)
     for _, files in scanner.walk(root):
         groups.clear()
         for e in files:
-            m = matcher(e.name)
-            if not m:
-                continue
-            n = m["num"]
-            # if n is a-z, convert to 1-26
-            isdigit = n.isdigit()
-            n = int(n) if isdigit else ord(n.lower()) - 96
-            groups[(m["pre"], m["sep"], m["ext"].lower(), isdigit)][n] = e.path
+            # Split the filename into stem and extension
+            stem, _, ext = e.name.rpartition(".")
+            for m in seq_finder(stem):
+                # Convert sequence to integer if it's a digit, otherwise
+                # `unicode_code - offset`. Values are normalized to a 1-based
+                # index and `offset` is stored in the key to distinguish types.
+                seq = m[0]
+                if seq.isdigit():
+                    offset = 0
+                    seq = int(seq)
+                else:
+                    # Unicode code "A": 65, "a": 97
+                    offset = 64 if seq.isupper() else 96
+                    seq = ord(seq) - offset
+                # key: (lstem, rstem, ext, offset)
+                groups[stem[: m.start()], stem[m.end() :], ext, offset][seq] = e
 
         for k, v in groups.items():
             n = len(v)
+            # Check if sequence numbers are consecutive
             if 1 < n == max(v):
-                # consecutive numbers starting from 1
-                name = k[0] + k[2]  # pre + ext
+                # Clean and assemble new filename parts
+                newname = (lcleaner("", k[0]), rcleaner("", k[1]))
+                newname = " ".join(filter(None, newname))
+                # If there is no valid part to form a new name, use the first
+                # file's name
+                newname = f"{newname}.{k[2]}" if newname else f"Concat_{v[1].name}"
+                # Construct a VideoGroup
                 source = tuple(Path(v[i]) for i in range(1, n + 1))
                 yield VideoGroup(
                     source=source,
-                    output=source[0].with_name(name),
-                    exist=any(name == e.name for e in files),
+                    output=source[0].with_name(newname),
+                    exist=any(newname == e.name for e in files),
                 )
 
 
