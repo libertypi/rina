@@ -145,7 +145,9 @@ def find_groups(root, scanner: DiskScanner = None):
         scanner = DiskScanner(exts=EXTS)
 
     # Regex to find a sequence number in the filename
-    seq_finder = re.compile(r"(?<![0-9])[0-9]{1,2}(?![0-9])|\b[A-Za-z]\b").finditer
+    seq_finder = re.compile(
+        r"(?<![0-9])(?:0?[1-9]|[1-9][0-9])(?![0-9])|\b[A-Za-z]\b"
+    ).finditer
 
     # Cleaners for `lstem` and `rstem`
     lcleaner = re.compile(
