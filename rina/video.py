@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Generator
 
 from rina.files import DiskScanner, get_scanner
-from rina.scraper import ScrapeResult, scrape
+from rina.scraper import ScrapeResult, _has_word, scrape
 from rina.utils import AVInfo, Status, re_search, re_sub, strftime
 
 _NAMEMAX = 255
@@ -70,10 +70,12 @@ class AVFile(AVString):
 
         # Handling file renaming
         if result.product_id and result.title:
-            new_name = self._get_filename(result.product_id, result.title)
-            if new_name and new_name != source.name:
-                self.newpath = source.with_name(new_name)
-                self.result.update(NewName=new_name, FromName=source.name)
+            newname = self._build_filename(
+                result.product_id, result.title, source.suffix
+            )
+            if newname and newname != source.name:
+                self.newpath = source.with_name(newname)
+                self.result.update(NewName=newname, FromName=source.name)
                 self.status = Status.UPDATED
 
         # Handling file timestamp updating
@@ -85,10 +87,7 @@ class AVFile(AVString):
                 self.status = Status.UPDATED
 
     def apply(self):
-        """
-        Implements file operations such as renaming and updating timestamps
-        based on scrape results.
-        """
+        """Rename file and update timestamps based on scrape results."""
         source = self.source
         if self.newpath:
             os.rename(source, self.newpath)
@@ -96,12 +95,10 @@ class AVFile(AVString):
         if self.newdate:
             os.utime(source, self.newdate)
 
-    def _get_filename(self, product_id: str, title: str):
-        """
-        Generates a valid filename based on product ID, and title.
-        """
-        suffix = self.source.suffix.lower()
-        namemax = _NAMEMAX - len(product_id.encode()) - len(suffix.encode()) - 1
+    @staticmethod
+    def _build_filename(product_id: str, title: str, ext: str):
+        """Generates a valid filename based on product ID, title, and ext."""
+        namemax = _NAMEMAX - len(product_id.encode()) - len(ext.encode()) - 1
         if namemax <= 0:
             return
 
@@ -131,14 +128,12 @@ class AVFile(AVString):
             if m:
                 title = m[0].rstrip(strip_chars)
             else:
-                # There is no non-word chars in the title, no suitable
-                # breakpoint is found, do a hard cut
+                # No suitable breakpoint is found, do a hard cut
                 title = title.encode("utf-8")[:namemax].decode("utf-8", "ignore")
-                if title:
-                    break
-                return
+                break
 
-        return f"{product_id} {title}{suffix}"
+        if _has_word(title):
+            return f"{product_id} {title}{ext.lower()}"
 
 
 def from_string(string: str):

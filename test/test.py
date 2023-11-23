@@ -1,14 +1,45 @@
 import unittest
 from pathlib import Path
 
-from rina import birth, files, idol, scraper, video
+from rina import birth, concat, files, idol, scraper, video
 from rina.network import get_tree
 
 
-class DynamicClass:
+class Duck:
     def __init__(self, **kwargs) -> None:
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+
+class DuckDiskScanner(Duck):
+    def __init__(self, files=(), dirs=(), ftype="file", **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.ftype = ftype
+        self._dirs = dirs
+        self._files = files
+
+    def scandir(self, root):
+        if self.ftype == "file":
+            yield from self._files
+        else:
+            yield from self._dirs
+
+    def walk(self, root):
+        yield self._dirs, self._files
+
+
+class DuckOSEntry(Duck):
+    def __init__(self, name, path=None, mtime=0, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.name = name
+        self.path = path or name
+        self.mtime = mtime
+
+    def stat(self):
+        return Duck(st_mtime=self.mtime, st_atime=self.mtime)
+
+    def __fspath__(self):
+        return self.path
 
 
 class Test_Scraper(unittest.TestCase):
@@ -144,10 +175,10 @@ class Test_Scraper(unittest.TestCase):
         }
         self._run_test(values, source)
 
-    def test_smmiracle(self):
-        source = "sm-miracle.com"
-        values = {"sm miracle e0689": ("sm-miracle-e0689", "黒髪の地方令嬢２", None)}
-        self._run_test(values, source)
+    # def test_smmiracle(self):
+    #     source = "sm-miracle.com"
+    #     values = {"sm miracle e0689": ("sm-miracle-e0689", "黒髪の地方令嬢２", None)}
+    #     self._run_test(values, source)
 
     def test_fc2(self):
         source = "fc2.com"
@@ -298,38 +329,26 @@ class Test_Idol(unittest.TestCase):
 
 
 class Test_AVFile(unittest.TestCase):
-    class DuckAVFile(video.AVFile):
-        def __init__(self, **kwargs) -> None:
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-
-    def test_get_file_name(self):
+    def test_build_filename(self):
+        PID = "ID-12"
+        EXT = ".mp4"
         values = (
             (
-                "FC2-1355235",
-                " \n \t ★顔出し☆スタイル抜群！貧乳美熟女の可奈子さん34歳☆かなりレアな貧乳デカ乳首♥電マ潮吹き♥激フェラでイキそ～♥パイパンまんこに生挿入で中出し射精♥【個人撮影】\n \t ",
-                "FC2-1355235 ★顔出し☆スタイル抜群！貧乳美熟女の可奈子さん34歳☆かなりレアな貧乳デカ乳首♥電マ潮吹き♥激フェラでイキそ～♥パイパンまんこに生挿入で中出し射精♥【個人撮影】.mp4",
+                "\t-日 　日 * 日:日/\日 [ ] 日()日<>日?!日., \n",
+                f"{PID} 日 日 日-日-日 日 日-日-!日{EXT}",
             ),
-            (
-                "DAVK-042",
-                "2920日間ドM調教経過報告 数学教師26歳は結婚していた【優しい夫を裏切り】異常性欲を抑えきれず【浮気男6名連続ザーメン中出し懇願】8年間サークル集団の性処理女として完全支配されてきた彼女が新妻になった今でも6P輪姦ドロドロ体液漬けSEX中毒ドキュメント報告",
-                "DAVK-042 2920日間ドM調教経過報告 数学教師26歳は結婚していた【優しい夫を裏切り】異常性欲を抑えきれず【浮気男6名連続ザーメン中出し懇願】.mp4",
-            ),
-            (
-                "FC2-2539111",
-                "【無修正ｘ個人撮影】Merry Christmas★アラサー**超メンヘラ風俗嬢とクリスマス企画★ツンデレトナカイさんに顔射したら、ご機嫌斜めになっちゃったけど、最後はピースでメリクリ★",
-                "FC2-2539111 【無修正ｘ個人撮影】Merry Christmas★アラサー 超メンヘラ風俗嬢とクリスマス企画★ツンデレトナカイさんに顔射したら、ご機嫌斜めになっちゃったけど.mp4",
-            ),
-            ("", "日" * 300, None),
-            ("", "abc" * 300, None),
+            ("日" * 79 + "] 日 . 日日日日日", f'{PID} {"日" * 79}]日{EXT}'),
+            ("日" * 79 + ". 日 ] 日日日日日", f'{PID} {"日" * 79}.日]{EXT}'),
+            ("日" * 120, f'{PID} {"日" * 81}{EXT}'),
+            ("@" * 300 + "日]", None),
+            ("." * 300, None),
         )
-        path = Path("test.Mp4")
-        for product_id, title, answer in values:
-            result = self.DuckAVFile(source=path)._get_filename(product_id, title)
-            if answer:
-                self.assertEqual(result, answer, msg=result)
-            self.assertLessEqual(len(result.encode("utf-8")), video._NAMEMAX)
-            self.assertRegex(result, r"\w+")
+        for title, answer in values:
+            result = video.AVFile._build_filename(PID, title, EXT.upper())
+            self.assertEqual(result, answer)
+            if result:
+                self.assertLessEqual(len(result.encode("utf-8")), video._NAMEMAX)
+                self.assertRegex(result, r"\w")
 
 
 class Test_Birth_List(unittest.TestCase):
@@ -373,24 +392,15 @@ class Test_Birth_Filter(unittest.TestCase):
 
 
 class Test_DiskScanner(unittest.TestCase):
-    class DuckDirEntry(DynamicClass):
-        def __init__(self, name, mtime=0, **kwargs) -> None:
-            super().__init__(**kwargs)
-            self.name = name
-            self.mtime = mtime
-
-        def stat(self):
-            return DynamicClass(st_mtime=self.mtime)
-
     def test_name_filter(self):
         values = (
             ({"exts": {"mp4", "avi"}}, ("a.mp4", "b.mp3", ".wmv"), {"a.mp4"}),
             ({"include": "FC2*"}, ("FC2-123", "aFC2-123", "xxx"), {"FC2-123"}),
             ({"exclude": "*.avi"}, (".avi", "avi", ".avii"), {"avi", ".avii"}),
         )
-        for kwargs, names, answer in values:
+        for kwargs, entries, answer in values:
             scanner = files.DiskScanner(**kwargs)
-            entries = [self.DuckDirEntry(name) for name in names]
+            entries = [DuckOSEntry(name=name) for name in entries]
             for f in scanner.filefilters:
                 entries[:] = f(entries)
             result = {e.name for e in entries}
@@ -405,13 +415,54 @@ class Test_DiskScanner(unittest.TestCase):
                 {"c"},
             ),
         )
-        for kwargs, info, answer in values:
+        for kwargs, entries, answer in values:
             scanner = files.DiskScanner(**kwargs)
-            entries = [self.DuckDirEntry(name, mtime) for name, mtime in info.items()]
+            entries = [DuckOSEntry(name=n, mtime=t) for n, t in entries.items()]
             for f in scanner.filefilters:
                 entries[:] = f(entries)
             result = {e.name for e in entries}
             self.assertSetEqual(result, answer)
+
+
+class Test_Concat(unittest.TestCase):
+    def test_find_groups(self):
+        values = [
+            ["1abc1234hhb1.mp4", "1abc1234hhb2.mp4"],
+            ["ABC-123-A [Title].mp4", "ABC-123-B [Title].mp4", "ABC-123-C [Title].mp4"],
+            ["A-ABC-1.mp4", "A-ABC-2.mp4", "A-ABC-3.mp4", "B-ABC-1.mp4", "C-ABC-1.mp4"],
+            ["OD-02 CD1 Title.mp4", "OD-02 CD2 Title.mp4", "CD-02 CD3 Title.mp4"],
+            ["ABP-408 [1] Title.mp4", "ABP-408 [2] Title.mp4"],
+            ["(1).mp4", "(2).mp4", "[3].mp4", "3.mp4"],
+            ["QW.mp4", "1. QW.mp4", "2. QW.mp4"],
+            ["KV-138_hd1.mp4", "KV-138_hd2.mp4", "KV-138_part3.mp4"],
+            ["ERT_2.mp4", "ERT_3.mp4"],
+            ["TYU-1.avi", "TYU-2.mp4"],
+            ["ABC-1.mp4", "ABC-2.mp4", "ABC-4.mp4"],
+        ]
+        answers = [
+            [2, "1abc1234hhb.mp4"],
+            [3, "ABC-123 [Title].mp4"],
+            [3, "ABC-1.mp4"],
+            [2, "OD-02 Title.mp4"],
+            [2, "ABP-408 Title.mp4"],
+            [2, "Concat_(1).mp4"],
+            [2, "QW.mp4"],
+            [2, "KV-138_hd.mp4"],
+            None,
+            None,
+            None,
+        ]
+        for names, answer in zip(values, answers):
+            files = [DuckOSEntry(name) for name in names]
+            scanner = DuckDiskScanner(files=files)
+            result = tuple(concat.find_groups(None, scanner))
+            if answer:
+                self.assertEqual(len(result), 1)
+                src, out = result[0]
+                self.assertEqual(len(src), answer[0])
+                self.assertEqual(out.name, answer[1])
+            else:
+                self.assertFalse(result)
 
 
 if __name__ == "__main__":

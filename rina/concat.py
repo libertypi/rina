@@ -16,10 +16,10 @@ from rina.utils import SEP_BOLD, AVInfo, Status, get_choice_as_int, stderr_write
 EXTS = {"avi", "m2ts", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ts", "wmv"}
 
 
-class VideoGroup(AVInfo):
+class ConcatGroup(AVInfo):
     keywidth = 7
 
-    def __init__(self, source: Tuple[Path], output: Path, exist: bool) -> None:
+    def __init__(self, source: Tuple[Path], output: Path) -> None:
         self.source = source
         self.output = output
         self.applied = False
@@ -27,19 +27,17 @@ class VideoGroup(AVInfo):
             "Source": source,
             "Output": output,
         }
-        if exist:
-            self.status = Status.WARNING
-            self.result["Warning"] = "Output file exists."
-        else:
-            self.status = Status.UPDATED
         try:
             diff_streams = tuple(self._find_diff())
-            if diff_streams:
-                self.status = Status.WARNING
-                self.result["Diffs"] = diff_streams
         except Exception as e:
             self.status = Status.ERROR
             self.result["Error"] = e
+            return
+        if diff_streams:
+            self.status = Status.WARNING
+            self.result["Diffs"] = diff_streams
+        else:
+            self.status = Status.UPDATED
 
     def _find_diff(self):
         """
@@ -132,7 +130,7 @@ class VideoGroup(AVInfo):
 def find_groups(root, scanner: DiskScanner = None):
     """
     Find groups of video files under the same directory with consecutive
-    numbering and yields VideoGroup objects.
+    numbering and yields two-tuples of (source, output).
     """
 
     # Filename: "ABP-403-A Title.mp4"
@@ -157,8 +155,11 @@ def find_groups(root, scanner: DiskScanner = None):
     rcleaner = re.compile(r"\A[-_.\s】」』｝）》\])]+").sub
 
     groups = defaultdict(dict)
+    seen = set()  # Set to avoid output overlapping groups
+
     for _, files in scanner.walk(root):
         groups.clear()
+        seen.clear()
         for e in files:
             # Split the filename into stem and extension
             stem, _, ext = e.name.rpartition(".")
@@ -180,20 +181,18 @@ def find_groups(root, scanner: DiskScanner = None):
         for k, v in groups.items():
             n = len(v)
             # Check if sequence numbers are consecutive
-            if 1 < n == max(v):
+            if 1 < n == max(v) and seen.isdisjoint(v.values()):
+                seen.update(v.values())
                 # Clean and assemble new filename parts
-                newname = (lcleaner("", k[0]), rcleaner("", k[1]))
-                newname = " ".join(filter(None, newname))
+                newname = " ".join(
+                    filter(None, (lcleaner("", k[0]), rcleaner("", k[1])))
+                )
                 # If there is no valid part to form a new name, use the first
                 # file's name
                 newname = f"{newname}.{k[2]}" if newname else f"Concat_{v[1].name}"
-                # Construct a VideoGroup
+                # Yield the result
                 source = tuple(Path(v[i]) for i in range(1, n + 1))
-                yield VideoGroup(
-                    source=source,
-                    output=source[0].with_name(newname),
-                    exist=any(newname == e.name for e in files),
-                )
+                yield source, source[0].with_name(newname)
 
 
 if os.name == "nt":
@@ -288,8 +287,9 @@ def main(args):
 
     results = set()
     for group in find_groups(args.source, get_scanner(args, exts=EXTS)):
-        group.print()
+        group = ConcatGroup(*group)
         results.add(group)
+        group.print()
 
     if not results:
         stderr_write("Scan finished. No change can be made.\n")
