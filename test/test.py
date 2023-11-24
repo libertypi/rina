@@ -228,19 +228,32 @@ class Test_Scraper(unittest.TestCase):
                 self.assertEqual(v, result.pub_date)
                 self.assertEqual(source, result.source)
 
-    def test_double_digit_range(self):
-        values = {
-            (10, 15): "1[0-5]",
-            (12, 15): "1[2-5]",
-            (20, 59): "[2-5][0-9]",
-            (00, 23): "[01][0-9]|2[0-3]",
-            (20, 55): "[2-4][0-9]|5[0-5]",
-            (21, 59): "2[1-9]|[3-5][0-9]",
-            (21, 50): "2[1-9]|[34][0-9]|50",
-            (21, 55): "2[1-9]|[34][0-9]|5[0-5]",
-        }
-        for k, v in values.items():
-            self.assertEqual(utils.two_digit_regex(*k), v)
+    def test_two_digit_regex(self):
+        two_digit_regex = utils.two_digit_regex
+        compile = utils.re.compile
+        strings = tuple(f"{i:02d}" for i in range(0, 100))
+        for x in range(100):
+            for y in range(x, 100):
+                pattern = two_digit_regex(x, y)
+                matcher = compile(pattern).fullmatch
+                for s in strings[:x]:
+                    self.assertIsNone(
+                        matcher(s),
+                        f"False positive: '{pattern}' matched '{s}' "
+                        f"(should only match from {x} to {y}).",
+                    )
+                for s in strings[x : y + 1]:
+                    self.assertIsNotNone(
+                        matcher(s),
+                        f"False negative: '{pattern}' did not match '{s}' "
+                        f"(should match in range {x} to {y}).",
+                    )
+                for s in strings[y + 1 :]:
+                    self.assertIsNone(
+                        matcher(s),
+                        f"False positive: '{pattern}' matched '{s}' "
+                        f"(should only match from {x} to {y}).",
+                    )
 
 
 class Test_Idol(unittest.TestCase):

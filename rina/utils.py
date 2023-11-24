@@ -181,9 +181,8 @@ def two_digit_regex(lower: int, upper: int):
         parts.append(f"{ltens}{drange(lones, 9)}")
         ltens += 1
     # Middle and upper part
-    if ltens < utens:
-        if uones < 9:
-            parts.append(f"{drange(ltens, utens - 1)}[0-9]|{utens}{drange(0, uones)}")
-        else:
-            parts.append(f"{drange(ltens, utens)}[0-9]")
+    if ltens < utens and uones < 9:
+        parts.append(f"{drange(ltens, utens - 1)}[0-9]|{utens}{drange(0, uones)}")
+    else:
+        parts.append(f"{drange(ltens, utens)}{drange(0, uones)}")
     return "|".join(parts)
