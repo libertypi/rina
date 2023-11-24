@@ -1,5 +1,4 @@
 import unittest
-from pathlib import Path
 
 from rina import birth, concat, files, idol, scraper, video
 from rina.network import get_tree
@@ -33,10 +32,10 @@ class DuckOSEntry(Duck):
         super().__init__(**kwargs)
         self.name = name
         self.path = path or name
-        self.mtime = mtime
+        self._mtime = mtime
 
     def stat(self):
-        return Duck(st_mtime=self.mtime, st_atime=self.mtime)
+        return Duck(st_mtime=self._mtime, st_atime=self._mtime)
 
     def __fspath__(self):
         return self.path
@@ -49,7 +48,7 @@ class Test_Scraper(unittest.TestCase):
             self.assertIsNotNone(result)
             self.assertEqual(v[0], result.product_id)
             self.assertIn(v[1], result.title)
-            self.assertAlmostEqual(v[2], result.publish_date)
+            self.assertAlmostEqual(v[2], result.pub_date)
             self.assertEqual(source, result.source)
 
     def test_javbus(self):
@@ -226,7 +225,7 @@ class Test_Scraper(unittest.TestCase):
             if v is None:
                 self.assertIsNone(result)
             else:
-                self.assertEqual(v, result.publish_date)
+                self.assertEqual(v, result.pub_date)
                 self.assertEqual(source, result.source)
 
     def test_year_regex(self):
@@ -431,10 +430,11 @@ class Test_Concat(unittest.TestCase):
             ["ABC-123-A [Title].mp4", "ABC-123-B [Title].mp4", "ABC-123-C [Title].mp4"],
             ["A-ABC-1.mp4", "A-ABC-2.mp4", "A-ABC-3.mp4", "B-ABC-1.mp4", "C-ABC-1.mp4"],
             ["OD-02 CD1 Title.mp4", "OD-02 CD2 Title.mp4", "CD-02 CD3 Title.mp4"],
-            ["ABP-408 [1] Title.mp4", "ABP-408 [2] Title.mp4"],
-            ["(1).mp4", "(2).mp4", "[3].mp4", "3.mp4"],
-            ["QW.mp4", "1. QW.mp4", "2. QW.mp4"],
+            ["ABP-408 [Vol 1] Title.mp4", "ABP-408 [Vol 2] Title.mp4"],
+            ["(01).mp4", "(02).mp4", "[03].mp4", "03.mp4"],
+            ["QW.mp4", "a. QW.mp4", "b. QW.mp4"],
             ["KV-138_hd1.mp4", "KV-138_hd2.mp4", "KV-138_part3.mp4"],
+            ["Christmas!Part1.mp4", "Christmas!Part2.mp4"],
             ["ERT_2.mp4", "ERT_3.mp4"],
             ["TYU-1.avi", "TYU-2.mp4"],
             ["ABC-1.mp4", "ABC-2.mp4", "ABC-4.mp4"],
@@ -445,14 +445,15 @@ class Test_Concat(unittest.TestCase):
             [3, "ABC-1.mp4"],
             [2, "OD-02 Title.mp4"],
             [2, "ABP-408 Title.mp4"],
-            [2, "Concat_(1).mp4"],
+            [2, "Concat_(01).mp4"],
             [2, "QW.mp4"],
             [2, "KV-138_hd.mp4"],
+            [2, "Christmas!.mp4"],
             None,
             None,
             None,
         ]
-        for names, answer in zip(values, answers):
+        for names, answer in zip(values, answers, strict=True):
             files = [DuckOSEntry(name) for name in names]
             scanner = DuckDiskScanner(files=files)
             result = tuple(concat.find_groups(None, scanner))

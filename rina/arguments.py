@@ -261,8 +261,18 @@ def past_timestamp(date: str) -> float:
 
 
 def year_range(years: str) -> range:
-    """Convert `'1988-1990'` to `range(1988, 1991)`."""
-    m = re.fullmatch(r"\s*(\d{4})(?:-(\d{4}))?\s*", years)
-    if m:
-        return range(int(m[1]), int(m[2] or m[1]) + 1)
-    raise argparse.ArgumentError()
+    """Convert '1988-1990' or '89-90' to range(1988, 1991)."""
+
+    def to_year(y: str) -> int:
+        """Convert a two-digit or four-digit string to a four-digit year."""
+        y = int(y)
+        if y > 99:
+            return y
+        year = datetime.datetime.today().year
+        century = year // 100 * 100
+        return century - 100 + y if y > year % 100 else century + y
+
+    m = re.fullmatch(r"\s*(\d\d|\d{4})(?:-(\d\d|\d{4}))?\s*", years)
+    if not m:
+        raise argparse.ArgumentError()
+    return range(to_year(m[1]), to_year(m[2] or m[1]) + 1)

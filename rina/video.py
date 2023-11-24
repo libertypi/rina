@@ -25,7 +25,7 @@ class AVString(AVInfo):
                 "Target": source,
                 "ProductID": result.product_id,
                 "Title": result.title,
-                "PubDate": strftime(result.publish_date),
+                "PubDate": strftime(result.pub_date),
                 "NewName": None,
                 "FromDate": None,
                 "FromName": None,
@@ -79,10 +79,10 @@ class AVFile(AVString):
                 self.status = Status.UPDATED
 
         # Handling file timestamp updating
-        if result.publish_date:
+        if result.pub_date:
             stat = (entry or source).stat()
-            if result.publish_date != stat.st_mtime:
-                self.newdate = (stat.st_atime, result.publish_date)
+            if result.pub_date != stat.st_mtime:
+                self.newdate = (stat.st_atime, result.pub_date)
                 self.result["FromDate"] = strftime(stat.st_mtime)
                 self.status = Status.UPDATED
 

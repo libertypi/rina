@@ -103,7 +103,7 @@ class AVInfo(ABC):
         raise NotImplementedError
 
 
-def get_choice_as_int(msg: str, max_opt: int) -> int:
+def get_choice_as_int(msg: str, total: int) -> int:
     while True:
         stderr_write(msg)
         try:
@@ -111,9 +111,9 @@ def get_choice_as_int(msg: str, max_opt: int) -> int:
         except ValueError:
             stderr_write("Please enter a valid number.\n")
             continue
-        if 1 <= choice <= max_opt:
+        if 1 <= choice <= total:
             return choice
-        stderr_write(f"Invalid option. Please enter a number from 1 to {max_opt}.\n")
+        stderr_write(f"Invalid option. Please enter a number from 1 to {total}.\n")
 
 
 def strptime(string: str, fmt: str) -> float:

@@ -53,18 +53,17 @@ class ScrapeResult:
     source: str
     product_id: str = None
     title: str = None
-    publish_date: float = None
+    pub_date: float = None
 
 
 class Scraper(ABC):
     """Base class for all scrapers."""
 
     regex: str
-    keyword: str
+    search_id: str
     uncensored: bool = False
-    _mask = None
-    # shared among subclasses
-    _javdb_domains: list = None
+    _id_mask = None
+    _javdb_domains = ["https://javdb.com/"]
 
     def __init__(self, match: re.Match) -> None:
         self.match = match
@@ -80,25 +79,22 @@ class Scraper(ABC):
                 except TypeError:
                     continue
                 if _valid_id(product_id) and _has_word(title):
-                    result.title = title
                     result.product_id = self._add_suffix(product_id)
-                    assert (
-                        isinstance(result.publish_date, float)
-                        or result.publish_date is None
-                    )
+                    result.title = title
+                    result.pub_date = str_to_epoch(result.pub_date)
                     return result
 
     def _search(self) -> Optional[ScrapeResult]:
         """
         Abstract method to be implemented by subclasses:
-         - Set `self.keyword`
+         - Set `self.search_id`
          - Conduct site-specific searches
         """
         raise NotImplementedError
 
     def _javbus(self):
         try:
-            res = get(f"https://www.javbus.com/uncensored/search/{self.keyword}")
+            res = get(f"https://www.javbus.com/uncensored/search/{self.search_id}")
             if "member.php?mod=logging" in res.url:
                 logging.warning("JavBus is walled, consider switching network.")
                 return
@@ -124,12 +120,12 @@ class Scraper(ABC):
         if re_search(r"/\s*0+\s*\)", result):
             return
 
-        tree = get_tree(f"https://www.javbus.com/search/{self.keyword}")
+        tree = get_tree(f"https://www.javbus.com/search/{self.search_id}")
         if tree is not None:
             return self._parse_javbus(tree)
 
     def _parse_javbus(self, tree: network.HtmlElement):
-        mask = self._get_keyword_mask()
+        mask = self._get_id_mask()
         for span in tree.iterfind(
             './/div[@id="waterfall"]//a[@class="movie-box"]//span'
         ):
@@ -144,21 +140,20 @@ class Scraper(ABC):
                 return ScrapeResult(
                     product_id=product_id,
                     title=title,
-                    publish_date=str_to_epoch(span.findtext("date[2]")),
+                    pub_date=span.findtext("date[2]"),
                     source="javbus.com",
                 )
 
     def _javdb(self):
-        try:
-            domain = random_choice(self._javdb_domains)
-        except TypeError:
-            tree = self._set_javdb_alt_domains()
-        else:
-            tree = get_tree(f"{domain}search?q={self.keyword}&f=all")
+        tree = get_tree(
+            f"{random_choice(self._javdb_domains)}search?q={self.search_id}&f=all"
+        )
         if tree is None or "/search" not in tree.base_url:
             return
+        if len(self._javdb_domains) == 1:
+            self._set_javdb_alt_domains(tree)
 
-        mask = self._get_keyword_mask()
+        mask = self._get_id_mask()
         for v in xpath(
             './/div[contains(@class, "movie-list")]'
             '//a[@class="box"]/div[@class="video-title"]'
@@ -168,15 +163,13 @@ class Scraper(ABC):
                 return ScrapeResult(
                     product_id=product_id,
                     title=xpath("string(text())")(v),
-                    publish_date=str_to_epoch(v.findtext('../div[@class="meta"]')),
+                    pub_date=v.findtext('../div[@class="meta"]'),
                     source="javdb.com",
                 )
 
-    def _set_javdb_alt_domains(self):
-        domains = ["https://javdb.com/"]
-        tree = get_tree(f"{domains[0]}search?q={self.keyword}&f=all")
-        if tree is None:
-            return
+    def _set_javdb_alt_domains(self, tree: network.HtmlElement):
+        domains = self._javdb_domains
+        main_netloc = network.urlparse(domains[0]).netloc
         for d in tree.xpath(
             ".//nav[@class='sub-header']/div[@class='content']/text()[contains(., '最新域名')]"
             "/following-sibling::a/@href[not(contains(., '.app'))]",
@@ -186,24 +179,21 @@ class Scraper(ABC):
             if not (pr.scheme and pr.netloc):
                 continue
             d = f"{pr.scheme}://{pr.netloc}/"
-            if d in domains:
-                continue
-            domains.append(d)
-            network.set_alias(pr.netloc, "javdb.com")
+            if d not in domains:
+                domains.append(d)
+                network.set_alias(pr.netloc, main_netloc)
         if len(domains) == 1:
-            self.warning(f"unable to find alt domains on page: {tree.base_url}")
-        Scraper._javdb_domains = domains
-        return tree
+            self.warning(f"unable to find alt domains at: {tree.base_url}")
 
-    def _get_keyword_mask(self):
-        mask = self._mask
+    def _get_id_mask(self):
+        mask = self._id_mask
         if not mask:
             mask = re_sub(
                 r"[\s_-]+((?=\d))?",
                 lambda m: r"[\s_-]*" if m[1] is None else r"[\s_-]*0*",
-                self.keyword,
+                self.search_id,
             )
-            mask = self._mask = re.compile(rf"\s*{mask}\s*", re.IGNORECASE).fullmatch
+            mask = self._id_mask = re.compile(rf"\s*{mask}\s*", re.IGNORECASE).fullmatch
         return mask
 
     def _add_suffix(self, product_id: str) -> str:
@@ -251,7 +241,7 @@ class StudioScraper(Scraper):
 
     def search(self):
         match = self.match
-        self.keyword = f'{match["s1"]}_{match["s2"]}'
+        self.search_id = f'{match["s1"]}_{match["s2"]}'
 
         m = self.studio_match = re_search(self._std_re, self.string)
         if m:
@@ -261,22 +251,22 @@ class StudioScraper(Scraper):
 
         result = super().search()
 
-        if result and (result.source.startswith("jav") or not result.publish_date):
+        if result and (result.source.startswith("jav") or not result.pub_date):
             try:
-                result.publish_date = strptime(match["s1"], self.datefmt)
+                result.pub_date = strptime(match["s1"], self.datefmt)
             except ValueError as e:
                 self.warning(e)
         return result
 
     def _search(self) -> Optional[ScrapeResult]:
-        tree = get_tree(f"https://www.javbus.com/{self.keyword}")
+        tree = get_tree(f"https://www.javbus.com/{self.search_id}")
 
         if tree is None:
-            keyword = self.keyword.replace("_", "-")
-            tree = get_tree(f"https://www.javbus.com/{keyword}")
+            search_id = self.search_id.replace("_", "-")
+            tree = get_tree(f"https://www.javbus.com/{search_id}")
             if tree is None:
                 return
-            self.keyword = keyword
+            self.search_id = search_id
 
         tree = tree.find('.//div[@class="container"]')
         try:
@@ -309,7 +299,7 @@ class StudioScraper(Scraper):
             if result:
                 return result
 
-        mask = self._get_keyword_mask()
+        mask = self._get_id_mask()
         if title and mask(product_id):
             if title.startswith(product_id):
                 title = title[len(product_id) :]
@@ -317,18 +307,18 @@ class StudioScraper(Scraper):
             return ScrapeResult(
                 product_id=product_id,
                 title=title,
-                publish_date=str_to_epoch(date),
+                pub_date=date,
                 source="javbus.com",
             )
 
     def _carib(self, url: str = None, source: str = None):
         if not url:
             self.studio = "carib"
-            self.keyword = self.keyword.replace("_", "-")
+            self.search_id = self.search_id.replace("_", "-")
             source = "caribbeancom.com"
             url = "https://www.caribbeancom.com"
 
-        tree = get_tree(f"{url}/moviepages/{self.keyword}/")
+        tree = get_tree(f"{url}/moviepages/{self.search_id}/")
         if tree is None:
             return
 
@@ -346,9 +336,9 @@ class StudioScraper(Scraper):
         )(tree)
 
         return ScrapeResult(
-            product_id=self.keyword,
+            product_id=self.search_id,
             title=title,
-            publish_date=str_to_epoch(date),
+            pub_date=date,
             source=source,
         )
 
@@ -365,7 +355,9 @@ class StudioScraper(Scraper):
             url = "https://www.1pondo.tv"
             source = "1pondo.tv"
         try:
-            data = get(f"{url}/dyn/phpauto/movie_details/movie_id/{self.keyword}.json")
+            data = get(
+                f"{url}/dyn/phpauto/movie_details/movie_id/{self.search_id}.json"
+            )
             data.raise_for_status()
         except network.HTTPError:
             return
@@ -377,7 +369,7 @@ class StudioScraper(Scraper):
             return ScrapeResult(
                 product_id=data["MovieID"],
                 title=data["Title"],
-                publish_date=str_to_epoch(data["Release"]),
+                pub_date=data["Release"],
                 source=source,
             )
         except (ValueError, KeyError) as e:
@@ -408,7 +400,7 @@ class StudioScraper(Scraper):
         self.studio = "mesubuta"
         self.datefmt = "%y%m%d"
         if self.match["s3"]:
-            self.keyword = "_".join(self.match.group("s1", "s2", "s3"))
+            self.search_id = "_".join(self.match.group("s1", "s2", "s3"))
 
     def _add_suffix(self, product_id: str) -> str:
         result = [product_id, self.studio] if self.studio else [product_id]
@@ -434,7 +426,7 @@ class HeyzoScraper(Scraper):
 
     def _search(self):
         uid = self.match["heyzo"]
-        self.keyword = f"HEYZO-{uid}"
+        self.search_id = f"HEYZO-{uid}"
 
         tree = get_tree(f"https://www.heyzo.com/moviepages/{uid}/")
         if tree is None:
@@ -442,9 +434,9 @@ class HeyzoScraper(Scraper):
         try:
             data = _load_json_ld(tree)
             return ScrapeResult(
-                product_id=self.keyword,
+                product_id=self.search_id,
                 title=data["name"],
-                publish_date=str_to_epoch(data["dateCreated"]),
+                pub_date=data["dateCreated"],
                 source=self.source,
             )
         except TypeError:
@@ -462,9 +454,9 @@ class HeyzoScraper(Scraper):
             self.error(e)
         else:
             return ScrapeResult(
-                product_id=self.keyword,
+                product_id=self.search_id,
                 title=title[0] or title[2],
-                publish_date=str_to_epoch(date),
+                pub_date=date,
                 source=self.source,
             )
 
@@ -476,7 +468,7 @@ class FC2Scraper(Scraper):
 
     def _search(self):
         uid = self.match["fc2"]
-        self.keyword = f"FC2-{uid}"
+        self.search_id = f"FC2-{uid}"
 
         tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
         if tree is None:
@@ -488,7 +480,7 @@ class FC2Scraper(Scraper):
             return
 
         return ScrapeResult(
-            product_id=self.keyword,
+            product_id=self.search_id,
             title=(
                 tree.xpath('string(.//meta[@name="twitter:title"]/@content)')
                 or tree.xpath(
@@ -498,9 +490,7 @@ class FC2Scraper(Scraper):
                     xpath('.//div[@class="items_article_headerInfo"]/h3/text()')(tree)
                 )
             ),
-            publish_date=str_to_epoch(
-                tree.findtext('.//div[@class="items_article_Releasedate"]/p')
-            ),
+            pub_date=tree.findtext('.//div[@class="items_article_Releasedate"]/p'),
             source=self.source,
         )
 
@@ -513,7 +503,7 @@ class HeydougaScraper(Scraper):
     def _search(self, url: str = None):
         if not url:
             m1, m2 = self.match.group("h1", "heydou")
-            self.keyword = f"heydouga-{m1}-{m2}"
+            self.search_id = f"heydouga-{m1}-{m2}"
             url = f"https://www.heydouga.com/moviepages/{m1}/{m2}/"
 
         tree = get_tree(url)
@@ -528,9 +518,9 @@ class HeydougaScraper(Scraper):
         )(tree)
 
         return ScrapeResult(
-            product_id=self.keyword,
+            product_id=self.search_id,
             title=title[0] or title[2],
-            publish_date=str_to_epoch(date),
+            pub_date=date,
             source=self.source,
         )
 
@@ -540,7 +530,7 @@ class AV9898Scraper(HeydougaScraper):
 
     def _search(self):
         uid = self.match["av98"]
-        self.keyword = f"AV9898-{uid}"
+        self.search_id = f"AV9898-{uid}"
         return super()._search(
             f"https://av9898.heydouga.com/monthly/av9898/moviepages/{uid}/"
         )
@@ -551,7 +541,7 @@ class HonnamatvScraper(HeydougaScraper):
 
     def _search(self):
         uid = self.match["honna"]
-        self.keyword = f"honnamatv-{uid}"
+        self.search_id = f"honnamatv-{uid}"
         return super()._search(
             f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{uid}/"
         )
@@ -564,7 +554,7 @@ class X1XScraper(Scraper):
 
     def _search(self):
         uid = self.match["x1x"]
-        self.keyword = f"x1x-{uid}"
+        self.search_id = f"x1x-{uid}"
 
         tree = get_tree(f"http://www.x1x.com/title/{uid}")
         if tree is None:
@@ -583,9 +573,9 @@ class X1XScraper(Scraper):
             self.error(e)
         else:
             return ScrapeResult(
-                product_id=self.keyword,
+                product_id=self.search_id,
                 title="".join(xpath("h2[1]/text()")(tree)),
-                publish_date=str_to_epoch(date),
+                pub_date=date,
                 source=self.source,
             )
 
@@ -597,7 +587,7 @@ class SMMiracleScraper(Scraper):
 
     def _search(self):
         uid = "e" + self.match["sm"]
-        self.keyword = f"sm-miracle-{uid}"
+        self.search_id = f"sm-miracle-{uid}"
 
         try:
             data = get(f"https://sm-miracle.com/movie/{uid}.dat")
@@ -609,7 +599,7 @@ class SMMiracleScraper(Scraper):
             return
 
         return ScrapeResult(
-            product_id=self.keyword,
+            product_id=self.search_id,
             title=re_search(
                 r'[{,]\s*title\s*:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)\s*[,}]',
                 data.content.decode(errors="ignore"),
@@ -624,7 +614,7 @@ class H4610Scraper(Scraper):
 
     def _search(self):
         m1, m2 = self.match.group("h41", "h4610")
-        self.keyword = f"{m1.upper()}-{m2}"
+        self.search_id = f"{m1.upper()}-{m2}"
 
         tree = get_tree(f"https://www.{m1}.com/moviepages/{m2}/")
         if tree is None:
@@ -645,9 +635,9 @@ class H4610Scraper(Scraper):
                 self.warning(e)
 
         return ScrapeResult(
-            product_id=self.keyword,
+            product_id=self.search_id,
             title=title,
-            publish_date=str_to_epoch(date),
+            pub_date=date,
             source=f"{m1}.com",
         )
 
@@ -659,7 +649,7 @@ class Kin8Scraper(Scraper):
 
     def _search(self):
         uid = self.match["kin8"]
-        self.keyword = f"kin8-{uid}"
+        self.search_id = f"kin8-{uid}"
 
         tree = get_tree(f"https://www.kin8tengoku.com/moviepages/{uid}/index.html")
         if tree is None:
@@ -681,9 +671,9 @@ class Kin8Scraper(Scraper):
         )(tree)
 
         return ScrapeResult(
-            product_id=self.keyword,
+            product_id=self.search_id,
             title=title[2] or title[0],
-            publish_date=str_to_epoch(date),
+            pub_date=date,
             source=self.source,
         )
 
@@ -695,7 +685,7 @@ class GirlsDeltaScraper(Scraper):
 
     def _search(self):
         uid = self.match["gd"]
-        self.keyword = f"GirlsDelta-{uid}"
+        self.search_id = f"GirlsDelta-{uid}"
 
         tree = get_tree(f"https://girlsdelta.com/product/{uid}")
         if tree is None or "/product/" not in tree.base_url:
@@ -708,13 +698,13 @@ class GirlsDeltaScraper(Scraper):
         )(tree)
 
         return ScrapeResult(
-            product_id=self.keyword,
+            product_id=self.search_id,
             title=xpath(
                 'string(.//div[@class="product-detail"]'
                 '//li/*[contains(text(), "モデル名")]'
                 "/following-sibling::*)"
             )(tree),
-            publish_date=str_to_epoch(date),
+            pub_date=date,
             source=self.source,
         )
 
@@ -734,7 +724,7 @@ class UncensoredScraper(Scraper):
     )
 
     def _search(self):
-        self.keyword = "-".join(filter(None, self.match.groups()))
+        self.search_id = "-".join(filter(None, self.match.groups()))
 
 
 class OneKGiriScraper(Scraper):
@@ -744,7 +734,7 @@ class OneKGiriScraper(Scraper):
     def _search(self):
         m = self.match
         i = m.lastindex
-        self.keyword = f"{m[i-2]}-{m[i-1]}_{m[i]}"
+        self.search_id = f"{m[i-2]}-{m[i-1]}_{m[i]}"
 
 
 class MGSScraper(Scraper):
@@ -765,7 +755,7 @@ class MGSScraper(Scraper):
 
         if len(sfx) > 3:
             sfx = sfx.lstrip("0").zfill(3)  # 00079 -> 079
-        self.keyword = f"{pre.upper()}-{sfx}"
+        self.search_id = f"{pre.upper()}-{sfx}"
 
         try:
             nums = self.mgs_get(pre)
@@ -783,9 +773,9 @@ class MGSScraper(Scraper):
         )
         for num in nums:
             tree = get_tree(
-                f"https://www.mgstage.com/product/product_detail/{num}{self.keyword}/"
+                f"https://www.mgstage.com/product/product_detail/{num}{self.search_id}/"
             )
-            if tree is None or self.keyword not in tree.base_url:
+            if tree is None or self.search_id not in tree.base_url:
                 continue
 
             tree = tree.find(
@@ -801,9 +791,9 @@ class MGSScraper(Scraper):
 
             date = xp(tree, title="発売日") or xp(tree, title="開始日")
             return ScrapeResult(
-                product_id=self.keyword,
+                product_id=self.search_id,
                 title=title,
-                publish_date=str_to_epoch(date),
+                pub_date=date,
                 source="mgstage.com",
             )
 
@@ -862,7 +852,7 @@ class DateSearcher:
         i = m.lastindex + 1
         try:
             return ScrapeResult(
-                publish_date=strptime(" ".join(m.group(i, i + 2, i + 3)), fmt),
+                pub_date=strptime(" ".join(m.group(i, i + 2, i + 3)), fmt),
                 source=cls.source,
             )
         except ValueError as e:
@@ -881,10 +871,12 @@ def _load_json_ld(tree: network.HtmlElement):
         return json.loads(data)
     except ValueError:
         dumps = json.dumps
-        repl = lambda m: f"{m[1]}:{dumps(m[2], ensure_ascii=False)}"
-        return json.loads(
-            re_sub(r'(?<=[{,])\s*("[^"]+")\s*:\s*"(.*?)"\s*(?=[,}])', repl, data)
+        data = re_sub(
+            r'(?<=[{,])\s*("[^"]+")\s*:\s*"(.*?)"\s*(?=[,}])',
+            lambda m: f"{m[1]}:{dumps(m[2], ensure_ascii=False)}",
+            data,
         )
+        return json.loads(data)
 
 
 def _combine_regex(*args: Scraper, b=r"\b") -> re.Pattern:

@@ -13,33 +13,43 @@ from typing import Tuple
 from rina.files import DiskScanner, get_scanner
 from rina.utils import SEP_BOLD, AVInfo, Status, get_choice_as_int, stderr_write
 
+if os.name == "nt":
+    FFMPEG = "ffmpeg.exe"
+    FFPROBE = "ffprobe.exe"
+else:
+    FFMPEG = "ffmpeg"
+    FFPROBE = "ffprobe"
 EXTS = {"avi", "m2ts", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ts", "wmv"}
 
 
 class ConcatGroup(AVInfo):
     keywidth = 7
+    applied: bool = False
 
-    def __init__(self, source: Tuple[Path], output: Path) -> None:
+    def __init__(
+        self, source: Tuple[Path], output: Path, ffmpeg=FFMPEG, ffprobe=FFPROBE
+    ) -> None:
         self.source = source
         self.output = output
-        self.applied = False
+        self.ffmpeg = ffmpeg
+        self.ffprobe = ffprobe
         self.result = {
             "Source": source,
             "Output": output,
         }
         try:
-            diff_streams = tuple(self._find_diff())
+            diffs = tuple(self._find_diffs())
         except Exception as e:
             self.status = Status.ERROR
             self.result["Error"] = e
             return
-        if diff_streams:
+        if diffs:
             self.status = Status.WARNING
-            self.result["Diffs"] = diff_streams
+            self.result["Diffs"] = diffs
         else:
             self.status = Status.UPDATED
 
-    def _find_diff(self):
+    def _find_diffs(self):
         """
         Find videos with different streams. If such differences are found, yield
         formated lines representing filenames and stream details.
@@ -49,7 +59,7 @@ class ConcatGroup(AVInfo):
         for file in self.source:
             stream = subprocess.run(
                 (
-                    ffprobe,
+                    self.ffprobe,
                     "-loglevel",
                     "fatal",
                     "-show_entries",
@@ -94,7 +104,7 @@ class ConcatGroup(AVInfo):
                 )
             subprocess.run(
                 (
-                    ffmpeg,
+                    self.ffmpeg,
                     "-f",
                     "concat",
                     "-safe",
@@ -127,29 +137,46 @@ class ConcatGroup(AVInfo):
                 stderr_write(f"Remove: {file}\n")
 
 
+def _find_ffmpeg(args_ffmpeg):
+    if args_ffmpeg:
+        args_ffmpeg = Path(args_ffmpeg)
+        if args_ffmpeg.is_dir():
+            exes = args_ffmpeg.joinpath(FFMPEG), args_ffmpeg.joinpath(FFPROBE)
+        else:
+            exes = args_ffmpeg, args_ffmpeg.with_name(FFPROBE)
+    else:
+        exes = FFMPEG, FFPROBE
+    for e in exes:
+        if not shutil.which(e):
+            logging.fatal(
+                f"{e} not found. Please be sure it can be found in "
+                "PATH or the directory passed via '-f' option."
+            )
+            sys.exit(1)
+    return exes
+
+
 def find_groups(root, scanner: DiskScanner = None):
     """
     Find groups of video files under the same directory with consecutive
     numbering and yields two-tuples of (source, output).
     """
-
-    # Filename: "ABP-403-A Title.mp4"
-    # lstem: "ABP-403-""
-    # seq: "A"
-    # rstem: " Title"
-    # ext: "mp4"
-
     if scanner is None:
         scanner = DiskScanner(exts=EXTS)
 
-    # Regex to find a sequence number in the filename
+    # Regex to find sequence numbers `seq` in the filename:
+    # Filename: ABP-403-1 Title.mp4
+    # lstem:    ABP-403-
+    # seq:              1
+    # rstem:              Title
+    # ext:                      mp4
     seq_finder = re.compile(
         r"(?<![0-9])(?:0?[1-9]|[1-9][0-9])(?![0-9])|\b[A-Za-z]\b"
     ).finditer
 
     # Cleaners for `lstem` and `rstem`
     lcleaner = re.compile(
-        r"([-_.\s【「『｛（《\[(]+(cd|dvd|vol|part|chunk))?[-_.\s【「『｛（《\[(]*\Z",
+        r"(([-_.\s【「『｛（《\[(]+|\b)(cd|dvd|vol|part|chunk))?[-_.\s【「『｛（《\[(]*\Z",
         flags=re.IGNORECASE,
     ).sub
     rcleaner = re.compile(r"\A[-_.\s】」』｝）》\])]+").sub
@@ -179,9 +206,9 @@ def find_groups(root, scanner: DiskScanner = None):
                 groups[stem[: m.start()], stem[m.end() :], ext, offset][seq] = e
 
         for k, v in groups.items():
-            n = len(v)
+            m = len(v)
             # Check if sequence numbers are consecutive
-            if 1 < n == max(v) and seen.isdisjoint(v.values()):
+            if 1 < m == max(v) and seen.isdisjoint(v.values()):
                 seen.update(v.values())
                 # Clean and assemble new filename parts
                 newname = " ".join(
@@ -191,36 +218,8 @@ def find_groups(root, scanner: DiskScanner = None):
                 # file's name
                 newname = f"{newname}.{k[2]}" if newname else f"Concat_{v[1].name}"
                 # Yield the result
-                source = tuple(Path(v[i]) for i in range(1, n + 1))
+                source = tuple(Path(v[i]) for i in range(1, m + 1))
                 yield source, source[0].with_name(newname)
-
-
-if os.name == "nt":
-    ffmpeg = "ffmpeg.exe"
-    ffprobe = "ffprobe.exe"
-else:
-    ffmpeg = "ffmpeg"
-    ffprobe = "ffprobe"
-
-
-def _find_ffmpeg(args_ffmpeg):
-    global ffmpeg, ffprobe
-
-    if args_ffmpeg:
-        args_ffmpeg = Path(args_ffmpeg)
-        if args_ffmpeg.is_dir():
-            ffmpeg = args_ffmpeg.joinpath(ffmpeg)
-            ffprobe = args_ffmpeg.joinpath(ffprobe)
-        else:
-            ffmpeg = args_ffmpeg
-            ffprobe = args_ffmpeg.with_name(ffprobe)
-
-    for exe in ffmpeg, ffprobe:
-        if not shutil.which(exe):
-            logging.error(
-                "{exe} not found. Please be sure it can be found in $PATH or the directory passed via '-f' option."
-            )
-            sys.exit(1)
 
 
 def user_filter(items, question: str, initial_print: bool = True):
@@ -283,13 +282,17 @@ def user_filter(items, question: str, initial_print: bool = True):
 
 
 def main(args):
-    _find_ffmpeg(args.ffmpeg)
-
+    ffmpeg, ffprobe = _find_ffmpeg(args.ffmpeg)
     results = set()
     for group in find_groups(args.source, get_scanner(args, exts=EXTS)):
-        group = ConcatGroup(*group)
-        results.add(group)
+        group = ConcatGroup(
+            source=group[0],
+            output=group[1],
+            ffmpeg=ffmpeg,
+            ffprobe=ffprobe,
+        )
         group.print()
+        results.add(group)
 
     if not results:
         stderr_write("Scan finished. No change can be made.\n")
