@@ -152,3 +152,38 @@ def re_search(pattern: str, string: str, flags: int = 0):
 
 def re_sub(pattern: str, repl, string: str, count: int = 0, flags: int = 0):
     return cached_compile(pattern, flags).sub(repl, string, count)
+
+
+def two_digit_regex(lower: int, upper: int):
+    """
+    Generate a regex pattern to match all two-digit numbers from 'lower' to
+    'upper'.
+
+    Examples:
+     - (20, 59) -> '[2-5][0-9]'
+     - ( 0, 23) -> '[01][0-9]|2[0-3]'
+     - (21, 55) -> '2[1-9]|[34][0-9]|5[0-5]
+    """
+    if not (0 <= lower <= upper <= 99):
+        raise ValueError(f"Values out of range: lower={lower}, upper={upper}")
+
+    def drange(x, y):
+        d = y - x
+        return f"[{x}-{y}]" if d > 1 else f"[{x}{y}]" if d else f"{x}"
+
+    ltens, lones = divmod(lower, 10)
+    utens, uones = divmod(upper, 10)
+    if ltens == utens:
+        return f"{ltens}{drange(lones, uones)}"
+    parts = []
+    # Lower part, if it does not start from 0
+    if lones > 0:
+        parts.append(f"{ltens}{drange(lones, 9)}")
+        ltens += 1
+    # Middle and upper part
+    if ltens < utens:
+        if uones < 9:
+            parts.append(f"{drange(ltens, utens - 1)}[0-9]|{utens}{drange(0, uones)}")
+        else:
+            parts.append(f"{drange(ltens, utens)}[0-9]")
+    return "|".join(parts)

@@ -1,6 +1,6 @@
 import unittest
 
-from rina import birth, concat, files, idol, scraper, video
+from rina import birth, concat, files, idol, scraper, utils, video
 from rina.network import get_tree
 
 
@@ -228,15 +228,19 @@ class Test_Scraper(unittest.TestCase):
                 self.assertEqual(v, result.pub_date)
                 self.assertEqual(source, result.source)
 
-    def test_year_regex(self):
+    def test_double_digit_range(self):
         values = {
-            0: "00",
-            5: "0[0-5]",
-            56: "[0-4][0-9]|5[0-6]",
-            59: "[0-5][0-9]",
+            (10, 15): "1[0-5]",
+            (12, 15): "1[2-5]",
+            (20, 59): "[2-5][0-9]",
+            (00, 23): "[01][0-9]|2[0-3]",
+            (20, 55): "[2-4][0-9]|5[0-5]",
+            (21, 59): "2[1-9]|[3-5][0-9]",
+            (21, 50): "2[1-9]|[34][0-9]|50",
+            (21, 55): "2[1-9]|[34][0-9]|5[0-5]",
         }
         for k, v in values.items():
-            self.assertEqual(scraper.get_year_regex(k), v)
+            self.assertEqual(utils.two_digit_regex(*k), v)
 
 
 class Test_Idol(unittest.TestCase):

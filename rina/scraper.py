@@ -8,28 +8,17 @@ from typing import Optional
 
 from rina import network
 from rina.network import get, get_tree, html_fromstring, random_choice, xpath
-from rina.utils import join_root, re_search, re_sub, str_to_epoch, strptime
-
-
-def get_year_regex(year: int):
-    """Computing the regex that matches double digits from 00 - `year`. `year`
-    should be a digit from 0-99.
-
-    example:
-      - 5  -> 0[0-5]
-      - 56 -> [0-4][0-9]|5[0-6]
-      - 59 -> [0-5][0-9]
-    """
-    assert 0 <= year <= 99, f"value out of range: {year}"
-    digit_reg = lambda n: f"[0-{n}]" if n > 1 else "[01]" if n else "0"
-    tens, ones = divmod(year, 10)
-    if tens > 0 and ones < 9:
-        return f"{digit_reg(tens - 1)}[0-9]|{tens}{digit_reg(ones)}"
-    return digit_reg(tens) + digit_reg(ones)
-
+from rina.utils import (
+    join_root,
+    re_search,
+    re_sub,
+    str_to_epoch,
+    strptime,
+    two_digit_regex,
+)
 
 # Regular expressions
-REG_Y = get_year_regex(datetime.date.today().year % 100)
+REG_Y = two_digit_regex(0, datetime.date.today().year % 100)
 REG_M = r"0[1-9]|1[0-2]"
 REG_D = r"[12][0-9]|0[1-9]|3[01]"
 _subspace = re.compile(r"\s+").sub
