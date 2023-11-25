@@ -13,7 +13,6 @@ SEP_BOLD = "=" * SEP_WIDTH
 SEP_SLIM = "-" * SEP_WIDTH
 
 join_root = Path(__file__).parent.joinpath
-stdout_write = sys.stdout.write
 stderr_write = sys.stderr.write
 date_searcher = re.compile(
     r"""(?<!\d)
@@ -51,13 +50,13 @@ class Status(Enum):
 
 if sys.stdout.isatty():
 
-    def color_writer(string: str, color: Color = None):
-        stdout_write(string if color is None else f"{color}{string}\033[0m")
+    def color_writer(string: str, color: Color = None, writer=sys.stdout.write):
+        writer(string if color is None else f"{color}{string}\033[0m")
 
 else:
 
-    def color_writer(string: str, color: Color = None):
-        stdout_write(string)
+    def color_writer(string: str, color: Color = None, writer=sys.stdout.write):
+        writer(string)
 
 
 class AVInfo(ABC):

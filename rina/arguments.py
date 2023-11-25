@@ -106,12 +106,14 @@ def parse_args():
         help="scrape video information",
         description=(
             "Description:\n"
-            "  Scrape video information from local directories, files, or keywords\n\n"
+            "  Scrape video information from local directories, files, or keywords"
+        ),
+        epilog=(
             "Examples:\n"
+            "  Scrape a single file:\n"
+            "      %(prog)s heyzo-2288.mp4\n"
             "  Scrape all videos newer than 7 days in ~/dir:\n"
-            "      %(prog)s -n 7D ~/dir\n"
-            "  Scrape a single file and apply change without prompting:\n"
-            "      %(prog)s -q heyzo-2288.mp4"
+            "      %(prog)s ~/dir -n 7D"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -125,7 +127,9 @@ def parse_args():
         help="search for idol biography",
         description=(
             "Description:\n"
-            "  Search for idol biographies in local directories or by idol names\n\n"
+            "  Search for idol biographies in local directories or by idol names"
+        ),
+        epilog=(
             "Examples:\n"
             "  Search idols based on folder names under ~/dir:\n"
             "      %(prog)s ~/dir\n"
@@ -144,7 +148,7 @@ def parse_args():
         help="concatenate consecutive videos",
         description=(
             "Description:\n"
-            "  Search and concatenate consecutive videos into a single file\n"
+            "  Search and concatenate consecutive videos into a single file"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -177,7 +181,9 @@ def parse_args():
         help="search idols by birth year",
         description=(
             "Description:\n"
-            "  Search for idols based on birth year and latest publications\n\n"
+            "  Search for idols based on birth year and latest publications"
+        ),
+        epilog=(
             "Examples:\n"
             "  Search for 1990-born idols active in the past year:\n"
             "    %(prog)s -a 365D 1990\n"

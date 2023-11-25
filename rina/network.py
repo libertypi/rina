@@ -76,7 +76,7 @@ def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
     with open(join_root(uafile), "r", encoding="utf-8") as f:
         useragents = json.load(f)
     assert useragents, f"Empty useragent data: '{uafile}'"
-    logger.debug("Load %s user-agents from '%s'", len(useragents), uafile)
+    logger.info("Load %s user-agents from '%s'", len(useragents), uafile)
 
     session = requests.Session()
     session.headers.update(

@@ -732,7 +732,7 @@ class MGSScraper(Scraper):
         with open(join_root(filename), "r", encoding="utf-8") as f:
             mgs = json.load(f)
         assert mgs, f"Empty MGS data: '{filename}'"
-        logger.debug("Load %s MGS entries from '%s'", len(mgs), filename)
+        logger.info("Load %s MGS entries from '%s'", len(mgs), filename)
         cls.mgs_get = mgs.get
 
     def _search(self):

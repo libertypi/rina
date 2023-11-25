@@ -22,7 +22,8 @@ def _print_header(args):
         f"{SEP_SLIM}\n"
     )
     config = {"command": None, "source": None}
-    config.update({k: v for k, v in vars(args).items() if v is not None})
+    include = ("recursive",)
+    config.update({k: v for k, v in vars(args).items() if v or k in include})
     kl = max(map(len, config))
     for k, v in config.items():
         # format certain types
