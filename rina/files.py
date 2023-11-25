@@ -6,7 +6,10 @@ from collections import deque
 from pathlib import Path
 from typing import Generator
 
-from rina.utils import stderr_write, strftime
+from . import Config
+from .utils import stderr_write, strftime
+
+logger = logging.getLogger(__name__)
 
 
 class DiskScanner:
@@ -72,10 +75,7 @@ class DiskScanner:
          - glob (str): A glob pattern to match file names against.
          - inverse (bool): If True, exclude files that match the pattern.
         """
-        glob = re.compile(
-            pattern=fnmatch.translate(glob),
-            flags=(re.IGNORECASE if os.name == "nt" else 0),
-        ).match
+        glob = re.compile(fnmatch.translate(glob), re.IGNORECASE).match
         if inverse:
             return lambda es: (e for e in es if not glob(e.name))
         else:
@@ -138,7 +138,7 @@ class DiskScanner:
                     for f in filefilters:
                         files[:] = f(output)
             except OSError as e:
-                logging.error(e)
+                logger.error(e)
             else:
                 que.extend(dirs)
                 yield from output
@@ -178,7 +178,7 @@ class DiskScanner:
                     for f in filefilters:
                         files[:] = f(files)
             except OSError as e:
-                logging.error(e)
+                logger.error(e)
             else:
                 que.extend(dirs)
                 yield dirs, files
@@ -237,7 +237,7 @@ def _update_dirtime(root, total=0, updated=0):
                 if mtime > newest:
                     newest = mtime
     except OSError as e:
-        logging.error(e)
+        logger.error(e)
         return 0, total, updated
     # Process subdirectories after closing the parent's file handle
     for e in dirs:
@@ -248,7 +248,8 @@ def _update_dirtime(root, total=0, updated=0):
         try:
             stat = root.stat()
             if newest != stat.st_mtime:
-                os.utime(root, (stat.st_atime, newest))
+                if not Config.DRYRUN:
+                    os.utime(root, (stat.st_atime, newest))
                 updated += 1
                 stderr_write(
                     "{} => {}: {}\n".format(
@@ -258,5 +259,5 @@ def _update_dirtime(root, total=0, updated=0):
                     )
                 )
         except OSError as e:
-            logging.error(e)
+            logger.error(e)
     return newest, total, updated

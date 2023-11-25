@@ -1,4 +1,3 @@
-import logging
 import re
 import sys
 import time
@@ -9,23 +8,25 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+from . import Config
+
 SEP_WIDTH = 50
 SEP_BOLD = "=" * SEP_WIDTH
 SEP_SLIM = "-" * SEP_WIDTH
 
 join_root = Path(__file__).parent.joinpath
+stdout_write = sys.stdout.write
 stderr_write = sys.stderr.write
 date_searcher = re.compile(
-    r"""(?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
+    r"""(?<!\d)
+    (?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
     (?:(?P<han>年)|(?P<sep>[／/.－-]))\s*
     (?P<m>[1１][0-2０-２]|[0０]?[1-9１-９])\s*
     (?(han)月|(?P=sep))\s*
     (?P<d>[12１２][0-9０-９]|[3３][01０１]|[0０]?[1-9１-９])
-    (?(han)\s*日|(?=$|\D))""",
+    (?(han)\s*日|(?!\d))""",
     flags=re.VERBOSE,
 ).search
-
-logging.basicConfig(format="%(levelname)s: %(message)s")
 
 
 class Color(StrEnum):
@@ -45,13 +46,13 @@ class Status(Enum):
 
 if sys.stdout.isatty():
 
-    def color_writer(string: str, color: Color = None, file=sys.stdout):
-        file.write(string if color is None else f"{color}{string}\033[0m")
+    def color_writer(string: str, color: Color = None):
+        stdout_write(string if color is None else f"{color}{string}\033[0m")
 
 else:
 
-    def color_writer(string: str, color: Color = None, file=sys.stdout):
-        file.write(string)
+    def color_writer(string: str, color: Color = None):
+        stdout_write(string)
 
 
 class AVInfo(ABC):
@@ -79,10 +80,10 @@ class AVInfo(ABC):
         if self._report is None:
             # Create a header for the current status
             try:
-                items = [self._headers[status.name]]
+                lines = [self._headers[status.name]]
             except KeyError:
-                items = ["{0:-^{1}}\n".format(f" {status.name} ", SEP_WIDTH)]
-                self._headers[status.name] = items[0]
+                lines = ["{0:-^{1}}\n".format(f" {status.name} ", SEP_WIDTH)]
+                self._headers[status.name] = lines[0]
             # Determine the key width
             kw = self.keywidth or max(map(len, self.result))
             # Format each key-value pair in the result
@@ -91,21 +92,23 @@ class AVInfo(ABC):
                     continue
                 if isinstance(v, tuple):
                     v = iter(v)
-                    items.append(f"{k:>{kw}}: {next(v)}\n")
-                    items.extend(f'{"":>{kw}}  {i}\n' for i in v)
+                    lines.append(f"{k:>{kw}}: {next(v)}\n")
+                    lines.extend(f'{"":>{kw}}  {i}\n' for i in v)
                 else:
-                    items.append(f"{k:>{kw}}: {v}\n")
+                    lines.append(f"{k:>{kw}}: {v}\n")
             # Combine into a single text
-            self._report = "".join(items)
+            self._report = "".join(lines)
         color_writer(self._report, color=status.value)
 
     def apply(self):
         raise NotImplementedError
 
 
-def get_choice_as_int(msg: str, total: int) -> int:
+def get_choice_as_int(msg: str, total: int, default: int = 1) -> int:
     while True:
         stderr_write(msg)
+        if Config.YES:
+            return default
         try:
             choice = int(input())
         except ValueError:
@@ -167,22 +170,22 @@ def two_digit_regex(lower: int, upper: int):
     if not (0 <= lower <= upper <= 99):
         raise ValueError(f"Values out of range: lower={lower}, upper={upper}")
 
-    def drange(x, y):
+    def digits(x, y):
         d = y - x
         return f"[{x}-{y}]" if d > 1 else f"[{x}{y}]" if d else f"{x}"
 
     ltens, lones = divmod(lower, 10)
     utens, uones = divmod(upper, 10)
     if ltens == utens:
-        return f"{ltens}{drange(lones, uones)}"
+        return f"{ltens}{digits(lones, uones)}"
     parts = []
     # Lower part, if it does not start from 0
     if lones > 0:
-        parts.append(f"{ltens}{drange(lones, 9)}")
+        parts.append(f"{ltens}{digits(lones, 9)}")
         ltens += 1
     # Middle and upper part
     if ltens < utens and uones < 9:
-        parts.append(f"{drange(ltens, utens - 1)}[0-9]|{utens}{drange(0, uones)}")
+        parts.append(f"{digits(ltens, utens - 1)}[0-9]|{utens}{digits(0, uones)}")
     else:
-        parts.append(f"{drange(ltens, utens)}{drange(0, uones)}")
+        parts.append(f"{digits(ltens, utens)}{digits(0, uones)}")
     return "|".join(parts)

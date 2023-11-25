@@ -11,14 +11,18 @@ valid_types = {
 }
 
 
-def _add_source(parser, command):
+def _add_source(
+    parser: argparse.ArgumentParser,
+    command: str,
+    add_filter: bool = True,
+    recursive: bool = True,
+):
     parser.add_argument(
         "source",
         help=f'the source. expect types: {", ".join(valid_types[command])}',
     )
-
-
-def _add_filter(parser: argparse.ArgumentParser, recursive=True):
+    if not add_filter:
+        return
     r = parser.add_mutually_exclusive_group()
     r.add_argument(
         "-r",
@@ -62,15 +66,6 @@ def _add_filter(parser: argparse.ArgumentParser, recursive=True):
     )
 
 
-def _add_quiet(parser):
-    parser.add_argument(
-        "-q",
-        dest="quiet",
-        action="store_true",
-        help="apply changes without prompting (default: %(default)s)",
-    )
-
-
 def parse_args():
     # main parser
     parser = argparse.ArgumentParser(
@@ -81,7 +76,25 @@ def parse_args():
         "GitHub: <https://github.com/libertypi/rina>",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-
+    # common options
+    parser.add_argument(
+        "-d",
+        "--dryrun",
+        action="store_true",
+        help="simulate actions without making changes",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="make rina more talkative",
+    )
+    parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="automatically confirm all prompts",
+    )
     # sub-parsers
     subparsers = parser.add_subparsers(title="commands", dest="command", required=True)
 
@@ -102,9 +115,7 @@ def parse_args():
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    _add_quiet(subparser)
     _add_source(subparser, command)
-    _add_filter(subparser)
 
     # idol
     # source: dir, keyword
@@ -123,9 +134,7 @@ def parse_args():
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    _add_quiet(subparser)
-    _add_source(subparser, command)
-    _add_filter(subparser, False)
+    _add_source(subparser, command, recursive=False)
 
     # concat
     # source: dir
@@ -145,9 +154,7 @@ def parse_args():
         action="store",
         help="specify ffmpeg directory (searches $PATH if omitted)",
     )
-    _add_quiet(subparser)
     _add_source(subparser, command)
-    _add_filter(subparser)
 
     # dir
     # source: dir
@@ -161,7 +168,7 @@ def parse_args():
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    _add_source(subparser, command)
+    _add_source(subparser, command, add_filter=False)
 
     # birth
     command = "birth"

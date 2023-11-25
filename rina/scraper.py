@@ -6,16 +6,11 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Optional
 
-from rina import network
-from rina.network import get, get_tree, html_fromstring, random_choice, xpath
-from rina.utils import (
-    join_root,
-    re_search,
-    re_sub,
-    str_to_epoch,
-    strptime,
-    two_digit_regex,
-)
+from . import network
+from .network import get, get_tree, html_fromstring, random_choice, xpath
+from .utils import join_root, re_search, re_sub, str_to_epoch, strptime, two_digit_regex
+
+logger = logging.getLogger(__name__)
 
 # Regular expressions
 REG_Y = two_digit_regex(0, datetime.date.today().year % 100)
@@ -85,7 +80,7 @@ class Scraper(ABC):
         try:
             res = get(f"https://www.javbus.com/uncensored/search/{self.search_id}")
             if "member.php?mod=logging" in res.url:
-                logging.warning("JavBus is walled, consider switching network.")
+                logger.warning("JavBus is walled, consider switching network.")
                 return
             res.raise_for_status()
             http_ok = True
@@ -94,7 +89,7 @@ class Scraper(ABC):
                 return
             http_ok = False
         except network.RequestException as e:
-            logging.warning(e)
+            logger.warning(e)
             return
 
         tree = html_fromstring(res.content)
@@ -197,13 +192,13 @@ class Scraper(ABC):
         return product_id
 
     def warning(self, msg):
-        logging.warning(
-            f"[Class: {self.__class__.__name__}] [Input: {self.string}] {msg}"
+        logger.warning(
+            "[Class: %s] [Input: %s] %s", self.__class__.__name__, self.string, msg
         )
 
     def error(self, msg):
-        logging.error(
-            f"[Class: {self.__class__.__name__}] [Input: {self.string}] {msg}"
+        logger.error(
+            "[Class: %s] [Input: %s] %s", self.__class__.__name__, self.string, msg
         )
 
 
@@ -351,7 +346,7 @@ class StudioScraper(Scraper):
         except network.HTTPError:
             return
         except network.RequestException as e:
-            logging.warning(e)
+            logger.warning(e)
             return
         try:
             data = data.json()
@@ -463,7 +458,7 @@ class FC2Scraper(Scraper):
         if tree is None:
             return
         if "payarticle" in tree.base_url:
-            logging.warning(f"FC2 is walled, consider switching network.")
+            logger.warning(f"FC2 is walled, consider switching network.")
             return
         if tree.find('.//div[@class="items_notfound_wp"]') is not None:
             return
@@ -584,7 +579,7 @@ class SMMiracleScraper(Scraper):
         except network.HTTPError:
             return
         except network.RequestException as e:
-            logging.warning(e)
+            logger.warning(e)
             return
 
         return ScrapeResult(
@@ -845,7 +840,7 @@ class DateSearcher:
                 source=cls.source,
             )
         except ValueError as e:
-            logging.error(f"[{cls.__name__}] [{m[0]}] {e}")
+            logger.error(f"[{cls.__name__}] [{m[0]}] {e}")
 
 
 def _load_json_ld(tree: network.HtmlElement):
@@ -886,6 +881,7 @@ def _combine_regex(*args: Scraper, b=r"\b") -> re.Pattern:
         result = f"{b}(?:{result}){b}"
 
     assert "_" not in result, f'"_" in regex: {result}'
+    logger.debug("Combined regex: '%s'", result)
     return re.compile(result)
 
 

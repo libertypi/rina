@@ -3,9 +3,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Generator
 
-from rina.files import DiskScanner, get_scanner
-from rina.scraper import ScrapeResult, _has_word, scrape
-from rina.utils import AVInfo, Status, re_search, re_sub, strftime
+from . import Config
+from .files import DiskScanner, get_scanner
+from .scraper import ScrapeResult, _has_word, scrape
+from .utils import AVInfo, Status, re_search, re_sub, stderr_write, strftime
 
 _NAMEMAX = 255
 
@@ -88,6 +89,8 @@ class AVFile(AVString):
 
     def apply(self):
         """Rename file and update timestamps based on scrape results."""
+        if Config.DRYRUN:
+            return
         source = self.source
         if self.newpath:
             os.rename(source, self.newpath)

@@ -1,8 +1,8 @@
-import logging
 import sys
 
-from rina.arguments import parse_args
-from rina.utils import (
+from . import Config, set_logger
+from .arguments import parse_args
+from .utils import (
     SEP_BOLD,
     SEP_SLIM,
     SEP_WIDTH,
@@ -56,30 +56,32 @@ def process_stream(stream, args):
         stderr_write("No change can be made.\n")
         return
 
-    if not args.quiet:
-        msg = (
-            f"{SEP_BOLD}\n"
-            "Please choose an option:\n"
-            f"1) apply changes ({len(changed)} items)\n"
-            f"2) reload changes ({len(changed)} items)\n"
-            f"3) reload failures ({len(failure)} items)\n"
-            "4) quit\n"
-        )
-        while True:
-            choice = get_choice_as_int(msg, 4)
-            if choice == 1:
-                break
-            if choice == 4:
-                sys.exit()
-            for obj in changed if choice == 2 else failure:
-                obj.print()
+    msg = (
+        f"{SEP_BOLD}\n"
+        "Please choose an option:\n"
+        f"1) apply changes ({len(changed)} items)\n"
+        f"2) reload changes ({len(changed)} items)\n"
+        f"3) reload failures ({len(failure)} items)\n"
+        "4) quit\n"
+    )
+    while True:
+        choice = get_choice_as_int(msg, 4)
+        if choice == 1:
+            break
+        if choice == 4:
+            sys.exit()
+        for obj in changed if choice == 2 else failure:
+            obj.print()
 
+    failure.clear()
     stderr_write(f"{SEP_BOLD}\nApplying changes...\n")
     for obj in progressbar(changed):
         try:
             obj.apply()
         except OSError as e:
-            logging.error(e)
+            failure.append(e)
+    for obj in failure:
+        stderr_write(f"Failed to process file: {obj}\n")
 
 
 def progressbar(sequence, width: int = SEP_WIDTH):
@@ -96,6 +98,11 @@ def progressbar(sequence, width: int = SEP_WIDTH):
 
 def main():
     args = parse_args()
+
+    set_logger(args.verbose)
+    Config.DRYRUN = args.dryrun
+    Config.YES = args.yes
+
     _print_header(args)
 
     if args.command == "video":

@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Generator
 from urllib.parse import quote, urljoin
 
-from rina.files import DiskScanner, get_scanner
-from rina.network import HtmlElement, get_tree, xpath
-from rina.utils import AVInfo, Status, date_searcher, re_search, re_sub
+from . import Config
+from .files import DiskScanner, get_scanner
+from .network import HtmlElement, get_tree, xpath
+from .utils import AVInfo, Status, date_searcher, re_search, re_sub, stderr_write
 
 is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
 name_finder = re.compile(rf"(?:^|[】」』｝）》\])]){is_cjk_name}(?:$|[【「『｛（《\[(])").search
@@ -469,9 +470,8 @@ class IdolFolder(Idol):
             self.status = Status.UPDATED
 
     def apply(self):
-        if self.status == Status.UPDATED:
-            path = self.path
-            os.rename(path, path.with_name(self.final))
+        if not Config.DRYRUN and self.status == Status.UPDATED:
+            os.rename(self.path, self.path.with_name(self.final))
 
 
 def from_dir(root, scanner: DiskScanner = None) -> Generator[IdolFolder, None, None]:

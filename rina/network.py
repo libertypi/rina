@@ -13,7 +13,9 @@ from lxml.html import HtmlElement, HTMLParser
 from lxml.html import fromstring as html_fromstring
 from requests.exceptions import HTTPError, RequestException
 
-from rina.utils import join_root
+from .utils import join_root
+
+logger = logging.getLogger(__name__)
 
 HTTP_TIMEOUT = (9.1, 60)
 DEFAULT_SETTING = {
@@ -52,8 +54,8 @@ SITE_SETTINGS = {
 }
 
 
-def set_alias(name: str, value: str):
-    SITE_SETTINGS[name] = SITE_SETTINGS[value]
+def set_alias(name: str, dst: str):
+    SITE_SETTINGS[name] = SITE_SETTINGS[dst]
 
 
 def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
@@ -103,6 +105,7 @@ def _init_site(netloc: str) -> Tuple[dict, Semaphore]:
             cc = requests.cookies.create_cookie
             for k, v in setting["cookies"].items():
                 sc(cc(name=k, value=v, domain=netloc))
+    logger.debug("Initialize '%s' with setting: %s", netloc, setting)
     return setting, Semaphore(setting["max_connection"])
 
 
@@ -110,6 +113,7 @@ _settings = {}
 
 
 def get(url: str, *, pr: ParseResult = None, **kwargs):
+    logger.debug("GET: %s", url)
     if pr is None:
         pr = urlparse(url)
     try:
@@ -133,11 +137,12 @@ def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
     pr = urlparse(url)
     try:
         response = get(url, pr=pr, **kwargs)
+        logger.debug("%s: [%s]", response.url, response.status_code)
         response.raise_for_status()
     except HTTPError:
         return
     except RequestException as e:
-        logging.warning(e)
+        logger.warning(e)
         return
     encoding = (
         _settings[pr.netloc][0]["encoding"]

@@ -10,8 +10,11 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Tuple
 
-from rina.files import DiskScanner, get_scanner
-from rina.utils import SEP_BOLD, AVInfo, Status, get_choice_as_int, stderr_write
+from . import Config
+from .files import DiskScanner, get_scanner
+from .utils import SEP_BOLD, AVInfo, Status, get_choice_as_int, stderr_write
+
+logger = logging.getLogger(__name__)
 
 if os.name == "nt":
     FFMPEG = "ffmpeg.exe"
@@ -93,6 +96,11 @@ class ConcatGroup(AVInfo):
                 yield "- " + "|".join(f"{k}={v}" for k, v in d.items())
 
     def apply(self):
+        if Config.DRYRUN:
+            stderr_write(f"[DRYRUN] Output: '{self.output}'\n")
+            self.applied = True
+            return
+
         tmpfd, tmpfile = tempfile.mkstemp()
         try:
             # ffmpeg escaping
@@ -118,7 +126,7 @@ class ConcatGroup(AVInfo):
                 check=True,
             )
         except subprocess.CalledProcessError as e:
-            logging.error(e)
+            logger.error(e)
             self.output.unlink(missing_ok=True)
         else:
             self.applied = True
@@ -128,11 +136,17 @@ class ConcatGroup(AVInfo):
     def remove_source(self):
         if not self.applied:
             raise RuntimeError("Calling `remove_source` before successfully `apply`.")
+
+        if Config.DRYRUN:
+            for file in self.source:
+                stderr_write(f"[DRYRUN] Remove: {file}\n")
+            return
+
         for file in self.source:
             try:
                 os.unlink(file)
             except OSError as e:
-                logging.error(e)
+                stderr_write(f"Failed to remove {file}: {e}\n")
             else:
                 stderr_write(f"Remove: {file}\n")
 
@@ -148,11 +162,10 @@ def _find_ffmpeg(args_ffmpeg):
         exes = FFMPEG, FFPROBE
     for e in exes:
         if not shutil.which(e):
-            logging.fatal(
+            sys.exit(
                 f"{e} not found. Please be sure it can be found in "
                 "PATH or the directory passed via '-f' option."
             )
-            sys.exit(1)
     return exes
 
 
@@ -283,7 +296,7 @@ def user_filter(items, question: str, initial_print: bool = True):
 
 def main(args):
     ffmpeg, ffprobe = _find_ffmpeg(args.ffmpeg)
-    results = set()
+    results = []
     for group in find_groups(args.source, get_scanner(args, exts=EXTS)):
         group = ConcatGroup(
             source=group[0],
@@ -292,7 +305,7 @@ def main(args):
             ffprobe=ffprobe,
         )
         group.print()
-        results.add(group)
+        results.append(group)
 
     if not results:
         stderr_write("Scan finished. No change can be made.\n")
@@ -303,16 +316,14 @@ def main(args):
         )
     )
 
-    if not args.quiet:
-        results = set(user_filter(results, "Proceed with concatenation?", False))
+    results = set(user_filter(results, "Proceed with concatenation?", False))
 
     # problematic groups
     skips = {g for g in results if g.status != Status.UPDATED}
-    if not args.quiet:
-        # remove those user choses to keep
-        skips = skips.difference(
-            user_filter(skips, "Concat these files anyway (not recommended)?")
-        )
+    # remove those user choses to keep
+    skips = skips.difference(
+        user_filter(skips, "Concat these files anyway (NOT recommended)?")
+    )
     results.difference_update(skips)
 
     # apply concatenation
@@ -320,9 +331,8 @@ def main(args):
         group.apply()
 
     # remove sources that have been successfully concatenated
-    results = {g for g in results if g.applied}
-    if not args.quiet:
-        for group in user_filter(
-            results, "Delete all successfully concatenated source files?"
-        ):
-            group.remove_source()
+    for group in user_filter(
+        [g for g in results if g.applied],
+        "Delete all concatenated source files (WITH CAUTION)?",
+    ):
+        group.remove_source()
