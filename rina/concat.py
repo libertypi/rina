@@ -60,20 +60,13 @@ class ConcatGroup(AVInfo):
         first = None
         for file in self.source:
             stream = subprocess.run(
-                (
-                    self.ffprobe,
-                    "-loglevel",
-                    "fatal",
-                    "-show_entries",
-                    "stream=index,codec_name,width,height,time_base",
-                    "-print_format",
-                    "json",
-                    file,
-                ),
+                (self.ffprobe, "-loglevel", "fatal", "-show_entries",
+                 "stream=index,codec_name,width,height,time_base",
+                 "-print_format", "json", file),
                 capture_output=True,
                 text=True,
                 check=True,
-            ).stdout
+            ).stdout  # fmt: skip
             # a list of dicts
             stream = tuple(
                 d
@@ -110,20 +103,10 @@ class ConcatGroup(AVInfo):
                     for p in self.source
                 )
             subprocess.run(
-                (
-                    self.ffmpeg,
-                    "-f",
-                    "concat",
-                    "-safe",
-                    "0",
-                    "-i",
-                    tmpfile,
-                    "-c",
-                    "copy",
-                    self.output,
-                ),
+                (self.ffmpeg, "-f", "concat", "-safe", "0", "-i", tmpfile,
+                 "-c", "copy", self.output),
                 check=True,
-            )
+            )  # fmt: skip
         except subprocess.CalledProcessError as e:
             logger.error(e)
             self.output.unlink(missing_ok=True)

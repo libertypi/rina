@@ -3,7 +3,7 @@ import datetime
 import re
 from pathlib import Path
 
-valid_types = {
+CMD_TYPES = {
     "video": ("dir", "file", "keyword"),
     "idol": ("dir", "keyword"),
     "concat": ("dir",),
@@ -19,7 +19,7 @@ def _add_source(
 ):
     parser.add_argument(
         "source",
-        help=f'the source. expect types: {", ".join(valid_types[command])}',
+        help=f'the source. expect types: {", ".join(CMD_TYPES[command])}',
     )
     if not add_filter:
         return
@@ -42,7 +42,7 @@ def _add_source(
         dest="newer",
         type=past_timestamp,
         help='include files newer than "n[DHMS]", e.g., "5D" for 5 days\n'
-        "Units: Days (D), Hours (H), Minutes (M), Seconds (S)\n",
+        "Units: Days (D), Hours (H), Minutes (M), Seconds (S)",
     )
     parser.add_argument(
         "-i",
@@ -223,7 +223,7 @@ def parse_args():
 
     # test source type
     # add args.type to Namespace
-    if args.command in valid_types:
+    if args.command in CMD_TYPES:
         source = Path(args.source)
         try:
             source = source.resolve(strict=True)
@@ -236,10 +236,10 @@ def parse_args():
             args.type = "keyword"
         except (OSError, RuntimeError) as e:
             parser.error(e)
-        if args.type not in valid_types[args.command]:
+        if args.type not in CMD_TYPES[args.command]:
             parser.error(
                 "expect source type to be '{}', not {}.".format(
-                    ", ".join(valid_types[args.command]), args.type
+                    ", ".join(CMD_TYPES[args.command]), args.type
                 )
             )
         args.source = source

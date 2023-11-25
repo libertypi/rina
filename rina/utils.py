@@ -11,23 +11,12 @@ from typing import Optional
 SEP_WIDTH = 50
 SEP_BOLD = "=" * SEP_WIDTH
 SEP_SLIM = "-" * SEP_WIDTH
-
 join_root = Path(__file__).parent.joinpath
 stderr_write = sys.stderr.write
-date_searcher = re.compile(
-    r"""(?<!\d)
-    (?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
-    (?:(?P<han>年)|(?P<sep>[／/.－-]))\s*
-    (?P<m>[1１][0-2０-２]|[0０]?[1-9１-９])\s*
-    (?(han)月|(?P=sep))\s*
-    (?P<d>[12１２][0-9０-９]|[3３][01０１]|[0０]?[1-9１-９])
-    (?(han)\s*日|(?!\d))""",
-    flags=re.VERBOSE,
-).search
 
 
 class Config:
-    """A configuration class providing global settings."""
+    """A namespace providing global settings."""
 
     DRYRUN: bool = False
     YES: bool = False
@@ -46,17 +35,6 @@ class Status(Enum):
     FAILURE = Color.RED
     WARNING = Color.MAGENTA
     ERROR = Color.BRIGHT_RED
-
-
-if sys.stdout.isatty():
-
-    def color_writer(string: str, color: Color = None, writer=sys.stdout.write):
-        writer(string if color is None else f"{color}{string}\033[0m")
-
-else:
-
-    def color_writer(string: str, color: Color = None, writer=sys.stdout.write):
-        writer(string)
 
 
 class AVInfo(ABC):
@@ -108,7 +86,18 @@ class AVInfo(ABC):
         raise NotImplementedError
 
 
-def dryrunmethod(method):
+if sys.stdout.isatty():
+
+    def color_writer(string: str, color: Color = None, writer=sys.stdout.write):
+        writer(string if color is None else f"{color}{string}\033[0m")
+
+else:
+
+    def color_writer(string: str, color: Color = None, writer=sys.stdout.write):
+        writer(string)
+
+
+def dryrun_method(method):
     """Decorator for class methods to enable dry run functionality."""
 
     def wrapper(self, *args, **kwargs):
@@ -119,10 +108,10 @@ def dryrunmethod(method):
 
 
 def get_choice_as_int(msg: str, total: int, default: int = 1) -> int:
+    if Config.YES:
+        return default
     while True:
         stderr_write(msg)
-        if Config.YES:
-            return default
         try:
             choice = int(input())
         except ValueError:
@@ -144,8 +133,25 @@ def strftime(epoch: float, fmt: str = "%F") -> Optional[str]:
         return time.strftime(fmt, time.gmtime(epoch))
 
 
+date_searcher = re.compile(
+    r"""(?<!\d)
+    (?P<y>(?:[1１][9９]|[2２][0０])\d\d)\s*
+    (?:(?P<han>年)|(?P<sep>[／/.－-]))\s*
+    (?P<m>[1１][0-2０-２]|[0０]?[1-9１-９])\s*
+    (?(han)月|(?P=sep))\s*
+    (?P<d>[12１２][0-9０-９]|[3３][01０１]|[0０]?[1-9１-９])
+    (?(han)\s*日|(?!\d))""",
+    flags=re.VERBOSE,
+).search
+
+
 def str_to_epoch(string: str) -> Optional[float]:
-    """Search for YYYY-MM-DD like date in a string, returns UTC epoch timestamp."""
+    """
+    Converts a date string to a UTC epoch timestamp.
+
+    Searches for a date in the format YYYY-MM-DD within the given string and
+    returns its epoch timestamp. Returns None if no valid date is found.
+    """
     try:
         m = date_searcher(string)
         return datetime(

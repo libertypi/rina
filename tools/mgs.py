@@ -21,7 +21,7 @@ def parse_args():
         action="store",
         type=int,
         default=2,
-        help="cut the dict to this frequency (default: %(default)s)",
+        help="include IDs appearing at least this many times (default: %(default)s)",
     )
     return parser.parse_args()
 
@@ -50,7 +50,7 @@ def main():
 
     src = Path(__file__).resolve().with_name("mgs_src.json")
     dst = src.parents[1].joinpath("rina/mgs.json")
-    print(f"Source: {src}\nOutput: {dst}", file=sys.stderr)
+    print(f"Source: {src}\nOutput: {dst}")
 
     # copy source from `rebuilder` project
     try:
@@ -77,8 +77,8 @@ def main():
     # 2. with frequency, from the highest to the lowest, so the program starts
     #    with a more common `num`
     # groups = [(prefix, num, frequency), ...]
-    groups = sorted(((*k, len(v)) for k, v in groups.items()))
     get_third = itemgetter(2)
+    groups = sorted(((*k, len(v)) for k, v in groups.items()))
     groups.sort(key=get_third, reverse=True)
     total = sum(map(get_third, groups))
 
@@ -93,22 +93,21 @@ def main():
         result[prefix].append(num)
 
     covered = sum(map(get_third, groups))
-    pre_len = frozenset(len(v[0]) for v in groups)
-    num_len = frozenset(len(v[1]) for v in groups)
+    ppprint = lambda s: ", ".join(map(str, sorted(s)))
     print(
         "Result:\n"
-        f"  Dictionary length: {len(result)}\n"
-        f"  Product coverage : {covered} / {total} ({covered / total:.1%})\n"
-        f"  Frequency range  : {min(map(get_third, groups))} - {max(map(get_third, groups))}\n"
-        f"  Num len range    : {{{min(num_len)},{max(num_len)}}}\n"
-        f"  Prefix len range : {{{min(pre_len)},{max(pre_len)}}}\n"
-        f"  Suffix len range : {{{min(sfx_len)},{max(sfx_len)}}}"
+        f"    Dictionary length: {len(result)}\n"
+        f"    Product coverage : {covered} / {total} ({covered / total:.1%})\n"
+        f"    Frequency range  : {min(map(get_third, groups))} - {max(map(get_third, groups))}\n"
+        f"    Number length    : {ppprint(set(len(v[1]) for v in groups))}\n"
+        f"    Prefix length    : {ppprint(set(len(v[0]) for v in groups))}\n"
+        f"    Suffix length    : {ppprint(sfx_len)}"
     )
 
     try:
         with open(dst, "r+", encoding="utf-8") as f:
             if json.load(f) == result:
-                print(f"{dst.name} is up to date.", file=sys.stderr)
+                print(f"{dst.name} is up to date.")
                 return
             f.seek(0)
             json.dump(result, f, separators=(",", ":"))
@@ -116,7 +115,7 @@ def main():
     except (FileNotFoundError, ValueError):
         with open(dst, "w", encoding="utf-8") as f:
             json.dump(result, f, separators=(",", ":"))
-    print(f"Update: '{dst}'", file=sys.stderr)
+    print(f"Update: '{dst}'")
 
 
 if __name__ == "__main__":

@@ -166,6 +166,7 @@ class Scraper(ABC):
             if d not in domains:
                 domains.append(d)
                 network.set_alias(pr.netloc, main_netloc)
+                logger.debug("Add javdb alt domain: %s", d)
         if len(domains) == 1:
             self.warning(f"unable to find alt domains at: {tree.base_url}")
 
@@ -343,7 +344,8 @@ class StudioScraper(Scraper):
                 f"{url}/dyn/phpauto/movie_details/movie_id/{self.search_id}.json"
             )
             data.raise_for_status()
-        except network.HTTPError:
+        except network.HTTPError as e:
+            logger.debug(e)
             return
         except network.RequestException as e:
             logger.warning(e)
@@ -576,7 +578,8 @@ class SMMiracleScraper(Scraper):
         try:
             data = get(f"https://sm-miracle.com/movie/{uid}.dat")
             data.raise_for_status()
-        except network.HTTPError:
+        except network.HTTPError as e:
+            logger.debug(e)
             return
         except network.RequestException as e:
             logger.warning(e)
@@ -724,7 +727,7 @@ class OneKGiriScraper(Scraper):
 class MGSScraper(Scraper):
     # This regex is compiled as is and matched with finditer. <hhb> matches
     # empty string so it does not consume the sequence number.
-    regex = r"\b(?:[0-9]?|(?P<num>[0-9]{2,5}))(?P<pre>[a-z]{2,9})-?(?=[0-9]*?[1-9])(?P<sfx>[0-9]{2,8})(?:[a-d]?|(?P<hhb>)[hm]hb[0-9]{,2})\b"
+    regex = r"\b(?:[0-9]{,2}|(?P<num>[0-9]{3,5}))(?P<pre>[a-z]{2,9})-?(?=[0-9]*?[1-9])(?P<sfx>[0-9]{2,8})(?:[a-d]?|(?P<hhb>)[hm]hb[0-9]{,2})\b"
     mgs_get = None
 
     @classmethod

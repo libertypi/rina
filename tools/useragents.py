@@ -5,8 +5,8 @@
 # https://www.useragents.me/#most-common-desktop-useragents-json-csv
 
 import json
-from pathlib import Path
 from argparse import ArgumentParser
+from pathlib import Path
 
 
 def parse_args():
@@ -30,16 +30,24 @@ def main():
     print(f"Source: {src}\nOutput: {dst}")
 
     with open(src, "r", encoding="utf-8") as f:
-        useragents = (d["ua"] for d in json.load(f) if d["pct"] >= args.pct)
-        useragents = sorted(set(filter(None, map(str.strip, useragents))))
+        result = (d["ua"] for d in json.load(f) if d["pct"] >= args.pct)
+        result = sorted(set(filter(None, map(str.strip, result))))
 
-    if not useragents:
+    if not result:
         raise ValueError(f"no valid useragents found in {src}.")
 
-    with open(dst, "w", encoding="utf-8") as f:
-        json.dump(useragents, f, separators=(",", ":"))
-
-    print(f"{len(useragents)} useragents has been written to disk.")
+    try:
+        with open(dst, "r+", encoding="utf-8") as f:
+            if json.load(f) == result:
+                print(f"{dst.name} is up to date.")
+                return
+            f.seek(0)
+            json.dump(result, f, separators=(",", ":"))
+            f.truncate()
+    except (FileNotFoundError, ValueError):
+        with open(dst, "w", encoding="utf-8") as f:
+            json.dump(result, f, separators=(",", ":"))
+    print(f"{len(result)} useragents has been written to disk.")
 
 
 if __name__ == "__main__":

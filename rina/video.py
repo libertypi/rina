@@ -5,9 +5,15 @@ from typing import Generator
 
 from .files import DiskScanner, get_scanner
 from .scraper import ScrapeResult, _has_word, scrape
-from .utils import AVInfo, Status, dryrunmethod, re_search, re_sub, strftime
+from .utils import AVInfo, Status, dryrun_method, re_search, re_sub, strftime
 
 _NAMEMAX = 255
+EXTS = {
+    "3g2", "3gp", "amv", "asf", "avi", "divx", "f4a", "f4b", "f4p", "f4v",
+    "flv", "hevc", "iso", "m2ts", "m2v", "m4p", "m4v", "mkv", "mov", "mp2",
+    "mp4", "mpe", "mpeg", "mpg", "mpv", "mts", "mxf", "ogv", "qt", "rm",
+    "rmvb", "svi", "swf", "ts", "viv", "vob", "webm", "wmv", "yuv"
+}  # fmt: skip
 
 
 class AVString(AVInfo):
@@ -86,7 +92,7 @@ class AVFile(AVString):
                 self.result["FromDate"] = strftime(stat.st_mtime)
                 self.status = Status.UPDATED
 
-    @dryrunmethod
+    @dryrun_method
     def apply(self):
         """Rename file and update timestamps based on scrape results."""
         source = self.source
@@ -158,49 +164,6 @@ def from_path(path: str, entry: os.DirEntry = None):
         result = None
         error = e
     return AVFile(path, result, error, entry)
-
-
-EXTS = {
-    "3g2",
-    "3gp",
-    "amv",
-    "asf",
-    "avi",
-    "divx",
-    "f4a",
-    "f4b",
-    "f4p",
-    "f4v",
-    "flv",
-    "hevc",
-    "iso",
-    "m2ts",
-    "m2v",
-    "m4p",
-    "m4v",
-    "mkv",
-    "mov",
-    "mp2",
-    "mp4",
-    "mpe",
-    "mpeg",
-    "mpg",
-    "mpv",
-    "mts",
-    "mxf",
-    "ogv",
-    "qt",
-    "rm",
-    "rmvb",
-    "svi",
-    "swf",
-    "ts",
-    "viv",
-    "vob",
-    "webm",
-    "wmv",
-    "yuv",
-}
 
 
 def from_dir(root, scanner: DiskScanner = None) -> Generator[AVFile, None, None]:

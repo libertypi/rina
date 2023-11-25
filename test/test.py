@@ -1,3 +1,4 @@
+import re
 import unittest
 
 from rina import birth, concat, files, idol, scraper, utils, video
@@ -228,33 +229,6 @@ class Test_Scraper(unittest.TestCase):
                 self.assertEqual(v, result.pub_date)
                 self.assertEqual(source, result.source)
 
-    def test_two_digit_regex(self):
-        two_digit_regex = utils.two_digit_regex
-        compile = utils.re.compile
-        strings = tuple(f"{i:02d}" for i in range(0, 100))
-        for x in range(100):
-            for y in range(x, 100):
-                pattern = two_digit_regex(x, y)
-                matcher = compile(pattern).fullmatch
-                for s in strings[:x]:
-                    self.assertIsNone(
-                        matcher(s),
-                        f"False positive: '{pattern}' matched '{s}' "
-                        f"(should only match from {x} to {y}).",
-                    )
-                for s in strings[x : y + 1]:
-                    self.assertIsNotNone(
-                        matcher(s),
-                        f"False negative: '{pattern}' did not match '{s}' "
-                        f"(should match in range {x} to {y}).",
-                    )
-                for s in strings[y + 1 :]:
-                    self.assertIsNone(
-                        matcher(s),
-                        f"False positive: '{pattern}' matched '{s}' "
-                        f"(should only match from {x} to {y}).",
-                    )
-
 
 class Test_Idol(unittest.TestCase):
     def _run_test(self, wiki, values):
@@ -407,6 +381,35 @@ class Test_Birth_Filter(unittest.TestCase):
             self.assertEqual(result, f"td[{v}]")
 
 
+class Test_Utils(unittest.TestCase):
+    def test_two_digit_regex(self):
+        two_digit_regex = utils.two_digit_regex
+        compile = re.compile
+        strings = tuple(f"{i:02d}" for i in range(0, 100))
+        for x in range(100):
+            for y in range(x, 100):
+                pattern = two_digit_regex(x, y)
+                matcher = compile(pattern).fullmatch
+                for s in strings[:x]:
+                    self.assertIsNone(
+                        matcher(s),
+                        f"False positive: '{pattern}' matched '{s}' "
+                        f"(should only match from {x} to {y}).",
+                    )
+                for s in strings[x : y + 1]:
+                    self.assertIsNotNone(
+                        matcher(s),
+                        f"False negative: '{pattern}' did not match '{s}' "
+                        f"(should match in range {x} to {y}).",
+                    )
+                for s in strings[y + 1 :]:
+                    self.assertIsNone(
+                        matcher(s),
+                        f"False positive: '{pattern}' matched '{s}' "
+                        f"(should only match from {x} to {y}).",
+                    )
+
+
 class Test_DiskScanner(unittest.TestCase):
     def test_name_filter(self):
         values = (
@@ -426,8 +429,8 @@ class Test_DiskScanner(unittest.TestCase):
         values = (
             ({"newer": 1000}, {"a": 800, "b": 1000, "c": 1200}, {"b", "c"}),
             (
-                {"include": "[ac]*", "exclude": "b*", "newer": 1000},
-                {"a": 800, "b": 1000, "c": 1200},
+                {"include": "[ac]*", "exclude": "b*", "newer": 100},
+                {"a": 80, "b": 100, "c": 120},
                 {"c"},
             ),
         )
