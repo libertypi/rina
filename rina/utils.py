@@ -8,8 +8,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-from . import Config
-
 SEP_WIDTH = 50
 SEP_BOLD = "=" * SEP_WIDTH
 SEP_SLIM = "-" * SEP_WIDTH
@@ -27,6 +25,13 @@ date_searcher = re.compile(
     (?(han)\s*日|(?!\d))""",
     flags=re.VERBOSE,
 ).search
+
+
+class Config:
+    """A configuration class providing global settings."""
+
+    DRYRUN: bool = False
+    YES: bool = False
 
 
 class Color(StrEnum):
@@ -102,6 +107,16 @@ class AVInfo(ABC):
 
     def apply(self):
         raise NotImplementedError
+
+
+def dryrunmethod(method):
+    """Decorator for class methods to enable dry run functionality."""
+
+    def wrapper(self, *args, **kwargs):
+        if not Config.DRYRUN:
+            return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 def get_choice_as_int(msg: str, total: int, default: int = 1) -> int:

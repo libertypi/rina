@@ -41,7 +41,7 @@ def _add_source(
         "-n",
         dest="newer",
         type=past_timestamp,
-        help='include files newer than "n[DHMS]", e.g., "5D" for newer than 5 days\n'
+        help='include files newer than "n[DHMS]", e.g., "5D" for 5 days\n'
         "Units: Days (D), Hours (H), Minutes (M), Seconds (S)\n",
     )
     parser.add_argument(

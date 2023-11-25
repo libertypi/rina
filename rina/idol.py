@@ -9,10 +9,9 @@ from pathlib import Path
 from typing import Generator
 from urllib.parse import quote, urljoin
 
-from . import Config
 from .files import DiskScanner, get_scanner
 from .network import HtmlElement, get_tree, xpath
-from .utils import AVInfo, Status, date_searcher, re_search, re_sub, stderr_write
+from .utils import AVInfo, Status, date_searcher, dryrunmethod, re_search, re_sub
 
 is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
 name_finder = re.compile(rf"(?:^|[】」』｝）》\])]){is_cjk_name}(?:$|[【「『｛（《\[(])").search
@@ -469,8 +468,9 @@ class IdolFolder(Idol):
         if self.status == Status.SUCCESS and self.final != path.name:
             self.status = Status.UPDATED
 
+    @dryrunmethod
     def apply(self):
-        if not Config.DRYRUN and self.status == Status.UPDATED:
+        if self.status == Status.UPDATED:
             os.rename(self.path, self.path.with_name(self.final))
 
 

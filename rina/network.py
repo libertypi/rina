@@ -1,3 +1,11 @@
+"""
+Functionalities for making HTTP requests and parsing HTML content.
+
+- get: Perform a GET request with site-specific settings and a managed session.
+- get_tree: Retrieve and parse the HTML content of a web page into an
+  HtmlElement.
+"""
+
 import json
 import logging
 from functools import lru_cache
@@ -17,7 +25,7 @@ from .utils import join_root
 
 logger = logging.getLogger(__name__)
 
-HTTP_TIMEOUT = (9.1, 60)
+HTTP_TIMEOUT = (9.1, 60)  # (connect, read)
 DEFAULT_SETTING = {
     "max_connection": 5,
     "cookies": None,
@@ -55,13 +63,20 @@ SITE_SETTINGS = {
 
 
 def set_alias(name: str, dst: str):
+    """Sets an alias for a site's settings, mirroring another site's
+    configuration."""
     SITE_SETTINGS[name] = SITE_SETTINGS[dst]
 
 
 def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
+    """
+    Initializes and configures the HTTP session with retry logic and random
+    user-agent.
+    """
     with open(join_root(uafile), "r", encoding="utf-8") as f:
         useragents = json.load(f)
-    assert useragents, f"empty useragent data: {uafile}"
+    assert useragents, f"Empty useragent data: '{uafile}'"
+    logger.debug("Load %s user-agents from '%s'", len(useragents), uafile)
 
     session = requests.Session()
     session.headers.update(
@@ -92,7 +107,7 @@ def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
 
 
 def _init_site(netloc: str) -> Tuple[dict, Semaphore]:
-    """Initialize the setting and semaphore for a domain."""
+    """Initializes the settings and semaphore for a specific domain."""
     result = SITE_SETTINGS.get(netloc)
     if not result:
         setting = DEFAULT_SETTING
@@ -105,14 +120,17 @@ def _init_site(netloc: str) -> Tuple[dict, Semaphore]:
             cc = requests.cookies.create_cookie
             for k, v in setting["cookies"].items():
                 sc(cc(name=k, value=v, domain=netloc))
-    logger.debug("Initialize '%s' with setting: %s", netloc, setting)
+    logger.debug("Initialize '%s': %s", netloc, setting)
     return setting, Semaphore(setting["max_connection"])
 
 
-_settings = {}
+_settings = {}  # Cached site settings
 
 
 def get(url: str, *, pr: ParseResult = None, **kwargs):
+    """
+    Performs a GET request with site-specific settings.
+    """
     logger.debug("GET: %s", url)
     if pr is None:
         pr = urlparse(url)
@@ -130,16 +148,19 @@ def get(url: str, *, pr: ParseResult = None, **kwargs):
         return session.get(url, headers=headers, timeout=HTTP_TIMEOUT, **kwargs)
 
 
-_parsers = {}
+_parsers = {}  # Cached HTML parsers based on encoding
 
 
 def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
+    """
+    Fetches a web page and returns its parsed HTML tree.
+    """
     pr = urlparse(url)
     try:
         response = get(url, pr=pr, **kwargs)
-        logger.debug("%s: [%s]", response.url, response.status_code)
         response.raise_for_status()
-    except HTTPError:
+    except HTTPError as e:
+        logger.debug(e)
         return
     except RequestException as e:
         logger.warning(e)
@@ -156,8 +177,9 @@ def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
             parser = _parsers[encoding] = HTMLParser(encoding=encoding)
         except LookupError:
             parser = _parsers[encoding] = None
+            logger.warning("Invalid encoding: '%s'. URL: '%s'", encoding, response.url)
     return html_fromstring(response.content, base_url=response.url, parser=parser)
 
 
 session, useragents = _init_session()
-xpath = lru_cache(XPath)
+xpath = lru_cache(XPath)  # Cached XPath function for performance

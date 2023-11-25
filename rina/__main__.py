@@ -1,11 +1,12 @@
 import sys
 
-from . import Config, set_logger
+from . import config_logger
 from .arguments import parse_args
 from .utils import (
     SEP_BOLD,
     SEP_SLIM,
     SEP_WIDTH,
+    Config,
     Status,
     get_choice_as_int,
     stderr_write,
@@ -99,7 +100,7 @@ def progressbar(sequence, width: int = SEP_WIDTH):
 def main():
     args = parse_args()
 
-    set_logger(args.verbose)
+    config_logger(args.verbose)
     Config.DRYRUN = args.dryrun
     Config.YES = args.yes
 

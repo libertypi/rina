@@ -6,8 +6,7 @@ from collections import deque
 from pathlib import Path
 from typing import Generator
 
-from . import Config
-from .utils import stderr_write, strftime
+from .utils import Config, stderr_write, strftime
 
 logger = logging.getLogger(__name__)
 

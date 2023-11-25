@@ -10,9 +10,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Tuple
 
-from . import Config
 from .files import DiskScanner, get_scanner
-from .utils import SEP_BOLD, AVInfo, Status, get_choice_as_int, stderr_write
+from .utils import SEP_BOLD, AVInfo, Config, Status, get_choice_as_int, stderr_write
 
 logger = logging.getLogger(__name__)
 
