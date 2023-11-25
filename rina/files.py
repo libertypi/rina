@@ -2,7 +2,6 @@ import fnmatch
 import logging
 import os
 import re
-from collections import deque
 from pathlib import Path
 from typing import Generator
 
@@ -119,9 +118,9 @@ class DiskScanner:
         dirfilters = self.dirfilters
         filefilters = self.filefilters
         recursive = self.recursive
-        que = deque((root,))
-        while que:
-            root = que.popleft()
+        stack = [root]
+        while stack:
+            root = stack.pop()
             dirs.clear()
             files.clear()
             try:
@@ -139,7 +138,7 @@ class DiskScanner:
             except OSError as e:
                 logger.error(e)
             else:
-                que.extend(dirs)
+                stack.extend(reversed(dirs))
                 yield from output
             if not recursive:
                 break
@@ -159,9 +158,9 @@ class DiskScanner:
         dirfilters = self.dirfilters
         filefilters = self.filefilters
         recursive = self.recursive
-        que = deque((root,))
-        while que:
-            root = que.popleft()
+        stack = [root]
+        while stack:
+            root = stack.pop()
             dirs = []
             files = []
             try:
@@ -179,7 +178,7 @@ class DiskScanner:
             except OSError as e:
                 logger.error(e)
             else:
-                que.extend(dirs)
+                stack.extend(reversed(dirs))
                 yield dirs, files
             if not recursive:
                 break

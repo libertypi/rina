@@ -175,10 +175,11 @@ class Test_Scraper(unittest.TestCase):
         }
         self._run_test(values, source)
 
-    # def test_smmiracle(self):
-    #     source = "sm-miracle.com"
-    #     values = {"sm miracle e0689": ("sm-miracle-e0689", "黒髪の地方令嬢２", None)}
-    #     self._run_test(values, source)
+    @unittest.skip("website down")
+    def test_smmiracle(self):
+        source = "sm-miracle.com"
+        values = {"sm miracle e0689": ("sm-miracle-e0689", "黒髪の地方令嬢２", None)}
+        self._run_test(values, source)
 
     def test_fc2(self):
         source = "fc2.com"
