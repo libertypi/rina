@@ -391,23 +391,20 @@ class Test_Utils(unittest.TestCase):
             for y in range(x, 100):
                 pattern = two_digit_regex(x, y)
                 matcher = compile(pattern).fullmatch
-                for s in strings[:x]:
-                    self.assertIsNone(
-                        matcher(s),
-                        f"False positive: '{pattern}' matched '{s}' "
-                        f"(should only match from {x} to {y}).",
+                for i in range(x):
+                    self.assertFalse(
+                        matcher(strings[i]),
+                        f"'{pattern}' matched '{strings[i]}' (should only match from {x} to {y}).",
                     )
-                for s in strings[x : y + 1]:
-                    self.assertIsNotNone(
-                        matcher(s),
-                        f"False negative: '{pattern}' did not match '{s}' "
-                        f"(should match in range {x} to {y}).",
+                for i in range(x, y + 1):
+                    self.assertTrue(
+                        matcher(strings[i]),
+                        f"'{pattern}' did not match '{strings[i]}' (should match in range {x} to {y}).",
                     )
-                for s in strings[y + 1 :]:
-                    self.assertIsNone(
-                        matcher(s),
-                        f"False positive: '{pattern}' matched '{s}' "
-                        f"(should only match from {x} to {y}).",
+                for i in range(y + 1, 100):
+                    self.assertFalse(
+                        matcher(strings[i]),
+                        f"'{pattern}' matched '{strings[i]}' (should only match from {x} to {y}).",
                     )
 
 
@@ -429,12 +426,8 @@ class Test_DiskScanner(unittest.TestCase):
     def test_mix_filter(self):
         values = (
             ({"newer": 1000}, {"a": 800, "b": 1000, "c": 1200}, {"b", "c"}),
-            (
-                {"include": "[ac]*", "exclude": "b*", "newer": 100},
-                {"a": 80, "b": 100, "c": 120},
-                {"c"},
-            ),
-        )
+            ({"include": "[ac]*", "exclude": "b*", "newer": 100}, {"a": 80, "b": 100, "c": 120}, {"c"}),
+        )  # fmt: skip
         for kwargs, entries, answer in values:
             scanner = files.DiskScanner(**kwargs)
             entries = [DuckOSEntry(name=n, mtime=t) for n, t in entries.items()]
