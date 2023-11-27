@@ -98,8 +98,8 @@ class DiskScanner:
 
         Parameters:
          - root: The path of the directory to scan.
-         - yield_dirs: If True, output and apply filters to directories instead
-           of files. Defaults to False.
+         - yield_dirs: If True, filters and yields directories instead of files.
+           Defaults to False.
 
         Yields:
          - os.DirEntry: Directory entries matching the specified filters and
