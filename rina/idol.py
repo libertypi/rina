@@ -477,13 +477,16 @@ class IdolFolder(Idol):
 def from_dir(root, scanner: DiskScanner = None) -> Generator[IdolFolder, None, None]:
     """Scan a directory and yield ActressFolder objects."""
     if scanner is None:
-        scanner = DiskScanner(ftype="dir", recursive=False)
+        scanner = DiskScanner(recursive=False)
 
     # Use two executors to avoid deadlock
     m = min(32, (os.cpu_count() or 1) + 4)
     o = m // 3
     with ThreadPoolExecutor(o) as outer, ThreadPoolExecutor(m - o) as inner:
-        pool = [outer.submit(IdolFolder, e.path, inner) for e in scanner.scandir(root)]
+        pool = [
+            outer.submit(IdolFolder, e.path, inner)
+            for e in scanner.scandir(root, yield_dirs=True)
+        ]
         # If there is no subdirectory, add the root.
         if not pool:
             pool.append(outer.submit(IdolFolder, root, inner))
@@ -494,4 +497,4 @@ def from_dir(root, scanner: DiskScanner = None) -> Generator[IdolFolder, None, N
 
 def from_args(args):
     """:type args: argparse.Namespace"""
-    return from_dir(args.source, get_scanner(args, ftype="dir"))
+    return from_dir(args.source, get_scanner(args))

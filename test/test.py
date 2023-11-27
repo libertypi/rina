@@ -418,7 +418,7 @@ class Test_DiskScanner(unittest.TestCase):
         for kwargs, entries, answer in values:
             scanner = files.DiskScanner(**kwargs)
             entries = [DuckOSEntry(name=name) for name in entries]
-            for f in scanner.filefilters:
+            for f in scanner.filters:
                 entries[:] = f(entries)
             result = {e.name for e in entries}
             self.assertSetEqual(result, answer)
@@ -431,7 +431,7 @@ class Test_DiskScanner(unittest.TestCase):
         for kwargs, entries, answer in values:
             scanner = files.DiskScanner(**kwargs)
             entries = [DuckOSEntry(name=n, mtime=t) for n, t in entries.items()]
-            for f in scanner.filefilters:
+            for f in scanner.filters:
                 entries[:] = f(entries)
             result = {e.name for e in entries}
             self.assertSetEqual(result, answer)
