@@ -269,7 +269,7 @@ def past_timestamp(date: str) -> float:
                     datetime.datetime.now() - datetime.timedelta(**date)
                 ).timestamp()
         except (ValueError, OverflowError) as e:
-            raise argparse.ArgumentTypeError(e)
+            raise argparse.ArgumentError(message=e)
     raise argparse.ArgumentError()
 
 
@@ -288,4 +288,5 @@ def year_range(years: str) -> range:
     m = re.fullmatch(r"\s*(\d\d|\d{4})(?:-(\d\d|\d{4}))?\s*", years)
     if not m:
         raise argparse.ArgumentError()
-    return range(to_year(m[1]), to_year(m[2] or m[1]) + 1)
+    start = to_year(m[1])
+    return range(start, (to_year(m[2]) if m[2] else start) + 1)
