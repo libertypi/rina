@@ -41,11 +41,9 @@ def reverse_bisect_left(a: list, x: int, i: int):
 
 
 def main():
-    """
-    Source format: [num][prefix]-[suffix] (e.g., 001AVGP-136)
-    Output format: {prefix: [num1, num2, ...], ...}
-    Only keeps prefix-num pairs that appear more than `args.freq` times
-    """
+    # Source format: [num][prefix]-[suffix] (e.g., 001AVGP-136)
+    # Output format: {prefix: [num1, num2, ...], ...}
+    # Only keeps prefix-num pairs that appear more than `args.freq` times
     args = parse_args()
 
     src = Path(__file__).resolve().with_name("mgs_src.json")
@@ -100,7 +98,7 @@ def main():
         f"    Product coverage : {covered} / {total} ({covered / total:.1%})\n"
         f"    Frequency range  : {min(map(get_third, groups))} - {max(map(get_third, groups))}\n"
         f"    Number length    : {ppprint(set(len(v[1]) for v in groups))}\n"
-        f"    Prefix length    : {ppprint(set(len(v[0]) for v in groups))}\n"
+        f"    Prefix length    : {ppprint(set(map(len, result)))}\n"
         f"    Suffix length    : {ppprint(sfx_len)}"
     )
 
