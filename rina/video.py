@@ -125,19 +125,19 @@ class AVFile(AVString):
             # Remove spaces before and after non-word characters
             title = re_sub(r"\s+(?=[^\w\s])|(?<=[^\w\s])\s+", "", title)
 
-        while len(title.encode("utf-8")) > namemax:
-            # Truncate title:
-            # Preserve trailing punctuations: `】」』｝）》\])？！!…`
-            # Remove other non-word characters
-            # ...]...   |   ...、...
-            # ...]↑     |   ...↑
-            m = re_search(r".*?\w.*(?:[】」』｝）》\])？！!…](?=.)|(?=\W))", title)
-            if m:
-                title = m[0].rstrip(strip_chars)
-            else:
-                # No suitable breakpoint is found, do a hard cut
-                title = title.encode("utf-8")[:namemax].decode("utf-8", "ignore")
-                break
+            while len(title.encode("utf-8")) > namemax:
+                # Truncate title:
+                # Preserve trailing punctuations: `】」』｝）》\])？！!…`
+                # Remove other non-word characters
+                # ...]...   |   ...、...
+                # ...]↑     |   ...↑
+                m = re_search(r".*?\w.*(?:[】」』｝）》\])？！!…](?=.)|(?=\W))", title)
+                if m:
+                    title = m[0].rstrip(strip_chars)
+                else:
+                    # No suitable breakpoint is found, do a hard cut
+                    title = title.encode("utf-8")[:namemax].decode("utf-8", "ignore")
+                    break
 
         if _has_word(title):
             return f"{product_id} {title}{ext.lower()}"
