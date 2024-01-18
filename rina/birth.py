@@ -82,7 +82,7 @@ xpath_actress_list = XPath(
 
 
 def main(args):
-    domain = "http://www.minnano-av.com"
+    domain = "https://www.minnano-av.com"
     _filter = ProductFilter(
         active=args.active, uncensored=args.uncensored, solo=args.solo
     )

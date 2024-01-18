@@ -99,7 +99,7 @@ class MinnanoAV(Wiki):
     @classmethod
     def _search(cls, keyword: str):
         tree = get_tree(
-            "http://www.minnano-av.com/search_result.php",
+            "https://www.minnano-av.com/search_result.php",
             params={"search_scope": "actress", "search_word": keyword},
         )
         if tree is None:

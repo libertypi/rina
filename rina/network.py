@@ -36,7 +36,7 @@ SITE_SETTINGS = {
     "www.javbus.com": {
         "max_connection": 10,
         "cookies": {"existmag": "all"},
-        "headers": {"Accept-Language": "zh"},
+        "headers": {"Accept-Language": "zh-CN"},
     },
     "javdb.com": {
         "max_connection": 1,
