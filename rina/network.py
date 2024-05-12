@@ -8,6 +8,7 @@ Functionalities for making HTTP requests and parsing HTML content.
 
 import json
 import logging
+import ssl
 from functools import lru_cache
 from random import choice as random_choice
 from threading import Semaphore
@@ -62,10 +63,25 @@ SITE_SETTINGS = {
 }
 
 
-def set_alias(name: str, dst: str):
-    """Sets an alias for a site's settings, mirroring another site's
-    configuration."""
-    SITE_SETTINGS[name] = SITE_SETTINGS[dst]
+class CustomHttpAdapter(requests.adapters.HTTPAdapter):
+    """
+    Transport adapter that allows us to use a custom SSL context to bypass the
+    "SSL: UNSAFE_LEGACY_RENEGOTIATION_DISABLED" error.
+    Source: https://stackoverflow.com/a/73519818/14500150
+    """
+
+    def __init__(self, ssl_context=None, **kwargs):
+        self.ssl_context = ssl_context
+        super().__init__(**kwargs)
+
+    def init_poolmanager(self, connections, maxsize, block=False):
+        """Initialize the pool manager with the custom SSL context."""
+        self.poolmanager = urllib3.poolmanager.PoolManager(
+            num_pools=connections,
+            maxsize=maxsize,
+            block=block,
+            ssl_context=self.ssl_context,
+        )
 
 
 def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
@@ -94,16 +110,25 @@ def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
             "Cache-Control": "max-age=0",
         }
     )
-    adapter = requests.adapters.HTTPAdapter(
+    ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+    ctx.options |= 0x4  # OP_LEGACY_SERVER_CONNECT
+    adapter = CustomHttpAdapter(
+        ssl_context=ctx,
         max_retries=urllib3.Retry(
             total=retries,
             status_forcelist={429, 500, 502, 503, 504, 521, 524},
             backoff_factor=backoff,
-        )
+        ),
     )
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     return session, useragents
+
+
+def set_alias(name: str, dst: str):
+    """Sets an alias for a site's settings, mirroring another site's
+    configuration."""
+    SITE_SETTINGS[name] = SITE_SETTINGS[dst]
 
 
 def _init_site(netloc: str) -> Tuple[dict, Semaphore]:
