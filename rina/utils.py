@@ -3,7 +3,7 @@ import sys
 import time
 from abc import ABC
 from datetime import datetime, timezone
-from enum import Enum, StrEnum
+from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -22,19 +22,12 @@ class Config:
     YES: bool = False
 
 
-class Color(StrEnum):
-    RED = "\033[31m"
-    YELLOW = "\033[33m"
-    MAGENTA = "\033[35m"
-    BRIGHT_RED = "\033[91m"
-
-
 class Status(Enum):
     SUCCESS = None
-    UPDATED = Color.YELLOW
-    FAILURE = Color.RED
-    WARNING = Color.MAGENTA
-    ERROR = Color.BRIGHT_RED
+    UPDATED = "\033[33m"  # YELLOW
+    FAILURE = "\033[31m"  # RED
+    WARNING = "\033[35m"  # MAGENTA
+    ERROR = "\033[91m"  # BRIGHT_RED
 
 
 class AVInfo(ABC):
@@ -88,12 +81,12 @@ class AVInfo(ABC):
 
 if sys.stdout.isatty():
 
-    def color_writer(string: str, color: Color = None, writer=sys.stdout.write):
+    def color_writer(string: str, color: str = None, writer=sys.stdout.write):
         writer(string if color is None else f"{color}{string}\033[0m")
 
 else:
 
-    def color_writer(string: str, color: Color = None, writer=sys.stdout.write):
+    def color_writer(string: str, color: str = None, writer=sys.stdout.write):
         writer(string)
 
 
