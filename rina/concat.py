@@ -60,7 +60,7 @@ class ConcatGroup(AVInfo):
         first = None
         for file in self.source:
             stream = subprocess.run(
-                (self.ffprobe, "-loglevel", "fatal", "-show_entries",
+                (self.ffprobe, "-loglevel", "quiet", "-show_entries",
                  "stream=index,codec_name,width,height,time_base",
                  "-print_format", "json", file),
                 capture_output=True,
@@ -103,8 +103,8 @@ class ConcatGroup(AVInfo):
                     for p in self.source
                 )
             subprocess.run(
-                (self.ffmpeg, "-f", "concat", "-safe", "0", "-i", tmpfile,
-                 "-c", "copy", self.output),
+                (self.ffmpeg, "-hide_banner", "-f", "concat", "-safe", "0",
+                 "-i", tmpfile, "-c", "copy", self.output),
                 check=True,
             )  # fmt: skip
         except subprocess.CalledProcessError as e:

@@ -7,6 +7,7 @@ from typing import Generator
 
 from .utils import Config, stderr_write, strftime
 
+_EADIR = "@eaDir"  # Synology hidden directory
 logger = logging.getLogger(__name__)
 
 
@@ -123,7 +124,10 @@ class DiskScanner:
                             is_dir = e.is_dir(follow_symlinks=False)
                         except OSError:
                             is_dir = False
-                        (dirs if is_dir else files).append(e)
+                        if not is_dir:
+                            files.append(e)
+                        elif e.name != _EADIR:
+                            dirs.append(e)
                     for f in dirfilters:
                         dirs[:] = f(dirs)
                     stack.extend(reversed(dirs))
@@ -162,7 +166,10 @@ class DiskScanner:
                             is_dir = e.is_dir(follow_symlinks=False)
                         except OSError:
                             is_dir = False
-                        (dirs if is_dir else files).append(e)
+                        if not is_dir:
+                            files.append(e)
+                        elif e.name != _EADIR:
+                            dirs.append(e)
                     for f in dirfilters:
                         dirs[:] = f(dirs)
                     for f in filters:
@@ -216,15 +223,15 @@ def _update_dirtime(root, total=0, updated=0):
                     is_dir = e.is_dir(follow_symlinks=False)
                 except OSError:
                     is_dir = False
-                if is_dir:
+                if not is_dir:
+                    try:
+                        mtime = e.stat().st_mtime
+                    except OSError:
+                        continue
+                    if mtime > newest:
+                        newest = mtime
+                elif e.name != _EADIR:
                     dirs.append(e)
-                    continue
-                try:
-                    mtime = e.stat().st_mtime
-                except OSError:
-                    continue
-                if mtime > newest:
-                    newest = mtime
     except OSError as e:
         logger.error(e)
         return 0, total, updated
