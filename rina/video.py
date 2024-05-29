@@ -9,10 +9,12 @@ from .utils import AVInfo, Status, dryrun_method, re_search, re_sub, strftime
 
 _NAMEMAX = 255
 EXTS = {
-    "3g2", "3gp", "amv", "asf", "avi", "divx", "f4a", "f4b", "f4p", "f4v",
-    "flv", "hevc", "iso", "m2ts", "m2v", "m4p", "m4v", "mkv", "mov", "mp2",
-    "mp4", "mpe", "mpeg", "mpg", "mpv", "mts", "mxf", "ogv", "qt", "rm",
-    "rmvb", "svi", "swf", "ts", "viv", "vob", "webm", "wmv", "yuv"
+    "3g2", "3gp", "3gp2", "3gpp", "amv", "asf", "avi", "divx", "dpg", "drc",
+    "evo", "f4a", "f4b", "f4p", "f4v", "flv", "ifo", "k3g", "m1v", "m2t",
+    "m2ts", "m2v", "m4b", "m4p", "m4v", "mkv", "mov", "mp2v", "mp4", "mpe",
+    "mpeg", "mpeg2", "mpg", "mpv2", "mts", "mxf", "nsr", "nsv", "ogm", "ogv",
+    "ogx", "qt", "ram", "rm", "rmvb", "rpm", "skm", "swf", "tp", "tpr", "ts",
+    "vid", "viv", "vob", "webm", "wm", "wmp", "wmv", "wtv"
 }  # fmt: skip
 
 

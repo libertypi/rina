@@ -16,6 +16,7 @@ from typing import Optional, Tuple
 from urllib.parse import ParseResult, urlparse
 
 import requests
+import requests.adapters
 import urllib3
 from lxml.etree import XPath
 from lxml.html import HtmlElement, HTMLParser
@@ -64,18 +65,11 @@ SITE_SETTINGS = {
 
 
 class CustomHttpAdapter(requests.adapters.HTTPAdapter):
-    """
-    Transport adapter that allows us to use a custom SSL context to bypass the
-    "SSL: UNSAFE_LEGACY_RENEGOTIATION_DISABLED" error.
-    Source: https://stackoverflow.com/a/73519818/14500150
-    """
-
     def __init__(self, ssl_context=None, **kwargs):
         self.ssl_context = ssl_context
         super().__init__(**kwargs)
 
     def init_poolmanager(self, connections, maxsize, block=False):
-        """Initialize the pool manager with the custom SSL context."""
         self.poolmanager = urllib3.poolmanager.PoolManager(
             num_pools=connections,
             maxsize=maxsize,
@@ -98,30 +92,26 @@ def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
     session.headers.update(
         {
             "User-Agent": random_choice(useragents),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             "Accept-Language": "ja,zh;q=0.8,en-US;q=0.5,en;q=0.3",
-            "Accept-Encoding": "gzip, deflate",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "Cache-Control": "max-age=0",
         }
     )
-    ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    ctx.options |= 0x4  # OP_LEGACY_SERVER_CONNECT
-    adapter = CustomHttpAdapter(
-        ssl_context=ctx,
-        max_retries=urllib3.Retry(
-            total=retries,
-            status_forcelist={429, 500, 502, 503, 504, 521, 524},
-            backoff_factor=backoff,
-        ),
+    retry = urllib3.Retry(
+        total=retries,
+        status_forcelist=frozenset((429, 500, 502, 503, 504, 521, 524)),
+        backoff_factor=backoff,
     )
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
+
+    ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+    # accepting legacy connections
+    ctx.options |= 0x4
+    # to bypass verification after accepting Legacy connections
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retry))
+    session.mount("https://", CustomHttpAdapter(ssl_context=ctx, max_retries=retry))
+
     return session, useragents
 
 
@@ -170,7 +160,9 @@ def get(url: str, *, pr: ParseResult = None, **kwargs):
     headers.setdefault("Referer", f"{pr.scheme}://{pr.netloc}/")
 
     with semaphore:
-        return session.get(url, headers=headers, timeout=HTTP_TIMEOUT, **kwargs)
+        return session.get(
+            url, headers=headers, timeout=HTTP_TIMEOUT, verify=False, **kwargs
+        )
 
 
 _parsers = {}  # Cached HTML parsers based on encoding
@@ -207,4 +199,4 @@ def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
 
 
 session, useragents = _init_session()
-xpath = lru_cache(XPath)  # Cached XPath function for performance
+xpath = lru_cache(XPath)  # Cached XPath function

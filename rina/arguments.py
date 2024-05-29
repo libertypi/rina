@@ -96,13 +96,14 @@ def parse_args():
         help="automatically confirm all prompts",
     )
     # sub-parsers
-    subparsers = parser.add_subparsers(title="commands", dest="command", required=True)
+    subparsers = parser.add_subparsers(title="commands", required=True)
 
     # video
     # source: dir, file, keyword
     command = "video"
     subparser = subparsers.add_parser(
-        "video",
+        command,
+        aliases="v",
         help="scrape video information",
         description=(
             "Description:\n"
@@ -117,13 +118,15 @@ def parse_args():
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
+    subparser.set_defaults(command=command)
     _add_source(subparser, command)
 
     # idol
     # source: dir, keyword
     command = "idol"
     subparser = subparsers.add_parser(
-        "idol",
+        command,
+        aliases="i",
         help="search for idol biography",
         description=(
             "Description:\n"
@@ -138,13 +141,15 @@ def parse_args():
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
+    subparser.set_defaults(command=command)
     _add_source(subparser, command, recursive=False)
 
     # concat
     # source: dir
     command = "concat"
     subparser = subparsers.add_parser(
-        "concat",
+        command,
+        aliases="c",
         help="concatenate consecutive videos",
         description=(
             "Description:\n"
@@ -152,6 +157,7 @@ def parse_args():
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
+    subparser.set_defaults(command=command)
     subparser.add_argument(
         "-f",
         dest="ffmpeg",
@@ -165,6 +171,7 @@ def parse_args():
     command = "dir"
     subparser = subparsers.add_parser(
         command,
+        aliases="d",
         help="update directory timestamps",
         description=(
             "Description:\n"
@@ -172,12 +179,14 @@ def parse_args():
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
+    subparser.set_defaults(command=command)
     _add_source(subparser, command, add_filter=False)
 
     # birth
     command = "birth"
     subparser = subparsers.add_parser(
-        "birth",
+        command,
+        aliases="b",
         help="search idols by birth year",
         description=(
             "Description:\n"
@@ -192,6 +201,7 @@ def parse_args():
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
+    subparser.set_defaults(command=command)
     subparser.add_argument(
         "-a",
         dest="active",

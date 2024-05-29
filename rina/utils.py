@@ -157,17 +157,15 @@ def str_to_epoch(string: str) -> Optional[float]:
         pass
 
 
-@lru_cache
-def cached_compile(pattern: str, flags: int = 0):
-    return re.compile(pattern, flags)
+re_compile = lru_cache(re.compile)
 
 
 def re_search(pattern: str, string: str, flags: int = 0):
-    return cached_compile(pattern, flags).search(string)
+    return re_compile(pattern, flags).search(string)
 
 
 def re_sub(pattern: str, repl, string: str, count: int = 0, flags: int = 0):
-    return cached_compile(pattern, flags).sub(repl, string, count)
+    return re_compile(pattern, flags).sub(repl, string, count)
 
 
 def two_digit_regex(lower: int, upper: int):

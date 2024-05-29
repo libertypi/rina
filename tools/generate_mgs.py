@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # This script is intended to generate `rina/mgs.json`
-# Data source: `./mgs_src.json` from my `rebuilder` project
+# Data source: mgs_src.json
 
 import argparse
 import json
@@ -50,11 +50,11 @@ def main():
     dst = src.parents[1].joinpath("rina/mgs.json")
     print(f"Source: {src}\nOutput: {dst}")
 
-    # copy source from `rebuilder` project
+    # copy source from `footprints` project
     try:
-        shutil.copy(src.parents[2].joinpath("rebuilder/data/mgs_src.json"), src)
-    except FileNotFoundError as e:
-        pass
+        shutil.copy(src.parents[2].joinpath("footprints/data/mgs.json"), src)
+    except FileNotFoundError:
+        print("Warning: cannot update data file from footprints.")
     try:
         with open(src, "r", encoding="utf-8") as f:
             result = json.load(f)
@@ -70,14 +70,14 @@ def main():
         groups[i[2], i[1]].add(int(i[3]))
         sfx_len.add(len(i[3]))
 
-    # Measure the frequency and sort the groups:
-    # 1. with prefix so it looks nice
-    # 2. with frequency, from the highest to the lowest, so the program starts
-    #    with a more common `num`
+    # Measure the frequency and sort the groups by frequency (descending) and
+    # then by prefix (alphabetically)
     # groups = [(prefix, num, frequency), ...]
+    groups = sorted(
+        ((*k, len(v)) for k, v in groups.items()),
+        key=lambda a: (-a[2], a[0], a[1]),
+    )
     get_third = itemgetter(2)
-    groups = sorted(((*k, len(v)) for k, v in groups.items()))
-    groups.sort(key=get_third, reverse=True)
     total = sum(map(get_third, groups))
 
     # Slice the list so that all items have a frequency >= args.freq

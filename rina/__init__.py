@@ -12,12 +12,12 @@ def config_logger(verbose: bool = False):
     logger.handlers.clear()
     # Set the logging format based on the verbosity
     if verbose:
-        format = "[%(levelname)s] %(name)s: %(message)s"
+        fmt = "[%(levelname)s] %(name)s: %(message)s"
         logger.setLevel(logging.DEBUG)
     else:
-        format = "[%(levelname)s] %(message)s"
+        fmt = "[%(levelname)s] %(message)s"
         logger.setLevel(logging.WARNING)
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(format))
+    handler.setFormatter(logging.Formatter(fmt))
     logger.addHandler(handler)
     logger.propagate = False

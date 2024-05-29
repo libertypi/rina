@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # This script is intended to generate `rina/useragents.json`
-# Data source: `./useragents_src.json` from
+# Data source: useragents_src.json
 # https://www.useragents.me/#most-common-desktop-useragents-json-csv
 
 import json

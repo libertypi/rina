@@ -25,7 +25,7 @@ _sub_trash = re.compile(
     r"""\b(
     ([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}@|
     [\[(](([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}|hd|jav)[\])]|
-    ([a-z]+2048|\d+sht|thzu?|168x|44x|hotavxxx|nyap2p|3xplanet|sogclub|sis001|sexinsex|hhd800)(\.[a-z]{2,4})?|
+    ([a-z]+2048|\d+sht|thzu?|168x|44x|hotavxxx|nyap2p|3xplanet|sogclub|sis001|sexinsex|hhd800|kfa11)(\.[a-z]{2,4})?|
     dioguitar23|(un|de)censored|nodrm|fhd|1000[\s-]*giri
     )\b|\s+""",
     flags=re.VERBOSE,
@@ -771,7 +771,9 @@ class MGSScraper(Scraper):
             )
             try:
                 title = re_sub(
-                    r"^(\s*【.*?】)+|【[^】]*映像付】|\+\d+分\b", "", tree.findtext("h1")
+                    r"^(\s*【.*?】)+|【[^】]*映像付】|\+\d+分\b",
+                    "",
+                    tree.findtext("h1"),
                 )
             except (AttributeError, TypeError) as e:
                 self.error(e)
