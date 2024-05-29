@@ -16,7 +16,6 @@ from typing import Optional, Tuple
 from urllib.parse import ParseResult, urlparse
 
 import requests
-import requests.adapters
 import urllib3
 from lxml.etree import XPath
 from lxml.html import HtmlElement, HTMLParser
@@ -161,11 +160,15 @@ def get(url: str, *, pr: ParseResult = None, **kwargs):
 
     with semaphore:
         return session.get(
-            url, headers=headers, timeout=HTTP_TIMEOUT, verify=False, **kwargs
+            url,
+            headers=headers,
+            timeout=HTTP_TIMEOUT,
+            verify=False,
+            **kwargs,
         )
 
 
-_parsers = {}  # Cached HTML parsers based on encoding
+_parsers = {}  # Cached HTML parsers
 
 
 def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
