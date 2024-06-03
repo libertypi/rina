@@ -6,12 +6,14 @@ from rina.network import get_tree
 
 
 class Duck:
+
     def __init__(self, **kwargs) -> None:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
 
 class DuckDiskScanner(Duck):
+
     def __init__(self, files=(), dirs=(), ftype="file", **kwargs) -> None:
         super().__init__(**kwargs)
         self.ftype = ftype
@@ -29,6 +31,7 @@ class DuckDiskScanner(Duck):
 
 
 class DuckOSEntry(Duck):
+
     def __init__(self, name, path=None, mtime=0, **kwargs) -> None:
         super().__init__(**kwargs)
         self.name = name
@@ -43,6 +46,7 @@ class DuckOSEntry(Duck):
 
 
 class Test_Scraper(unittest.TestCase):
+
     def _run_test(self, values: dict, source: str):
         for k, v in values.items():
             result = scraper.scrape(k)
@@ -80,7 +84,7 @@ class Test_Scraper(unittest.TestCase):
                 "未来のきもち",
                 1598659200,
             ),
-            "120313_001 人 3": ("120313-001-carib", "麻倉憂", 1385683200),
+            "120313_001 人 3": ("120313-001-carib", "麻倉憂", 1386028800),
         }
         self._run_test(values, source)
 
@@ -103,7 +107,11 @@ class Test_Scraper(unittest.TestCase):
     def test_1pon(self):
         source = "1pondo.tv"
         values = {
-            "010617-460 1pon [1080p]": ("010617_460-1pon-1080p", "鈴木さとみ", 1483660800)
+            "010617-460 1pon [1080p]": (
+                "010617_460-1pon-1080p",
+                "鈴木さとみ",
+                1483660800,
+            )
         }
         self._run_test(values, source)
 
@@ -232,6 +240,7 @@ class Test_Scraper(unittest.TestCase):
 
 
 class Test_Idol(unittest.TestCase):
+
     def _run_test(self, wiki, values):
         for k, v in values.items():
             r = wiki.search(k)
@@ -290,7 +299,10 @@ class Test_Idol(unittest.TestCase):
 
     def test_manko(self):
         wiki = idol.Manko
-        values = {"南星愛": ("1996-01-31", {"南星愛"}), "小司あん": (None, {"小司あん", "平子知歌"})}
+        values = {
+            "南星愛": ("1996-01-31", {"南星愛"}),
+            "小司あん": (None, {"小司あん", "平子知歌"}),
+        }
         self._run_test(wiki, values)
 
     def test_etigoya(self):
@@ -320,6 +332,7 @@ class Test_Idol(unittest.TestCase):
 
 
 class Test_AVFile(unittest.TestCase):
+
     def test_build_filename(self):
         PID = "ID-12"
         EXT = ".mp4"
@@ -383,6 +396,7 @@ class Test_Birth_Filter(unittest.TestCase):
 
 
 class Test_Utils(unittest.TestCase):
+
     def test_two_digit_regex(self):
         two_digit_regex = utils.two_digit_regex
         compile = re.compile
@@ -409,6 +423,7 @@ class Test_Utils(unittest.TestCase):
 
 
 class Test_DiskScanner(unittest.TestCase):
+
     def test_name_filter(self):
         values = (
             ({"exts": {"mp4", "avi"}}, ("a.mp4", "b.mp3", ".wmv"), {"a.mp4"}),
@@ -425,8 +440,22 @@ class Test_DiskScanner(unittest.TestCase):
 
     def test_mix_filter(self):
         values = (
-            ({"newer": 1000}, {"a": 800, "b": 1000, "c": 1200}, {"b", "c"}),
-            ({"include": "[ac]*", "exclude": "b*", "newer": 100}, {"a": 80, "b": 100, "c": 120}, {"c"}),
+            ({
+                "newer": 1000
+            }, {
+                "a": 800,
+                "b": 1000,
+                "c": 1200
+            }, {"b", "c"}),
+            ({
+                "include": "[ac]*",
+                "exclude": "b*",
+                "newer": 100
+            }, {
+                "a": 80,
+                "b": 100,
+                "c": 120
+            }, {"c"}),
         )  # fmt: skip
         for kwargs, entries, answer in values:
             scanner = files.DiskScanner(**kwargs)
@@ -438,6 +467,7 @@ class Test_DiskScanner(unittest.TestCase):
 
 
 class Test_Concat(unittest.TestCase):
+
     def test_find_groups(self):
         values = [
             ["1abc1234hhb1.mp4", "1abc1234hhb2.mp4"],

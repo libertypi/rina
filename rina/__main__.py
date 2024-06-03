@@ -29,7 +29,7 @@ def _print_header(args):
         # format certain types
         if isinstance(v, float):
             v = strftime(v)
-        elif isinstance(v, range):
+        elif isinstance(v, (range, list)):
             v = ", ".join(map(str, v))
         stderr_write(f"{k.title():>{kl}}: {v}\n")
     stderr_write(f"{SEP_BOLD}\n")

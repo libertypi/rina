@@ -174,9 +174,9 @@ def two_digit_regex(lower: int, upper: int):
     'upper'.
 
     Examples:
-     - (20, 59) -> '[2-5][0-9]'
-     - ( 0, 23) -> '[01][0-9]|2[0-3]'
-     - (21, 55) -> '2[1-9]|[34][0-9]|5[0-5]
+     - [20, 59] -> '[2-5][0-9]'
+     - [ 0, 23] -> '[01][0-9]|2[0-3]'
+     - [21, 55] -> '2[1-9]|[34][0-9]|5[0-5]
     """
     if not (0 <= lower <= upper <= 99):
         raise ValueError(f"Values out of range: lower={lower}, upper={upper}")

@@ -64,6 +64,9 @@ SITE_SETTINGS = {
 
 
 class CustomHttpAdapter(requests.adapters.HTTPAdapter):
+    """Transport adapter that allows us to use a custom SSL context to bypass
+    the "SSL: UNSAFE_LEGACY_RENEGOTIATION_DISABLED" error."""
+
     def __init__(self, ssl_context=None, **kwargs):
         self.ssl_context = ssl_context
         super().__init__(**kwargs)

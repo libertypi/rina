@@ -7,8 +7,8 @@ from typing import Generator
 
 from .utils import Config, stderr_write, strftime
 
-_EADIR = "@eaDir"  # Synology hidden directory
 logger = logging.getLogger(__name__)
+_EADIR = "@eaDir"  # Synology hidden directory
 
 
 class DiskScanner:
@@ -20,9 +20,9 @@ class DiskScanner:
         *,
         exts: set = None,
         recursive: bool = True,
-        include: str = None,
-        exclude: str = None,
-        exclude_dir: str = None,
+        includes: list = None,
+        excludes: list = None,
+        exclude_dirs: list = None,
         newer: float = None,
     ) -> None:
         """
@@ -32,9 +32,9 @@ class DiskScanner:
          - exts (set): File extensions (lower case without leading dot)
            to include, e.g., {"mp4", "wmv"}.
          - recursive (bool): If True, scan directories recursively.
-         - include (str): Glob pattern for files to include.
-         - exclude (str): Glob pattern for files to exclude.
-         - exclude_dir (str): Glob pattern for directories to exclude.
+         - includes (list): Glob patterns for files to include.
+         - excludes (list): Glob patterns for files to exclude.
+         - exclude_dirs (list): Glob patterns for directories to exclude.
          - newer (float): Timestamp; files newer than this will be included.
         """
         self.filters = []
@@ -45,30 +45,30 @@ class DiskScanner:
             assert isinstance(exts, set), "expect `exts` to be 'set'"
             self.exts = exts
             self.filters.append(self._ext_filter)
-        if include is not None:
-            self.filters.append(self._get_glob_filter(include))
-        if exclude is not None:
-            self.filters.append(self._get_glob_filter(exclude, True))
-        if exclude_dir is not None:
-            self.dirfilters.append(self._get_glob_filter(exclude_dir, True))
+        if includes is not None:
+            self.filters.append(self._get_glob_filter(includes))
+        if excludes is not None:
+            self.filters.append(self._get_glob_filter(excludes, True))
+        if exclude_dirs is not None:
+            self.dirfilters.append(self._get_glob_filter(exclude_dirs, True))
         if newer is not None:
             self.newer = newer
             self.filters.append(self._mtime_filter)
 
     @staticmethod
-    def _get_glob_filter(glob: str, inverse: bool = False):
+    def _get_glob_filter(globs: list, inverse: bool = False):
         """
         Create a glob-based filter function for file inclusion or exclusion.
 
         Parameters:
-         - glob (str): A glob pattern to match file names against.
+         - globs (list[str]): A list of globs to match file names against.
          - inverse (bool): If True, exclude files that match the pattern.
         """
-        glob = re.compile(fnmatch.translate(glob), re.IGNORECASE).match
+        globs = re.compile("|".join(map(fnmatch.translate, globs)), re.I).match
         if inverse:
-            return lambda es: (e for e in es if not glob(e.name))
+            return lambda es: (e for e in es if not globs(e.name))
         else:
-            return lambda es: (e for e in es if glob(e.name))
+            return lambda es: (e for e in es if globs(e.name))
 
     def _ext_filter(self, es):
         """
@@ -192,9 +192,9 @@ def get_scanner(args, exts=None):
     return DiskScanner(
         exts=exts,
         recursive=args.recursive,
-        include=args.include,
-        exclude=args.exclude,
-        exclude_dir=args.exclude_dir,
+        includes=args.include,
+        excludes=args.exclude,
+        exclude_dirs=args.exclude_dir,
         newer=args.newer,
     )
 

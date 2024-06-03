@@ -46,23 +46,24 @@ def _add_source(
     )
     parser.add_argument(
         "-i",
-        "--include",
         dest="include",
         type=str,
-        help="search only files that match the glob",
+        action="append",
+        help="search only files that match the glob, can be repeated",
     )
     parser.add_argument(
         "-e",
-        "--exclude",
         dest="exclude",
         type=str,
-        help="skip files that match the glob",
+        action="append",
+        help="skip files that match the glob, can be repeated",
     )
     parser.add_argument(
-        "--exclude-dir",
+        "-x",
         dest="exclude_dir",
         type=str,
-        help="skip directories that match the glob",
+        action="append",
+        help="skip directories that match the glob, can be repeated",
     )
 
 
