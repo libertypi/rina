@@ -427,8 +427,8 @@ class Test_DiskScanner(unittest.TestCase):
     def test_name_filter(self):
         values = (
             ({"exts": {"mp4", "avi"}}, ("a.mp4", "b.mp3", ".wmv"), {"a.mp4"}),
-            ({"include": "FC2*"}, ("FC2-123", "aFC2-123", "xxx"), {"FC2-123"}),
-            ({"exclude": "*.avi"}, (".avi", "avi", ".avii"), {"avi", ".avii"}),
+            ({"includes": ["FC2*"]}, ("FC2-123", "aFC2-123", "xxx"), {"FC2-123"}),
+            ({"excludes": ["*.avi"]}, (".avi", "avi", ".avii"), {"avi", ".avii"}),
         )
         for kwargs, entries, answer in values:
             scanner = files.DiskScanner(**kwargs)
@@ -440,23 +440,13 @@ class Test_DiskScanner(unittest.TestCase):
 
     def test_mix_filter(self):
         values = (
-            ({
-                "newer": 1000
-            }, {
-                "a": 800,
-                "b": 1000,
-                "c": 1200
-            }, {"b", "c"}),
-            ({
-                "include": "[ac]*",
-                "exclude": "b*",
-                "newer": 100
-            }, {
-                "a": 80,
-                "b": 100,
-                "c": 120
-            }, {"c"}),
-        )  # fmt: skip
+            ({"newer": 1000}, {"a": 800, "b": 1000, "c": 1200}, {"b", "c"}),
+            (
+                {"includes": ["a*", "c*"], "excludes": ["b*"], "newer": 100},
+                {"a": 80, "b": 100, "c": 120},
+                {"c"},
+            ),
+        )
         for kwargs, entries, answer in values:
             scanner = files.DiskScanner(**kwargs)
             entries = [DuckOSEntry(name=n, mtime=t) for n, t in entries.items()]
