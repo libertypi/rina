@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
-# This script is intended to generate `rina/mgs.json`
-# Data source: mgs_src.json
+"""
+Generate mgs.json for Rina.
+Source: mgs_src.json
+Dest: rina/mgs.json
+"""
 
 import argparse
 import json
@@ -50,7 +53,7 @@ def main():
     dst = src.parents[1].joinpath("rina/mgs.json")
     print(f"Source: {src}\nOutput: {dst}")
 
-    # copy source from `footprints` project
+    # update source from `footprints` project
     try:
         shutil.copy(src.parents[2].joinpath("footprints/data/mgs.json"), src)
     except FileNotFoundError:
@@ -77,8 +80,8 @@ def main():
         ((*k, len(v)) for k, v in groups.items()),
         key=lambda a: (-a[2], a[0], a[1]),
     )
-    get_third = itemgetter(2)
-    total = sum(map(get_third, groups))
+    get_freq = itemgetter(2)
+    total = sum(map(get_freq, groups))
 
     # Slice the list so that all items have a frequency >= args.freq
     groups = groups[: reverse_bisect_left(groups, args.freq, 2)]
@@ -90,16 +93,16 @@ def main():
     for prefix, num, _ in groups:
         result[prefix].append(num)
 
-    covered = sum(map(get_third, groups))
+    covered = sum(map(get_freq, groups))
     ppprint = lambda s: ", ".join(map(str, sorted(s)))
     print(
         "Result:\n"
         f"    Dictionary length: {len(result)}\n"
-        f"    Product coverage : {covered} / {total} ({covered / total:.1%})\n"
-        f"    Frequency range  : {min(map(get_third, groups))} - {max(map(get_third, groups))}\n"
-        f"    Number length    : {ppprint(set(len(v[1]) for v in groups))}\n"
-        f"    Prefix length    : {ppprint(set(map(len, result)))}\n"
-        f"    Suffix length    : {ppprint(sfx_len)}"
+        f"    Product coverage : {covered} / {total} ({covered / total:.2%})\n"
+        f"    Frequency range  : [{groups[-1][2]}, {groups[0][2]}]\n"
+        f"    Number lengths   : {{{ppprint(set(len(v[1]) for v in groups))}}}\n"
+        f"    Prefix lengths   : {{{ppprint(set(map(len, result)))}}}\n"
+        f"    Suffix lengths   : {{{ppprint(sfx_len)}}}"
     )
 
     try:

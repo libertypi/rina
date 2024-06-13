@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
-# This script is intended to generate `rina/useragents.json`
-# Data source: useragents_src.json
-# https://www.useragents.me/#most-common-desktop-useragents-json-csv
+"""
+Generate useragents.json for Rina.
+Source: useragents_src.json
+    https://www.useragents.me/#most-common-desktop-useragents-json-csv
+Dest: rina/useragents.json
+"""
 
 import json
 from argparse import ArgumentParser
@@ -12,12 +15,12 @@ from pathlib import Path
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument(
-        "-p",
-        dest="pct",
+        "-n",
+        dest="max",
         action="store",
         type=float,
-        default=0.5,
-        help="includes only useragents above this share percentage (default: %(default)s)",
+        default=20,
+        help="maximun number of UAs to draw from data (default: %(default)s)",
     )
     return parser.parse_args()
 
@@ -30,8 +33,9 @@ def main():
     print(f"Source: {src}\nOutput: {dst}")
 
     with open(src, "r", encoding="utf-8") as f:
-        result = (d["ua"] for d in json.load(f) if d["pct"] >= args.pct)
-        result = sorted(set(filter(None, map(str.strip, result))))
+        data = {d["ua"].strip(): d["pct"] for d in json.load(f)}
+
+    result = sorted(filter(None, data), key=data.get, reverse=True)[: args.max]
 
     if not result:
         raise ValueError(f"no valid useragents found in {src}.")

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from . import network
-from .network import get, get_tree, html_fromstring, random_choice, xpath
+from .network import get, get_tree, html_fromstring, xpath
 from .utils import join_root, re_search, re_sub, str_to_epoch, strptime, two_digit_regex
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,6 @@ class Scraper(ABC):
     search_id: str
     uncensored: bool = False
     _id_mask = None
-    _javdb_domains = ["https://javdb.com/"]
 
     def __init__(self, match: re.Match) -> None:
         self.match = match
@@ -129,13 +128,9 @@ class Scraper(ABC):
                 )
 
     def _javdb(self):
-        tree = get_tree(
-            f"{random_choice(self._javdb_domains)}search?q={self.search_id}&f=all"
-        )
+        tree = get_tree(f"https://javdb.com/search?q={self.search_id}&f=all")
         if tree is None or "/search" not in tree.base_url:
             return
-        if len(self._javdb_domains) == 1:
-            self._set_javdb_alt_domains(tree)
 
         mask = self._get_id_mask()
         for v in xpath(
@@ -150,25 +145,6 @@ class Scraper(ABC):
                     pub_date=v.findtext('../div[@class="meta"]'),
                     source="javdb.com",
                 )
-
-    def _set_javdb_alt_domains(self, tree: network.HtmlElement):
-        domains = self._javdb_domains
-        main_netloc = network.urlparse(domains[0]).netloc
-        for d in tree.xpath(
-            ".//nav[@class='sub-header']/div[@class='content']/text()[contains(., '最新域名')]"
-            "/following-sibling::a/@href[not(contains(., '.app'))]",
-            smart_strings=False,
-        ):
-            pr = network.urlparse(d)
-            if not (pr.scheme and pr.netloc):
-                continue
-            d = f"{pr.scheme}://{pr.netloc}/"
-            if d not in domains:
-                domains.append(d)
-                network.set_alias(pr.netloc, main_netloc)
-                logger.debug("Add javdb alt domain: %s", d)
-        if len(domains) == 1:
-            self.warning(f"unable to find alt domains at: {tree.base_url}")
 
     def _get_id_mask(self):
         mask = self._id_mask
