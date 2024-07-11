@@ -163,7 +163,7 @@ def parse_args():
         "-f",
         dest="ffmpeg",
         action="store",
-        help="specify ffmpeg directory (searches $PATH if omitted)",
+        help="specify the ffmpeg directory (searches $PATH if omitted)",
     )
     _add_source(subparser, command)
 

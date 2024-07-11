@@ -108,7 +108,7 @@ def main():
     _print_header(args)
 
     if args.command == "video":
-        from rina import files, video
+        from . import files, video
 
         if args.type == "keyword":
             video.from_string(args.source).print()
@@ -119,7 +119,7 @@ def main():
             process_stream((video.from_path(args.source),), args)
 
     elif args.command == "idol":
-        from rina import idol
+        from . import idol
 
         if args.type == "keyword":
             idol.Idol(args.source).print()
@@ -127,17 +127,17 @@ def main():
             process_stream(idol.from_args(args), args)
 
     elif args.command == "dir":
-        from rina import files
+        from . import files
 
         files.update_dir_mtime(args.source)
 
     elif args.command == "concat":
-        from rina import concat
+        from . import concat
 
         concat.main(args)
 
     elif args.command == "birth":
-        from rina import birth
+        from . import birth
 
         birth.main(args)
 

@@ -133,22 +133,22 @@ class ConcatGroup(AVInfo):
                 stderr_write(f"Remove: {file}\n")
 
 
-def _find_ffmpeg(args_ffmpeg):
-    if args_ffmpeg:
-        args_ffmpeg = Path(args_ffmpeg)
-        if args_ffmpeg.is_dir():
-            exes = args_ffmpeg.joinpath(FFMPEG), args_ffmpeg.joinpath(FFPROBE)
-        else:
-            exes = args_ffmpeg, args_ffmpeg.with_name(FFPROBE)
+def _find_ffmpeg(ffmpeg):
+    if ffmpeg:
+        ffmpeg = Path(ffmpeg)
+        if not ffmpeg.is_dir():
+            ffmpeg = ffmpeg.parent
+        cmds = [ffmpeg.joinpath(FFMPEG), ffmpeg.joinpath(FFPROBE)]
     else:
-        exes = FFMPEG, FFPROBE
-    for e in exes:
-        if not shutil.which(e):
+        cmds = [FFMPEG, FFPROBE]
+    for i, c in enumerate(cmds):
+        cmds[i] = shutil.which(c)
+        if not cmds[i]:
             sys.exit(
-                f"{e} not found. Please be sure it can be found in "
+                f"{c} not found. Please be sure it can be found in "
                 "PATH or the directory passed via '-f' option."
             )
-    return exes
+    return cmds
 
 
 def find_groups(root, scanner: DiskScanner = None):

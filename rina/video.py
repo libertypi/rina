@@ -33,10 +33,10 @@ class AVString(AVInfo):
                 "Target": source,
                 "ProductID": result.product_id,
                 "Title": result.title,
-                "PubDate": strftime(result.pub_date),
                 "NewName": None,
-                "FromDate": None,
-                "FromName": None,
+                "OldName": None,
+                "PubDate": strftime(result.pub_date),
+                "OldDate": None,
                 "Source": result.source,
             }
         elif error is None:
@@ -83,7 +83,7 @@ class AVFile(AVString):
             )
             if newname and newname != source.name:
                 self.newpath = source.with_name(newname)
-                self.result.update(NewName=newname, FromName=source.name)
+                self.result.update(NewName=newname, OldName=source.name)
                 self.status = Status.UPDATED
 
         # Handling file timestamp updating
@@ -91,7 +91,7 @@ class AVFile(AVString):
             stat = (entry or source).stat()
             if result.pub_date != stat.st_mtime:
                 self.newdate = (stat.st_atime, result.pub_date)
-                self.result["FromDate"] = strftime(stat.st_mtime)
+                self.result["OldDate"] = strftime(stat.st_mtime)
                 self.status = Status.UPDATED
 
     @dryrun_method
