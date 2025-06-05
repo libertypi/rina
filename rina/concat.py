@@ -166,7 +166,7 @@ def find_groups(root, scanner: DiskScanner = None):
     # rstem:              Title
     # ext:                      mp4
     seq_finder = re.compile(
-        r"(?<![0-9])(?:0?[1-9]|[1-9][0-9])(?![0-9])|\b[A-Za-z]\b"
+        r"(?<![0-9])(?:0?[1-9]|[1-9][0-9])(?![0-9])|(?:\b|(?<=_))[A-Za-z](?=\b|_)"
     ).finditer
 
     # Cleaners for `lstem` and `rstem`

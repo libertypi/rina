@@ -425,18 +425,26 @@ class HeyzoScraper(Scraper):
 
 class FC2Scraper(Scraper):
     uncensored = True
-    source = "fc2.com"
     regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{4,10})"
+    paywalled = False
 
     def _search(self):
         uid = self.match["fc2"]
         self.search_id = f"FC2-{uid}"
+        return self._fc2_search(uid) or self._fc2ppvdb(uid)
 
+    def _fc2_search(self, uid: str):
+        """Search for FC2 video by uid."""
+        if self.paywalled:
+            return
         tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
         if tree is None:
             return
         if "payarticle" in tree.base_url:
-            logger.warning(f"FC2 is walled, consider switching network.")
+            logger.warning(
+                "FC2.com is paywalled. Consider switching network for more accurate results."
+            )
+            FC2Scraper.paywalled = True
             return
         if tree.find('.//div[@class="items_notfound_wp"]') is not None:
             return
@@ -444,17 +452,45 @@ class FC2Scraper(Scraper):
         return ScrapeResult(
             product_id=self.search_id,
             title=(
-                tree.xpath('string(.//meta[@name="twitter:title"]/@content)')
-                or tree.xpath(
+                xpath(
                     'string(.//div[@class="items_article_MainitemThumb"]//img/@title)'
-                )
+                )(tree)
                 or "".join(
                     xpath('.//div[@class="items_article_headerInfo"]/h3/text()')(tree)
                 )
             ),
-            pub_date=tree.findtext('.//div[@class="items_article_Releasedate"]/p'),
-            source=self.source,
+            pub_date=(
+                xpath(
+                    'string(.//div[@class="items_article_softDevice"]'
+                    '/p[starts-with(normalize-space(text()), "販売日")])'
+                )(tree)
+                or tree.findtext('.//div[@class="items_article_Releasedate"]/p')
+            ),
+            source="fc2.com",
         )
+
+    def _fc2ppvdb(self, uid: str):
+        tree = get_tree(f"https://fc2ppvdb.com/articles/{uid}")
+        if tree is None or tree.findtext(".//title", "").lstrip().lower().startswith(
+            "not found"
+        ):
+            return
+
+        title = xpath('string(//h2[contains(@class, "title-font")]/a)')(tree).strip()
+        if title[0] == "※":
+            title = re_sub(r"^※[^※]*※\s*", "", title)
+
+        return ScrapeResult(
+            product_id=self.search_id,
+            title=title,
+            pub_date=xpath(
+                'string(//div[starts-with(normalize-space(text()), "販売日：")]/span)'
+            )(tree),
+            source="fc2ppvdb.com",
+        )
+
+    def _javbus(self):
+        pass
 
 
 class HeydougaScraper(Scraper):
