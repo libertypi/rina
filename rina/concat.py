@@ -287,7 +287,8 @@ def main(args):
             ffprobe=ffprobe,
         )
         group.print()
-        results.append(group)
+        if group.status == Status.UPDATED:
+            results.append(group)
 
     if not results:
         stderr_write("Scan finished. No change can be made.\n")
@@ -298,23 +299,16 @@ def main(args):
         )
     )
 
-    results = set(user_filter(results, "Proceed with concatenation?", False))
-
-    # problematic groups
-    skips = {g for g in results if g.status != Status.UPDATED}
-    # remove those user choses to keep
-    skips = skips.difference(
-        user_filter(skips, "Concat these files anyway (NOT recommended)?")
-    )
-    results.difference_update(skips)
-
     # apply concatenation
-    for group in results:
+    success = []
+    for group in user_filter(results, "Proceed with concatenation?", False):
         group.apply()
+        if group.applied:
+            success.append(group)
 
     # remove sources that have been successfully concatenated
     for group in user_filter(
-        [g for g in results if g.applied],
+        success,
         "Delete all concatenated source files (WITH CAUTION)?",
     ):
         group.remove_source()

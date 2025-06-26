@@ -8,9 +8,9 @@ Functionalities for making HTTP requests and parsing HTML content.
 
 import json
 import logging
+import random
 import ssl
 from functools import lru_cache
-from random import choice as random_choice
 from threading import Semaphore
 from typing import Optional, Tuple
 from urllib.parse import ParseResult, urlparse
@@ -57,9 +57,6 @@ SITE_SETTINGS = {
     "www.caribbeancompr.com": {
         "encoding": "euc-jp",
     },
-    "db.msin.jp": {
-        "cookies": {"age": "off"},
-    },
 }
 
 
@@ -87,19 +84,19 @@ def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
     """
     with open(join_root(uafile), "r", encoding="utf-8") as f:
         useragents = json.load(f)
-    assert useragents, f"Empty useragent data: '{uafile}'"
+    assert useragents, f"Empty useragent file: '{uafile}'"
     logger.info("Load %s user-agents from '%s'", len(useragents), uafile)
 
     session = requests.Session()
     session.headers.update(
         {
-            "User-Agent": random_choice(useragents),
+            "User-Agent": random.choice(useragents),
             "Accept-Language": "ja,zh;q=0.8,en-US;q=0.5,en;q=0.3",
         }
     )
     retry = urllib3.Retry(
         total=retries,
-        status_forcelist=frozenset((429, 500, 502, 503, 504, 521, 524)),
+        status_forcelist={429, 500, 502, 503, 504, 521, 524},
         backoff_factor=backoff,
     )
 
@@ -114,7 +111,7 @@ def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
     session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retry))
     session.mount("https://", CustomHttpAdapter(ssl_context=ctx, max_retries=retry))
 
-    return session, useragents
+    return session
 
 
 def set_alias(name: str, dst: str):
@@ -158,7 +155,6 @@ def get(url: str, *, pr: ParseResult = None, **kwargs):
 
     headers = setting["headers"]
     headers = headers.copy() if headers else {}
-    headers.setdefault("User-Agent", random_choice(useragents))
     headers.setdefault("Referer", f"{pr.scheme}://{pr.netloc}/")
 
     with semaphore:
@@ -204,5 +200,5 @@ def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
     return html_fromstring(response.content, base_url=response.url, parser=parser)
 
 
-session, useragents = _init_session()
+session = _init_session()
 xpath = lru_cache(XPath)  # Cached XPath function
