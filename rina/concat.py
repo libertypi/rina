@@ -71,7 +71,7 @@ class ConcatGroup(AVInfo):
             stream = tuple(
                 d
                 for d in json.loads(stream)["streams"]
-                if d["codec_name"] != "bin_data"
+                if d.get("codec_name") not in ("bin_data", None)
             )
             if first is None:
                 first = stream

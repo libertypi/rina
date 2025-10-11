@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rina"
+version = "0.1.0"
+description = "All-in-One Japanese AV Toolbox"
+readme = { file = "README.md", content-type = "text/markdown" }
+authors = [{ name = "David Pi", email = "libertypi@gmail.com" }]
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+dependencies = [
+  "requests",
+  "lxml",
+]
+keywords = ["jav", "scraper"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Internet :: WWW/HTTP",
+  "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/libertypi/rina"
+Repository = "https://github.com/libertypi/rina"
+
+[project.scripts]
+rina = "rina.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["rina"]
+
+[tool.setuptools.package-data]
+rina = ["*.json"]
