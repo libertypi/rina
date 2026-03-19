@@ -21,7 +21,7 @@ def _print_header(args):
         f'{"Rina: The All-in-One Japanese AV Toolbox":^{SEP_WIDTH}}\n'
         f"{SEP_SLIM}\n"
     )
-    config = {"command": None, "source": None}
+    config = {"command": None}
     include = ("recursive",)
     config.update({k: v for k, v in vars(args).items() if v or k in include})
     kl = max(map(len, config))

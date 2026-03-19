@@ -9,7 +9,9 @@ class ActressPage(AVInfo):
     keywidth = 6
     status = Status.SUCCESS
 
-    def __init__(self, name: str, birth: str, latest: float, latest_title: str, url: int) -> None:
+    def __init__(
+        self, name: str, birth: str, latest: float, latest_title: str, url: int
+    ) -> None:
         self.result = {
             "Name": name,
             "Birth": birth,
@@ -21,7 +23,7 @@ class ActressPage(AVInfo):
 class ProductFilter:
     """actress page filter"""
 
-    filter_words = ("東熱激情", "AIリマスター", "再配信", "同一内容")
+    filter_words = ("AIリマスター", "再配信", "同一内容", "東熱激情")
 
     def __init__(self, active: float, solo: bool) -> None:
         self._active = active
@@ -48,8 +50,10 @@ class ProductFilter:
                 continue
             date = tr.findtext(path_date)
             date = str_to_epoch(date)
-            if date and date >= self._active:
-                return date, title.strip()
+            if date:
+                if date >= self._active:
+                    return date, title.strip()
+                return
 
     @staticmethod
     def _get_col_path(tree, title: str, default: int):
