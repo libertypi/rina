@@ -9,11 +9,11 @@ class ActressPage(AVInfo):
     keywidth = 6
     status = Status.SUCCESS
 
-    def __init__(self, name: str, birth: str, latest: float, url: int) -> None:
+    def __init__(self, name: str, birth: str, latest: float, latest_title: str, url: int) -> None:
         self.result = {
             "Name": name,
             "Birth": birth,
-            "Latest": strftime(latest),
+            "Latest": f"[{strftime(latest)}] {latest_title}",
             "URL": url,
         }
 
@@ -21,7 +21,7 @@ class ActressPage(AVInfo):
 class ProductFilter:
     """actress page filter"""
 
-    filter_words = ("東熱激情", "AIリマスター版", "再配信", "同一内容")
+    filter_words = ("東熱激情", "AIリマスター", "再配信", "同一内容")
 
     def __init__(self, active: float, solo: bool) -> None:
         self._active = active
@@ -32,9 +32,9 @@ class ProductFilter:
             # return true is the product contains only one actress
             self._filters.append(XPath('count(p[@class="cast"]/a) <= 1'))
 
-    def get_latest(self, tree) -> int:
-        """Find the most recent product's publish date that passes all set
-        filters."""
+    def get_latest(self, tree):
+        """Find the most recent product's publish date and title that passes
+        all set filters. Returns (date, title) or None."""
         tree = tree.find('.//div[@class="act-video-list"]')
         path_product = self._get_col_path(tree, "作品タイトル", 2)
         path_date = self._get_col_path(tree, "発売日", 3)
@@ -49,7 +49,7 @@ class ProductFilter:
             date = tr.findtext(path_date)
             date = str_to_epoch(date)
             if date and date >= self._active:
-                return date
+                return date, title.strip()
 
     @staticmethod
     def _get_col_path(tree, title: str, default: int):
@@ -120,9 +120,10 @@ def main(args):
             if tree is None:
                 continue
             tree = tree.find('.//section[@id="main-area"]')
-            latest = _filter.get_latest(tree)
-            if not latest:
+            result_ = _filter.get_latest(tree)
+            if not result_:
                 continue
+            latest, latest_title = result_
 
             name = tree.findtext("section/h1")
             try:
@@ -135,6 +136,7 @@ def main(args):
                 name=name,
                 birth=birth,
                 latest=latest,
+                latest_title=latest_title,
                 url=tree.base_url,
             ).print()
             result += 1
