@@ -9,7 +9,6 @@ Functionalities for making HTTP requests and parsing HTML content.
 import json
 import logging
 import random
-import ssl
 from functools import lru_cache
 from threading import Semaphore
 from typing import Optional, Tuple
@@ -57,24 +56,17 @@ SITE_SETTINGS = {
     "www.caribbeancompr.com": {
         "encoding": "euc-jp",
     },
+    "www.kin8tengoku.com": {
+        "cookies": {"adc": "1"},
+        "headers": {"Accept": "text/html", "Rsc": "1"},
+    },
+    "mankowomiseruavzyoyu.blog.fc2.com": {
+        "cookies": {"age_check": "1"},
+    },
+    "etigoya955.blog.fc2.com": {
+        "cookies": {"age_check": "1"},
+    },
 }
-
-
-class CustomHttpAdapter(requests.adapters.HTTPAdapter):
-    """Transport adapter that allows us to use a custom SSL context to bypass
-    the "SSL: UNSAFE_LEGACY_RENEGOTIATION_DISABLED" error."""
-
-    def __init__(self, ssl_context=None, **kwargs):
-        self.ssl_context = ssl_context
-        super().__init__(**kwargs)
-
-    def init_poolmanager(self, connections, maxsize, block=False):
-        self.poolmanager = urllib3.poolmanager.PoolManager(
-            num_pools=connections,
-            maxsize=maxsize,
-            block=block,
-            ssl_context=self.ssl_context,
-        )
 
 
 def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
@@ -87,31 +79,23 @@ def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
     assert useragents, f"Empty useragent file: '{uafile}'"
     logger.info("Load %s user-agents from '%s'", len(useragents), uafile)
 
-    session = requests.Session()
-    session.headers.update(
-        {
-            "User-Agent": random.choice(useragents),
-            "Accept-Language": "ja,zh;q=0.8,en-US;q=0.5,en;q=0.3",
-        }
-    )
     retry = urllib3.Retry(
         total=retries,
         status_forcelist={429, 500, 502, 503, 504, 521, 524},
         backoff_factor=backoff,
     )
 
-    ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    # accepting legacy connections
-    ctx.options |= 0x4
-    # to bypass verification after accepting Legacy connections
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    s = requests.Session()
+    s.headers.update(
+        {
+            "User-Agent": random.choice(useragents),
+            "Accept-Language": "ja,zh;q=0.8,en-US;q=0.5,en;q=0.3",
+        }
+    )
+    s.mount("http://", requests.adapters.HTTPAdapter(max_retries=retry))
+    s.mount("https://", requests.adapters.HTTPAdapter(max_retries=retry))
 
-    session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retry))
-    session.mount("https://", CustomHttpAdapter(ssl_context=ctx, max_retries=retry))
-
-    return session
+    return s
 
 
 def set_alias(name: str, dst: str):
@@ -162,7 +146,6 @@ def get(url: str, *, pr: ParseResult = None, **kwargs):
             url,
             headers=headers,
             timeout=HTTP_TIMEOUT,
-            verify=False,
             **kwargs,
         )
 

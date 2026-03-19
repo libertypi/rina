@@ -20,7 +20,7 @@ Rina is a command-line tool for managing Japanese AV content. It searches throug
 ### Idol Search by Birth Year
 - **Command**: `birth`
 - Searches for idols born within a specified year range and active in a recent timespan.
-- Filters results based on recent activity and content types, including uncensored and solo performances.
+- Filters results based on recent activity, with an option for solo performances only.
 - Try: `rina birth 1993-1995`
 
 ### Video Concatenation

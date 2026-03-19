@@ -21,14 +21,13 @@ class ActressPage(AVInfo):
 class ProductFilter:
     """actress page filter"""
 
-    def __init__(self, active: float, uncensored: bool, solo: bool) -> None:
+    filter_words = ("東熱激情", "AIリマスター版", "再配信", "同一内容")
+
+    def __init__(self, active: float, solo: bool) -> None:
         self._active = active
         # The funcions in this list expect a 'tree_product' element. If any
         # returns False, the product should be filtered.
         self._filters = []
-        if uncensored:
-            # return true if the product is uncensored
-            self._filters.append(XPath('contains(p[@class="moza"], "モザイクなし")'))
         if solo:
             # return true is the product contains only one actress
             self._filters.append(XPath('count(p[@class="cast"]/a) <= 1'))
@@ -45,12 +44,9 @@ class ProductFilter:
             if not all(f(tree_product) for f in self._filters):
                 continue
             title = tree_product.find('h3[@class="ttl"]').text_content()
-            if "東熱激情" in title:
+            if any(w in title for w in self.filter_words):
                 continue
-            if "再配信" in title or "同一内容" in title:
-                date = title
-            else:
-                date = tr.findtext(path_date)
+            date = tr.findtext(path_date)
             date = str_to_epoch(date)
             if date and date >= self._active:
                 return date
@@ -75,7 +71,7 @@ def get_lastpage(tree):
 
 
 xpath_actress_list = XPath(
-    './/section[@id="main-area"]/section[contains(@class, "main-column")]'
+    './/section[@id="main-area"]/main[contains(@class, "main-column")]'
     '//td/*[@class="ttl"]/a/@href[contains(., "actress")]',
     smart_strings=False,
 )
@@ -83,16 +79,14 @@ xpath_actress_list = XPath(
 
 def main(args):
     domain = "https://www.minnano-av.com"
-    _filter = ProductFilter(
-        active=args.active, uncensored=args.uncensored, solo=args.solo
-    )
+    _filter = ProductFilter(active=args.active, solo=args.solo)
 
     with ThreadPoolExecutor(5) as ex:
         # scrape the 1st index of each birth year; put the 2nd-last pages
         # into pool.
         url = f"{domain}/actress_list.php"
         index_pool = [
-            ex.submit(get_tree, url, params={"birthday": i}) for i in args.source
+            ex.submit(get_tree, url, params={"birthday": i}) for i in args.year
         ]
         for ft in as_completed(index_pool):
             tree = ft.result()

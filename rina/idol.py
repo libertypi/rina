@@ -14,7 +14,9 @@ from .network import HtmlElement, get_tree, xpath
 from .utils import AVInfo, Status, date_searcher, dryrun_method, re_search, re_sub
 
 is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
-name_finder = re.compile(rf"(?:^|[】」』｝）》\])]){is_cjk_name}(?:$|[【「『｛（《\[(])").search
+name_finder = re.compile(
+    rf"(?:^|[】」』｝）》\])]){is_cjk_name}(?:$|[【「『｛（《\[(])"
+).search
 is_cjk_name = re.compile(is_cjk_name).fullmatch
 name_cleaner = re.compile(r"\d+歳|[\s 　]").sub
 split_names = re.compile(r"\s*[\n、/／●・,＝=]\s*").split
@@ -241,58 +243,6 @@ class Seesaawiki(Wiki):
         return SearchResult(name=name, birth=birth, alias=stack)
 
 
-class Msin(Wiki):
-    @classmethod
-    def _search(cls, keyword: str):
-        tree = get_tree(
-            "https://db.msin.jp/branch/search",
-            params={"sort": "jp.actress", "str": keyword},
-        )
-        if tree is None:
-            return
-
-        if "/actress?str=" in tree.base_url:
-            return cls._scan_search_page(keyword, tree)
-
-        tree = tree.find('.//div[@id="top_content"]//div[@class="act_ditail"]')
-        try:
-            name = clean_name(
-                tree.findtext('.//div[@class="act_name"]/span[@class="mv_name"]')
-            )
-        except (AttributeError, TypeError):
-            return
-
-        alias = split_names(xpath('string(.//span[@class="mv_anotherName"])')(tree))
-        if match_name(keyword, name, *alias):
-            return SearchResult(
-                name=name,
-                birth=date_searcher(tree.findtext('.//span[@class="mv_barth"]', "")),
-                alias=alias,
-            )
-
-    @staticmethod
-    def _scan_search_page(keyword: str, tree: HtmlElement):
-        result = None
-        for div in tree.iterfind(
-            './/div[@class="actress_info"]/div[@class="act_detail"]'
-        ):
-            name = clean_name(div.findtext('div[@class="act_name"]/a', ""))
-            if not name:
-                continue
-            alias = split_names(xpath('string(div[@class="act_anotherName"])')(div))
-            if match_name(keyword, name, *alias):
-                if result:
-                    return
-                result = SearchResult(
-                    name=name,
-                    birth=date_searcher(
-                        div.findtext('.//span[@class="act_barth"]', "")
-                    ),
-                    alias=alias,
-                )
-        return result
-
-
 class Manko(Wiki):
     @staticmethod
     def _search(keyword: str):
@@ -331,13 +281,14 @@ class Manko(Wiki):
 class Etigoya(Wiki):
     @staticmethod
     def _search(keyword: str):
-        tree = get_tree(f"http://etigoya955.blog49.fc2.com/?q={keyword}")
+        tree = get_tree(f"https://etigoya955.blog.fc2.com/?q={keyword}")
         if tree is None:
             return
 
         result = None
         for text in xpath(
-            './/div[@id="main"]/div[@class="content"]' '//li/a/text()[contains(., "＝")]'
+            './/div[@id="main"]/div[@class="content"]'
+            '//li/a/text()[contains(., "＝")]'
         )(tree):
             alias = text.split("＝")
             if match_name(keyword, *alias):
@@ -347,7 +298,7 @@ class Etigoya(Wiki):
         return result
 
 
-_WIKI_LIST = (Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Msin, Manko, Etigoya)
+_WIKI_LIST = (Wikipedia, MinnanoAV, AVRevolution, Seesaawiki, Manko, Etigoya)
 
 
 class Idol(AVInfo):

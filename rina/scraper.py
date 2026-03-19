@@ -471,13 +471,15 @@ class FC2Scraper(Scraper):
 
     def _fc2ppvdb(self, uid: str):
         tree = get_tree(f"https://fc2ppvdb.com/articles/{uid}")
-        if tree is None or tree.findtext(".//title", "").lstrip().lower().startswith(
-            "not found"
+        if (
+            tree is None
+            or "/login" in tree.base_url
+            or tree.findtext(".//title", "").lstrip().lower().startswith("not found")
         ):
             return
 
         title = xpath('string(//h2[contains(@class, "title-font")]/a)')(tree).strip()
-        if title[0] == "※":
+        if title and title[0] == "※":
             title = re_sub(r"^※[^※]*※\s*", "", title)
 
         return ScrapeResult(
@@ -534,15 +536,16 @@ class AV9898Scraper(HeydougaScraper):
         )
 
 
-class HonnamatvScraper(HeydougaScraper):
-    regex = r"honnamatv[^0-9]*(?P<honna>[0-9]{3,})"
-
-    def _search(self):
-        uid = self.match["honna"]
-        self.search_id = f"honnamatv-{uid}"
-        return super()._search(
-            f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{uid}/"
-        )
+# Site closed (サイト閉鎖)
+# class HonnamatvScraper(HeydougaScraper):
+#     regex = r"honnamatv[^0-9]*(?P<honna>[0-9]{3,})"
+#
+#     def _search(self):
+#         uid = self.match["honna"]
+#         self.search_id = f"honnamatv-{uid}"
+#         return super()._search(
+#             f"https://honnamatv.heydouga.com/monthly/honnamatv/moviepages/{uid}/"
+#         )
 
 
 class X1XScraper(Scraper):
@@ -646,33 +649,33 @@ class Kin8Scraper(Scraper):
     source = "kin8tengoku.com"
     regex = r"kin8(?:tengoku)?[^0-9]*(?P<kin8>[0-9]{4})"
 
+    _re_movie = (
+        r'"movie_id":"(?P<id>\d+)".*?"name_utf8":"(?P<title>[^"]+)"'
+        r'.*?"ecp_start_date":"\$D(?P<date>\d{4}-\d{2}-\d{2})'
+    )
+
     def _search(self):
         uid = self.match["kin8"]
         self.search_id = f"kin8-{uid}"
 
-        tree = get_tree(f"https://www.kin8tengoku.com/moviepages/{uid}/index.html")
-        if tree is None:
+        try:
+            response = get(f"https://www.kin8tengoku.com/movie/{uid}")
+            response.raise_for_status()
+        except network.HTTPError as e:
+            logger.debug(e)
+            return
+        except network.RequestException as e:
+            logger.warning(e)
             return
 
-        title = xpath(
-            'normalize-space(.//div[@id="sub_main"]'
-            '/p[contains(@class, "sub_title")])'
-        )(tree)
-        try:
-            title = title.partition("限定配信 ")
-        except AttributeError as e:
-            self.error(e)
+        m = re_search(self._re_movie, response.content.decode())
+        if not m:
             return
-        date = xpath(
-            'string(.//div[@id="main"]'
-            '/div[contains(@id,"detail_box")]//td[contains(.,"更新日")]'
-            '/following-sibling::td[contains(.,"20")])'
-        )(tree)
 
         return ScrapeResult(
             product_id=self.search_id,
-            title=title[2] or title[0],
-            pub_date=date,
+            title=m["title"],
+            pub_date=m["date"],
             source=self.source,
         )
 
@@ -739,7 +742,7 @@ class OneKGiriScraper(Scraper):
 class MGSScraper(Scraper):
     # This regex is compiled as is and matched with finditer. <hhb> matches
     # empty string so it does not consume the sequence number.
-    regex = r"\b(?:[0-9]{,2}|(?P<num>[0-9]{3,5}))(?P<pre>[a-z]{2,9})-?(?=[0-9]*?[1-9])(?P<sfx>[0-9]{2,8})(?:[a-d]?|(?P<hhb>)[hm]hb[0-9]{,2})\b"
+    regex = r"\b(?:[0-9]{,2}|(?P<num>[0-9]{3,5}))(?P<pre>[a-z]{2,9})-?(?=0{0,7}[1-9])(?P<sfx>[0-9]{2,8})(?:[a-d]?|(?P<hhb>)[hm]hb[0-9]{,2})\b"
     mgs_get = None
 
     @classmethod
@@ -929,7 +932,6 @@ _scraper_map = {
     "fc2": FC2Scraper,
     "heydou": HeydougaScraper,
     "av98": AV9898Scraper,
-    "honna": HonnamatvScraper,
     "x1x": X1XScraper,
     "sm": SMMiracleScraper,
     "h4610": H4610Scraper,

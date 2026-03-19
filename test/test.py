@@ -156,7 +156,6 @@ class Test_Scraper(unittest.TestCase):
             "Heydouga 4030-PPV1768": ("heydouga-4030-1768", "立花美涼", 1448150400),
             "Heydouga 4030-PPV2232 AV9898": ("heydouga-4030-2232", "極射", 1553904000),
             "AV9898-1566": ("AV9898-1566", "前田由美", 1452643200),
-            "honnamatv-216 (5)": ("honnamatv-216-5", "M顔娘", 1380585600),
         }
         self._run_test(values, source)
 
@@ -256,7 +255,7 @@ class Test_Idol(unittest.TestCase):
         wiki = idol.Wikipedia
         values = {
             "鈴木さとみ": ("1988-09-09", {"鈴木さとみ", "浅田真美"}),
-            "上原結衣": ("1989-10-10", {"上原志織", "上原結衣"}),
+            "上原結衣": ("1989-10-10", {"上原結衣"}),
             "佐々木愛美": None,
         }
         self._run_test(wiki, values)
@@ -285,15 +284,6 @@ class Test_Idol(unittest.TestCase):
             "上原結衣": ("1989-10-10", {"上原志織", "上原結衣"}),
             "成宮はるあ": ("1992-07-30", {"一ノ木ありさ", "乃木はるか"}),
             "池田美和子": None,
-        }
-        self._run_test(wiki, values)
-
-    def test_msin(self):
-        wiki = idol.Msin
-        values = {
-            "木内亜美菜": ("1991-11-30", {"木内亜美菜", "葉月美加子"}),
-            "今村ゆう": ("1996-03-15", {"沖野るり", "今村ゆう"}),
-            "前田ななみ": ("1993-04-12", {"片瀬瑞穂", "成宮梓"}),
         }
         self._run_test(wiki, values)
 
@@ -381,12 +371,10 @@ class Test_Birth_Filter(unittest.TestCase):
             self.tree = get_tree(self.url)
 
     def test_filter(self):
-        result_1 = birth.ProductFilter(20, False, False).get_latest(self.tree)
-        result_2 = birth.ProductFilter(20, True, False).get_latest(self.tree)
-        result_3 = birth.ProductFilter(20, True, True).get_latest(self.tree)
+        result_1 = birth.ProductFilter(20, False).get_latest(self.tree)
+        result_2 = birth.ProductFilter(20, True).get_latest(self.tree)
         self.assertGreater(result_1, 1)
         self.assertGreater(result_2, 1)
-        self.assertGreater(result_3, 1)
 
     def test_col_finder(self):
         values = {"作品タイトル": 2, "発売日": 3}

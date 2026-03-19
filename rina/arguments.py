@@ -198,7 +198,7 @@ def parse_args():
             "  Search for 1990-born idols active in the past year:\n"
             "    %(prog)s -a 365D 1990\n"
             "  Search for idols born between 1989-1991 with specific criteria:\n"
-            "    %(prog)s -u -s -a 90D 1989-1991"
+            "    %(prog)s -s -a 90D 1989-1991"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -212,19 +212,13 @@ def parse_args():
         help="active within specified timespan (default %(default)s)",
     )
     subparser.add_argument(
-        "-u",
-        dest="uncensored",
-        action="store_true",
-        help="filter for uncensored content (default %(default)s)",
-    )
-    subparser.add_argument(
         "-s",
         dest="solo",
-        action="store_true",
+        action="store_false",
         help="filter for solo performances (default %(default)s)",
     )
     subparser.add_argument(
-        dest="source",
+        dest="year",
         action="store",
         type=year_range,
         help="specify year of birth (single year or range, e.g., 1989 or 1988-1991)",
