@@ -16,7 +16,7 @@ from .scraper import DateSearcher
 from .utils import Status, re_search, strftime, strptime
 from .video import _NAMEMAX, EXTS
 
-_DUR_TOLERANCE = 30  # seconds
+_DUR_TOLERANCE = 120  # seconds
 TPDB_API_LOC = "api.theporndb.net"
 logger = logging.getLogger(__name__)
 
@@ -27,9 +27,8 @@ class Scene:
     date: float | None = None
     performers: list[str] = field(default_factory=list)
     title: str | None = None
-    file_dur: float | None = None
-    api_dur: float | None = None
     resolution: str | None = None
+    diff: float | None = None
     source: str | None = None
 
 
@@ -69,21 +68,10 @@ class WesternFile(utils.AVInfo):
                 "Performers": ", ".join(result.performers),
                 "Title": result.title,
                 "Resolution": result.resolution,
+                "Diff": (f"{result.diff:.2f}s" if result.diff is not None else None),
                 "Source": result.source,
             }
         )
-
-        file_dur = result.file_dur
-        api_dur = result.api_dur
-        if file_dur is not None and api_dur is not None:
-            dur_diff = abs(api_dur - file_dur)
-            self.result["Duration"] = (
-                f"API: {_fmt_dur(api_dur)}  File: {_fmt_dur(file_dur)}  Diff: {dur_diff:.2f}s"
-            )
-            if dur_diff > _DUR_TOLERANCE:
-                self.status = Status.WARNING
-                self.result["Result"] = "Duration mismatch."
-                return
 
         if result.title:
             newname = self._build_filename(result)
@@ -209,49 +197,6 @@ def _get_media_info(path):
     return duration, res
 
 
-_PLATFORM_MAP = {
-    "onlyfans": "OnlyFans",
-    "manyvids": "ManyVids",
-    "fansly": "Fansly",
-    "pornhub": "Pornhub",
-    "xvideos": "XVideos",
-}
-_PLATFORM_RE = rf"\b({'|'.join(_PLATFORM_MAP)})\b"
-
-
-def _clean_site(scene: dict) -> str | None:
-    """Normalize site name from TPDB data."""
-    try:
-        site = scene["site"]["name"]
-    except KeyError:
-        return
-    m = re_search(_PLATFORM_RE, site, re.I)
-    if m:
-        return _PLATFORM_MAP[m[1].lower()]
-    m = re_search(r"^\s*FansDB\s*:(?P<n1>.*?)(?:\((?P<n2>.+?)\))?\s*$", site, re.I)
-    if m:
-        site = m["n2"] or m["n1"]
-    if re_search(r"\w", site):
-        return site
-
-
-def _clean_performers(scene: dict) -> list[str]:
-    """Extract female performer names from scene data."""
-    all_perfs = []
-    female = []
-    for p in scene.get("performers", ()):
-        parent = p.get("parent") or {}
-        name = parent.get("name") or p.get("name")
-        if not name or not re_search(r"\w", name):
-            continue
-        all_perfs.append(name)
-        extras = parent.get("extras") or p.get("extra")
-        if extras and re_search(r"\bmale\b", extras.get("gender") or "", re.I):
-            continue
-        female.append(name)
-    return female or all_perfs
-
-
 def _set_api_key():
     """Ensure TPDB API key is set in network settings, prompt if not found. Must
     be called before TPDB API request."""
@@ -272,29 +217,93 @@ def _set_api_key():
     )
 
 
+_PLATFORM_MAP = {
+    "onlyfans": "OnlyFans",
+    "manyvids": "ManyVids",
+    "fansly": "Fansly",
+    "pornhub": "Pornhub",
+    "xvideos": "XVideos",
+}
+_PLATFORM_RE = rf"\b({'|'.join(_PLATFORM_MAP)})\b"
+
+
+def _clean_site(scene: dict) -> str | None:
+    """Normalize site name from TPDB data."""
+    try:
+        site = scene["site"]["name"].strip()
+    except (KeyError, AttributeError):
+        return
+    m = re_search(_PLATFORM_RE, site, re.I)
+    if m:
+        return _PLATFORM_MAP[m[1].lower()]
+    m = re_search(r"^\s*FansDB\s*:(?P<n1>.*?)(?:\((?P<n2>.+?)\))?\s*$", site, re.I)
+    if m:
+        site = m["n2"] or m["n1"]
+    if re_search(r"\w", site):
+        return site
+
+
+def _clean_performers(scene: dict) -> list[str]:
+    """Extract non-male performer names from scene data."""
+    all_perfs = []
+    female = []
+    for p in scene.get("performers", ()):
+        try:
+            parent = p.get("parent") or {}
+            name = parent.get("name") or p.get("name")
+            if not name or not re_search(r"\w", name):
+                continue
+            all_perfs.append(name)
+            extras = parent.get("extras") or p.get("extra")
+            if extras and re_search(r"\bmale\b", extras.get("gender") or "", re.I):
+                continue
+            female.append(name)
+        except Exception as e:
+            logger.warning("Error processing performer data: %s", e)
+    return female or all_perfs
+
+
 def _scrape(path) -> Scene | None:
     """Hash file, query TPDB, validate duration, return TPDBScene or None."""
     try:
         r = network.get(f"https://{TPDB_API_LOC}/scenes?hash={_oshash(path)}")
         r.raise_for_status()
-        scene = r.json().get("data")
+        data = r.json().get("data")
     except requests.HTTPError as e:
         if e.response.status_code == 401:
             raise RuntimeError("Unauthorized. Check your API key.") from e
         logger.debug(e)
         return
-    except (requests.RequestException, ValueError) as e:
+    except Exception as e:
         logger.warning(e)
         return
-
-    if not scene:
-        return
-    scene = scene[0]
-    title = scene.get("title", "").strip()
-    if not title:
+    if not data or not isinstance(data, list):
         return
 
+    # pick the best match based on duration diff
     file_dur, resolution = _get_media_info(path)
+    best = None, None, None  # diff, scene, title
+    for scene in data:
+        try:
+            title = scene["title"].strip()
+            if not title:
+                continue
+            api_dur = scene.get("duration")
+            if file_dur is not None and api_dur is not None:
+                diff = abs(api_dur - file_dur)
+                if diff > _DUR_TOLERANCE:
+                    continue
+                if best[0] is None or diff < best[0]:
+                    best = diff, scene, title
+            elif best[1] is None:
+                best = None, scene, title
+        except Exception as e:
+            logger.warning("Error processing scene data: %s", e)
+
+    diff, scene, title = best
+    if scene is None:
+        return
+
     try:
         date = strptime(scene["date"], "%Y-%m-%d")
     except (KeyError, ValueError):
@@ -305,9 +314,8 @@ def _scrape(path) -> Scene | None:
         date=date,
         performers=_clean_performers(scene),
         title=title,
-        file_dur=file_dur,
-        api_dur=scene.get("duration"),
         resolution=resolution,
+        diff=diff,
         source="TPDB",
     )
 
