@@ -8,10 +8,9 @@ import sys
 import tempfile
 from collections import defaultdict
 from pathlib import Path
-from typing import Tuple
 
 from .files import DiskScanner, get_scanner
-from .utils import SEP_BOLD, AVInfo, Config, Status, get_choice_as_int, stderr_write
+from .utils import SEP_BOLD, AVInfo, Settings, Status, get_choice_as_int, stderr_write
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ class ConcatGroup(AVInfo):
     applied: bool = False
 
     def __init__(
-        self, source: Tuple[Path], output: Path, ffmpeg=FFMPEG, ffprobe=FFPROBE
+        self, source: tuple[Path], output: Path, ffmpeg=FFMPEG, ffprobe=FFPROBE
     ) -> None:
         self.source = source
         self.output = output
@@ -88,7 +87,7 @@ class ConcatGroup(AVInfo):
                 yield "- " + "|".join(f"{k}={v}" for k, v in d.items())
 
     def apply(self):
-        if Config.DRYRUN:
+        if Settings.DRYRUN:
             stderr_write(f"[DRYRUN] Output: '{self.output}'\n")
             self.applied = True
             return
@@ -119,7 +118,7 @@ class ConcatGroup(AVInfo):
         if not self.applied:
             raise RuntimeError("Calling `remove_source` before successfully `apply`.")
 
-        if Config.DRYRUN:
+        if Settings.DRYRUN:
             for file in self.source:
                 stderr_write(f"[DRYRUN] Remove: {file}\n")
             return

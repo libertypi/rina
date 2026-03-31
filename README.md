@@ -1,39 +1,41 @@
-# Rina: The All-in-One JAV Toolbox
+# Rina: The All-in-One AV Toolbox
 
-Rina is a command-line tool for managing Japanese AV content. It searches through a wide range of online databases and helps to organize local files.
+Rina is a command-line tool for managing AV content. It searches through a wide range of online databases and helps to organize local files.
 
 ## Features
 
 ### Video Scraping
-- **Command**: `video`
+- **Command**: `rina video <directory>`
 - Extracts JAV IDs from local files and scrapes data from online databases.
 - Renames video files based on ID and title. Updates file timestamps to match the release dates.
 - Offers flexible and customizable scanning options.
-- **Try**: `rina video <directory>`
 
 ### Idol Identity Search
-- **Command**: `idol`
+- **Command**: `rina idol <your favorite idol>`
 - Cross-searches for names, aliases, and ages of JAV idols, aiming to identify their most recognized identities.
 - Renames local folders to reflect the idol's name and birth year.
-- Try: `rina idol <your favorite idol>`
 
 ### Idol Search by Birth Year
-- **Command**: `birth`
+- **Command**: `rina birth <year>`
 - Searches for idols born within a specified year range and active in a recent timespan.
 - Filters results based on recent activity, with an option for solo performances only.
-- Try: `rina birth 1993-1995`
+
+### Western Video Scraping
+- **Command**: `rina western <directory>`
+- Scrapes western adult video metadata from ThePornDB.
+- Renames files based on site, date, performers, and title. Updates file timestamps to match release dates.
 
 ### Video Concatenation
-- **Command**: `concat`
+- **Command**: `rina concat <directory>`
 - Identifies and losslessly concatenates consecutive videos into a single file.
 
 ### Directory Timestamp Update
-- **Command**: `dir`
+- **Command**: `rina touch <directory>`
 - Updates directory timestamps to match the most recent file they contain.
 
 ## Installation
 
-To get started, you'll need Python 3. Then clone the GitHub repository and install the package:
+To get started, you'll need Python 3.10+. Then clone the GitHub repository and install the package:
 
 ```bash
 git clone https://github.com/libertypi/rina.git

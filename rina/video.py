@@ -1,13 +1,13 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Generator
 
-from .files import DiskScanner, get_scanner
-from .scraper import ScrapeResult, _has_word, scrape
+from .files import get_scanner
+from .scraper import ScrapeResult, scrape
 from .utils import AVInfo, Status, dryrun_method, re_search, re_sub, strftime
 
 _NAMEMAX = 255
+
 EXTS = {
     "3g2", "3gp", "3gp2", "3gpp", "amv", "asf", "avi", "divx", "dpg", "drc",
     "evo", "f4a", "f4b", "f4p", "f4v", "flv", "ifo", "k3g", "m1v", "m2t",
@@ -35,7 +35,7 @@ class AVString(AVInfo):
                 "Title": result.title,
                 "NewName": None,
                 "OldName": None,
-                "PubDate": strftime(result.pub_date),
+                "PubDate": strftime(result.date),
                 "OldDate": None,
                 "Source": result.source,
             }
@@ -68,8 +68,8 @@ class AVFile(AVString):
         source: Path,
         result: ScrapeResult,
         error: Exception = None,
-        entry: os.DirEntry = None,
     ) -> None:
+
         if not isinstance(source, Path):
             source = Path(source)
         super().__init__(source, result, error)
@@ -83,14 +83,14 @@ class AVFile(AVString):
             )
             if newname and newname != source.name:
                 self.newpath = source.with_name(newname)
-                self.result.update(NewName=newname, OldName=source.name)
+                self.result.update(OldName=source.name, NewName=self.newpath.name)
                 self.status = Status.UPDATED
 
         # Handling file timestamp updating
-        if result.pub_date:
-            stat = (entry or source).stat()
-            if result.pub_date != stat.st_mtime:
-                self.newdate = (stat.st_atime, result.pub_date)
+        if result.date:
+            stat = source.stat()
+            if abs(result.date - stat.st_mtime) > 1:
+                self.newdate = (stat.st_atime, result.date)
                 self.result["OldDate"] = strftime(stat.st_mtime)
                 self.status = Status.UPDATED
 
@@ -141,45 +141,39 @@ class AVFile(AVString):
                     title = title.encode("utf-8")[:namemax].decode("utf-8", "ignore")
                     break
 
-        if _has_word(title):
+        if re_search(r"\w", title):
             return f"{product_id} {title}{ext.lower()}"
 
 
 def from_string(string: str):
     """Analyze a string, returns an AVString object."""
     try:
-        result = scrape(string)
-        error = None
+        return AVString(string, scrape(string))
     except Exception as e:
-        result = None
-        error = e
-    return AVString(string, result, error)
+        return AVString(string, None, e)
 
 
-def from_path(path: str, entry: os.DirEntry = None):
+def from_path(path):
     """Analyze a path, returns an AVFile object."""
     path = Path(path)
     try:
-        result = scrape(path.stem)
-        error = None
+        return AVFile(path, scrape(path.stem))
     except Exception as e:
-        result = None
-        error = e
-    return AVFile(path, result, error, entry)
-
-
-def from_dir(root, scanner: DiskScanner = None) -> Generator[AVFile, None, None]:
-    """Scan a directory and yield AVFile objects."""
-    if scanner is None:
-        scanner = DiskScanner(exts=EXTS)
-
-    with ThreadPoolExecutor() as ex:
-        for ft in as_completed(
-            ex.submit(from_path, e.path, e) for e in scanner.scandir(root)
-        ):
-            yield ft.result()
+        return AVFile(path, None, e)
 
 
 def from_args(args):
-    """:type args: argparse.Namespace"""
-    return from_dir(args.source, get_scanner(args, exts=EXTS))
+    """
+    Scan a directory or file based on the provided arguments.
+    :type args: argparse.Namespace
+    """
+    if args.type == "file":
+        yield from_path(args.source)
+        return
+
+    scanner = get_scanner(args, exts=EXTS)
+    with ThreadPoolExecutor() as ex:
+        for ft in as_completed(
+            ex.submit(from_path, e.path) for e in scanner.scandir(args.source)
+        ):
+            yield ft.result()

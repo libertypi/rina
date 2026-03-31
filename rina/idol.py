@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Generator
 from urllib.parse import quote, urljoin
 
 from .files import DiskScanner, get_scanner
@@ -425,10 +424,9 @@ class IdolFolder(Idol):
             os.rename(self.path, self.path.with_name(self.final))
 
 
-def from_dir(root, scanner: DiskScanner = None) -> Generator[IdolFolder, None, None]:
-    """Scan a directory and yield ActressFolder objects."""
-    if scanner is None:
-        scanner = DiskScanner(recursive=False)
+def from_args(args):
+    """:type args: argparse.Namespace"""
+    scanner = get_scanner(args)
 
     # Use two executors to avoid deadlock
     m = min(32, (os.cpu_count() or 1) + 4)
@@ -436,16 +434,11 @@ def from_dir(root, scanner: DiskScanner = None) -> Generator[IdolFolder, None, N
     with ThreadPoolExecutor(o) as outer, ThreadPoolExecutor(m - o) as inner:
         pool = [
             outer.submit(IdolFolder, e.path, inner)
-            for e in scanner.scandir(root, yield_dirs=True)
+            for e in scanner.scandir(args.source, yield_dirs=True)
         ]
         # If there is no subdirectory, add the root.
         if not pool:
-            pool.append(outer.submit(IdolFolder, root, inner))
+            pool.append(outer.submit(IdolFolder, args.source, inner))
 
         for ft in as_completed(pool):
             yield ft.result()
-
-
-def from_args(args):
-    """:type args: argparse.Namespace"""
-    return from_dir(args.source, get_scanner(args))

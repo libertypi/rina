@@ -2,6 +2,7 @@ import re
 import unittest
 
 from rina import birth, concat, files, idol, scraper, utils, video
+from rina.western import WesternFile, _sanitize, _cap, _cap_non_small
 from rina.network import get_tree
 
 
@@ -53,7 +54,7 @@ class Test_Scraper(unittest.TestCase):
             self.assertIsNotNone(result)
             self.assertEqual(v[0], result.product_id)
             self.assertIn(v[1], result.title)
-            self.assertAlmostEqual(v[2], result.pub_date)
+            self.assertAlmostEqual(v[2], result.date)
             self.assertEqual(source, result.source)
 
     def test_javbus(self):
@@ -218,7 +219,7 @@ class Test_Scraper(unittest.TestCase):
         self._run_test(values, source)
 
     def test_date(self):
-        source = "date string"
+        source = "File Name"
         values = {
             "Ray Milf  28Jul2015 1080p": 1438041600,
             "welivetogether.15.08.20.daisy.summers": 1440028800,
@@ -234,7 +235,7 @@ class Test_Scraper(unittest.TestCase):
             if v is None:
                 self.assertIsNone(result)
             else:
-                self.assertEqual(v, result.pub_date)
+                self.assertEqual(v, result.date)
                 self.assertEqual(source, result.source)
 
 
@@ -486,6 +487,104 @@ class Test_Concat(unittest.TestCase):
                 self.assertEqual(out.name, answer[1])
             else:
                 self.assertFalse(result)
+
+
+class Test_Western(unittest.TestCase):
+    san_re = WesternFile.SAN_RE
+
+    def test_sanitize_site(self):
+        """Site names: strip non-alnum, no separator, capitalize each part."""
+        site_re = r"[^a-zA-Z0-9]+"
+        values = {
+            "site NameX": "SiteNameX",
+            "  Big Studio  ": "BigStudio",
+            "one-two--three": "OneTwoThree",
+            "ALLCAPS": "ALLCAPS",
+            "lower": "Lower",
+            "a.b.c": "ABC",
+        }
+        for text, expected in values.items():
+            with self.subTest(text=text):
+                self.assertEqual(_sanitize(text, site_re, ""), expected)
+
+    def test_sanitize_performers(self):
+        """Performers: split on special chars, capitalize, join with dot."""
+        values = {
+            ".MeKenna.joe..": "MeKenna.Joe",
+            "jane doe": "Jane.Doe",
+            "...": "",
+            "   alice   ": "Alice",
+            "MARY.jane": "MARY.Jane",
+            "a!b#c": "A.B.C",
+        }
+        for text, expected in values.items():
+            with self.subTest(text=text):
+                self.assertEqual(_sanitize(text, self.san_re, "."), expected)
+
+    def test_sanitize_title(self):
+        """Title: split, apply _cap_non_small, join with dot, then _cap."""
+        values = {
+            "a little On that": "A.Little.on.That",
+            "the big day": "The.Big.Day",
+            "IN the mood for LOVE": "In.the.Mood.for.LOVE",
+            "hello": "Hello",
+            "a": "A",
+            "on": "On",
+            "...leading.trailing...": "Leading.Trailing",
+        }
+        for text, expected in values.items():
+            with self.subTest(text=text):
+                result = _cap(_sanitize(text, self.san_re, ".", _cap_non_small))
+                self.assertEqual(result, expected)
+
+    def test_sanitize_no_leading_trailing_dots(self):
+        """Result never starts or ends with the separator."""
+        inputs = [
+            ".leading", "trailing.", "..both..", "...dots..everywhere...",
+            "  spaces  ", "!@#edge$%^", "...a...", ".", "..", "   .   ",
+        ]
+        for text in inputs:
+            with self.subTest(text=text):
+                result = _sanitize(text, self.san_re, ".")
+                if result:
+                    self.assertFalse(result.startswith("."), f"starts with dot: {result!r}")
+                    self.assertFalse(result.endswith("."), f"ends with dot: {result!r}")
+
+    def test_sanitize_empty_input(self):
+        """None and empty string return empty string."""
+        self.assertEqual(_sanitize(None, self.san_re, "."), "")
+        self.assertEqual(_sanitize("", self.san_re, "."), "")
+
+    def test_sanitize_only_separators(self):
+        """Input with only separator chars returns empty string."""
+        self.assertEqual(_sanitize("...", self.san_re, "."), "")
+        self.assertEqual(_sanitize("   ", self.san_re, "."), "")
+        self.assertEqual(_sanitize("!@#$%", self.san_re, "."), "@.$%")
+
+    def test_cap(self):
+        values = {
+            "hello": "Hello",
+            "Hello": "Hello",
+            "a": "A",
+            "ABC": "ABC",
+            "123abc": "123abc",
+            "": "",
+        }
+        for text, expected in values.items():
+            with self.subTest(text=text):
+                self.assertEqual(_cap(text), expected)
+
+    def test_cap_non_small(self):
+        small_words = ["a", "an", "the", "and", "but", "for", "in", "of", "on", "or", "to", "up", "via"]
+        for word in small_words:
+            with self.subTest(word=word):
+                self.assertEqual(_cap_non_small(word), word)
+                self.assertEqual(_cap_non_small(word.upper()), word)
+
+        non_small = {"hello": "Hello", "big": "Big", "love": "Love", "THAT": "THAT"}
+        for text, expected in non_small.items():
+            with self.subTest(text=text):
+                self.assertEqual(_cap_non_small(text), expected)
 
 
 if __name__ == "__main__":

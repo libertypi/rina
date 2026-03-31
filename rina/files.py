@@ -3,9 +3,9 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Generator
+from collections.abc import Generator
 
-from .utils import Config, stderr_write, strftime
+from .utils import Settings, stderr_write, strftime
 
 logger = logging.getLogger(__name__)
 _EADIR = "@eaDir"  # Synology hidden directory
@@ -244,7 +244,7 @@ def _update_dirtime(root, total=0, updated=0):
         try:
             stat = root.stat()
             if newest != stat.st_mtime:
-                if not Config.DRYRUN:
+                if not Settings.DRYRUN:
                     os.utime(root, (stat.st_atime, newest))
                 updated += 1
                 stderr_write(

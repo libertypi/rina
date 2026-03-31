@@ -4,23 +4,22 @@ import logging
 import re
 from abc import ABC
 from dataclasses import dataclass
-from typing import Optional
 
-from . import network
+import requests
+
+from . import network, utils
 from .network import get, get_tree, html_fromstring, xpath
-from .utils import join_root, re_search, re_sub, str_to_epoch, strptime, two_digit_regex
+from .utils import re_search, re_sub, str_to_epoch, strptime
 
 logger = logging.getLogger(__name__)
 
 # Regular expressions
-REG_Y = two_digit_regex(0, datetime.date.today().year % 100)
-REG_M = r"0[1-9]|1[0-2]"
-REG_D = r"[12][0-9]|0[1-9]|3[01]"
-_subspace = re.compile(r"\s+").sub
-_subdash = re.compile(r"[-_+]+").sub
+RE_Y = utils.two_digit_regex(0, datetime.date.today().year % 100)
+RE_M = r"0[1-9]|1[0-2]"
+RE_D = r"[12][0-9]|0[1-9]|3[01]"
+
 _subbraces = re.compile(r"[\s()\[\].-]+").sub
 _valid_id = re.compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
-_has_word = re.compile(r"\w").search
 _sub_trash = re.compile(
     r"""\b(
     ([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}@|
@@ -31,13 +30,15 @@ _sub_trash = re.compile(
     flags=re.VERBOSE,
 ).sub
 
+_maker_re = _general_re = None
 
-@dataclass
+
+@dataclass(slots=True)
 class ScrapeResult:
     source: str
     product_id: str = None
     title: str = None
-    pub_date: float = None
+    date: float = None
 
 
 class Scraper(ABC):
@@ -57,17 +58,17 @@ class Scraper(ABC):
             result = func()
             if result:
                 try:
-                    product_id = _subspace("", result.product_id)
-                    title = _subspace(" ", result.title).strip()
+                    product_id = re_sub(r"\s+", "", result.product_id)
+                    title = re_sub(r"\s+", " ", result.title).strip()
                 except TypeError:
                     continue
-                if _valid_id(product_id) and _has_word(title):
+                if _valid_id(product_id) and re_search(r"\w", title):
                     result.product_id = self._add_suffix(product_id)
                     result.title = title
-                    result.pub_date = str_to_epoch(result.pub_date)
+                    result.date = str_to_epoch(result.date)
                     return result
 
-    def _search(self) -> Optional[ScrapeResult]:
+    def _search(self) -> ScrapeResult | None:
         """
         Abstract method to be implemented by subclasses:
          - Set `self.search_id`
@@ -83,11 +84,11 @@ class Scraper(ABC):
                 return
             res.raise_for_status()
             http_ok = True
-        except network.HTTPError:
+        except requests.HTTPError:
             if self.uncensored:
                 return
             http_ok = False
-        except network.RequestException as e:
+        except requests.RequestException as e:
             logger.warning(e)
             return
 
@@ -117,13 +118,13 @@ class Scraper(ABC):
                 title = span.text
                 try:
                     if title[0] == "【":
-                        title = re_sub(r"^【(お得|特価)】\s*", "", title)
+                        title = re_sub(r"^【(お得|特価|4K)】\s*", "", title)
                 except IndexError:
                     continue
                 return ScrapeResult(
                     product_id=product_id,
                     title=title,
-                    pub_date=span.findtext("date[2]"),
+                    date=span.findtext("date[2]"),
                     source="javbus.com",
                 )
 
@@ -142,7 +143,7 @@ class Scraper(ABC):
                 return ScrapeResult(
                     product_id=product_id,
                     title=xpath("string(text())")(v),
-                    pub_date=v.findtext('../div[@class="meta"]'),
+                    date=v.findtext('../div[@class="meta"]'),
                     source="javdb.com",
                 )
 
@@ -182,14 +183,14 @@ class Scraper(ABC):
 class StudioScraper(Scraper):
     uncensored = True
     regex = r"(?P<studio>(?P<s1>{m}{d}{y}|(?P<s4>{y}{m}{d}))-(?P<s2>[0-9]{{2,4}})(?:-(?P<s3>0[0-9]))?)".format(
-        y=rf"(?:{REG_Y})",
-        m=rf"(?:{REG_M})",
-        d=rf"(?:{REG_D})",
+        y=rf"(?:{RE_Y})",
+        m=rf"(?:{RE_M})",
+        d=rf"(?:{RE_D})",
     )
     _std_re = (
         r"\b(?:"
-        r"(?P<_carib>carib(?:bean(?:com)?)?|カリビアンコム)|"  # 112220-001-carib
         r"(?P<_caribpr>carib(?:bean(?:com)?)?pr|カリビアンコムプレミアム)|"  # 101515_391-caribpr
+        r"(?P<_carib>carib(?:bean(?:com)?)?|カリビアンコム)|"  # 112220-001-carib
         r"(?P<_1pon>1pon(?:do)?|一本道)|"  # 110411_209-1pon
         r"(?P<_10mu>10mu(?:sume)?|天然むすめ)|"  # 122812_01-10mu
         r"(?P<_paco>paco(?:pacomama)?|パコパコママ)|"  # 120618_394-paco
@@ -212,14 +213,14 @@ class StudioScraper(Scraper):
 
         result = super().search()
 
-        if result and (result.source.startswith("jav") or not result.pub_date):
+        if result and (result.source.startswith("jav") or not result.date):
             try:
-                result.pub_date = strptime(match["s1"], self.datefmt)
+                result.date = strptime(match["s1"], self.datefmt)
             except ValueError as e:
                 self.warning(e)
         return result
 
-    def _search(self) -> Optional[ScrapeResult]:
+    def _search(self) -> ScrapeResult | None:
         tree = get_tree(f"https://www.javbus.com/{self.search_id}")
 
         if tree is None:
@@ -238,7 +239,7 @@ class StudioScraper(Scraper):
 
         product_id = ""
         date = studio = None
-        get_value = lambda p: _subspace("", p.text_content().partition(":")[2])
+        get_value = lambda p: re_sub(r"\s+", "", p.text_content().partition(":")[2])
 
         for p in xpath(
             './/div[contains(@class, "movie")]'
@@ -268,7 +269,7 @@ class StudioScraper(Scraper):
             return ScrapeResult(
                 product_id=product_id,
                 title=title,
-                pub_date=date,
+                date=date,
                 source="javbus.com",
             )
 
@@ -299,7 +300,7 @@ class StudioScraper(Scraper):
         return ScrapeResult(
             product_id=self.search_id,
             title=title,
-            pub_date=date,
+            date=date,
             source=source,
         )
 
@@ -320,10 +321,10 @@ class StudioScraper(Scraper):
                 f"{url}/dyn/phpauto/movie_details/movie_id/{self.search_id}.json"
             )
             data.raise_for_status()
-        except network.HTTPError as e:
+        except requests.HTTPError as e:
             logger.debug(e)
             return
-        except network.RequestException as e:
+        except requests.RequestException as e:
             logger.warning(e)
             return
         try:
@@ -331,7 +332,7 @@ class StudioScraper(Scraper):
             return ScrapeResult(
                 product_id=data["MovieID"],
                 title=data["Title"],
-                pub_date=data["Release"],
+                date=data["Release"],
                 source=source,
             )
         except (ValueError, KeyError) as e:
@@ -398,7 +399,7 @@ class HeyzoScraper(Scraper):
             return ScrapeResult(
                 product_id=self.search_id,
                 title=data["name"],
-                pub_date=data["dateCreated"],
+                date=data["dateCreated"],
                 source=self.source,
             )
         except TypeError:
@@ -418,7 +419,7 @@ class HeyzoScraper(Scraper):
             return ScrapeResult(
                 product_id=self.search_id,
                 title=title[0] or title[2],
-                pub_date=date,
+                date=date,
                 source=self.source,
             )
 
@@ -459,7 +460,7 @@ class FC2Scraper(Scraper):
                     xpath('.//div[@class="items_article_headerInfo"]/h3/text()')(tree)
                 )
             ),
-            pub_date=(
+            date=(
                 xpath(
                     'string(.//div[@class="items_article_softDevice"]'
                     '/p[starts-with(normalize-space(text()), "販売日")])'
@@ -485,7 +486,7 @@ class FC2Scraper(Scraper):
         return ScrapeResult(
             product_id=self.search_id,
             title=title,
-            pub_date=xpath(
+            date=xpath(
                 'string(//div[starts-with(normalize-space(text()), "販売日：")]/span)'
             )(tree),
             source="fc2ppvdb.com",
@@ -520,7 +521,7 @@ class HeydougaScraper(Scraper):
         return ScrapeResult(
             product_id=self.search_id,
             title=title[0] or title[2],
-            pub_date=date,
+            date=date,
             source=self.source,
         )
 
@@ -539,7 +540,7 @@ class AV9898Scraper(HeydougaScraper):
 # Site closed (サイト閉鎖)
 # class HonnamatvScraper(HeydougaScraper):
 #     regex = r"honnamatv[^0-9]*(?P<honna>[0-9]{3,})"
-#
+
 #     def _search(self):
 #         uid = self.match["honna"]
 #         self.search_id = f"honnamatv-{uid}"
@@ -576,38 +577,39 @@ class X1XScraper(Scraper):
             return ScrapeResult(
                 product_id=self.search_id,
                 title="".join(xpath("h2[1]/text()")(tree)),
-                pub_date=date,
+                date=date,
                 source=self.source,
             )
 
 
-class SMMiracleScraper(Scraper):
-    uncensored = True
-    source = "sm-miracle.com"
-    regex = r"sm[\s-]*miracle(?:[\s-]+no)?[\s.-]+e?(?P<sm>[0-9]{4})"
+# Site closed
+# class SMMiracleScraper(Scraper):
+#     uncensored = True
+#     source = "sm-miracle.com"
+#     regex = r"sm[\s-]*miracle(?:[\s-]+no)?[\s.-]+e?(?P<sm>[0-9]{4})"
 
-    def _search(self):
-        uid = "e" + self.match["sm"]
-        self.search_id = f"sm-miracle-{uid}"
+#     def _search(self):
+#         uid = "e" + self.match["sm"]
+#         self.search_id = f"sm-miracle-{uid}"
 
-        try:
-            data = get(f"https://sm-miracle.com/movie/{uid}.dat")
-            data.raise_for_status()
-        except network.HTTPError as e:
-            logger.debug(e)
-            return
-        except network.RequestException as e:
-            logger.warning(e)
-            return
+#         try:
+#             data = get(f"https://sm-miracle.com/movie/{uid}.dat")
+#             data.raise_for_status()
+#         except requests.HTTPError as e:
+#             logger.debug(e)
+#             return
+#         except requests.RequestException as e:
+#             logger.warning(e)
+#             return
 
-        return ScrapeResult(
-            product_id=self.search_id,
-            title=re_search(
-                r'[{,]\s*title\s*:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)\s*[,}]',
-                data.content.decode(errors="ignore"),
-            )["title"],
-            source=self.source,
-        )
+#         return ScrapeResult(
+#             product_id=self.search_id,
+#             title=re_search(
+#                 r'[{,]\s*title\s*:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)\s*[,}]',
+#                 data.content.decode(errors="ignore"),
+#             )["title"],
+#             source=self.source,
+#         )
 
 
 class H4610Scraper(Scraper):
@@ -639,7 +641,7 @@ class H4610Scraper(Scraper):
         return ScrapeResult(
             product_id=self.search_id,
             title=title,
-            pub_date=date,
+            date=date,
             source=f"{m1}.com",
         )
 
@@ -661,10 +663,10 @@ class Kin8Scraper(Scraper):
         try:
             response = get(f"https://www.kin8tengoku.com/movie/{uid}")
             response.raise_for_status()
-        except network.HTTPError as e:
+        except requests.HTTPError as e:
             logger.debug(e)
             return
-        except network.RequestException as e:
+        except requests.RequestException as e:
             logger.warning(e)
             return
 
@@ -675,7 +677,7 @@ class Kin8Scraper(Scraper):
         return ScrapeResult(
             product_id=self.search_id,
             title=m["title"],
-            pub_date=m["date"],
+            date=m["date"],
             source=self.source,
         )
 
@@ -706,7 +708,7 @@ class GirlsDeltaScraper(Scraper):
                 '//li/*[contains(text(), "モデル名")]'
                 "/following-sibling::*)"
             )(tree),
-            pub_date=date,
+            date=date,
             source=self.source,
         )
 
@@ -731,12 +733,21 @@ class UncensoredScraper(Scraper):
 
 class OneKGiriScraper(Scraper):
     uncensored = True
-    regex = rf"((?:{REG_Y})(?:{REG_M})(?:{REG_D}))[\s-]+([a-z]{{3,8}})(?:-(?P<kg>[a-z]{{3,6}}))?"
+    regex = rf"((?:{RE_Y})(?:{RE_M})(?:{RE_D}))[\s-]+([a-z]{{3,8}})(?:-(?P<kg>[a-z]{{3,6}}))?"
 
     def _search(self):
         m = self.match
         i = m.lastindex
         self.search_id = f"{m[i-2]}-{m[i-1]}_{m[i]}"
+
+
+class CensoredScraper(Scraper):
+    uncensored = False
+    regex = r"(t[23]8)-(?P<cen>[0-9]{2,4})"
+
+    def _search(self):
+        m = self.match
+        self.search_id = f"{m[m.lastindex-1]}-{m['cen']}"
 
 
 class MGSScraper(Scraper):
@@ -747,7 +758,7 @@ class MGSScraper(Scraper):
 
     @classmethod
     def _load_mgs(cls, filename: str = "mgs.json"):
-        with open(join_root(filename), "r", encoding="utf-8") as f:
+        with open(utils.join_root(filename), "r", encoding="utf-8") as f:
             mgs = json.load(f)
         assert mgs, f"Empty MGS data: '{filename}'"
         logger.info("Load %s MGS entries from '%s'", len(mgs), filename)
@@ -798,24 +809,28 @@ class MGSScraper(Scraper):
             return ScrapeResult(
                 product_id=self.search_id,
                 title=title,
-                pub_date=date,
+                date=date,
                 source="mgstage.com",
             )
 
 
 class DateSearcher:
-    source = "date string"
+    """Search for date in text."""
+
+    source = "File Name"
+    regex = None
     fmt = {}
 
-    def _init_regex():
+    @classmethod
+    def _init_regex(cls):
         template = [
             r"(?P<{0}>{{{0[0]}}}\s*?(?P<s{0}>[\s.-])\s*{{{0[1]}}}\s*?(?P=s{0})\s*{{{0[2]}}})".format(
                 f
             )
             for f in (
                 "ymd",  # (20)19.03.15
-                "mdy",  # 10.15.(20)19
                 "dmy",  # 23.02.(20)19
+                "mdy",  # 10.15.(20)19
             )
         ]
         template.extend(
@@ -833,22 +848,31 @@ class DateSearcher:
         )
         template.append(r"(?P<Ymd>{Y}(){mm}{dd})")  # 20170102
         fmt = {
-            "y": rf"(?:20)?({REG_Y})",
-            "Y": rf"(20(?:{REG_Y}))",
+            "y": rf"(?:20)?({RE_Y})",
+            "Y": rf"(20(?:{RE_Y}))",
             "m": r"(1[0-2]|0?[1-9])",
-            "mm": rf"({REG_M})",
+            "mm": rf"({RE_M})",
             "d": r"([12][0-9]|3[01]|0?[1-9])",
-            "dd": rf"({REG_D})",
+            "dd": rf"({RE_D})",
             "b": r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",
             "B": r"(january|february|march|april|may|june|july|august|september|october|november|december)",
-        }  # yapf: disable
-
-        return tuple(t.format_map(fmt) for t in template)
-
-    regex = _init_regex()
+        }
+        cls.regex = re.compile(
+            r"\b(?:{})\b".format("|".join(t.format_map(fmt) for t in template)), re.I
+        )
 
     @classmethod
-    def search(cls, m: re.Match):
+    def search(cls, text: str, return_obj=None):
+        """Search for date in text and return timestamp or a return_obj with
+        date and source."""
+        try:
+            m = cls.regex.search(text)
+        except AttributeError:
+            cls._init_regex()
+            m = cls.regex.search(text)
+        if not m:
+            return
+
         try:
             fmt = cls.fmt[m.lastgroup]
         except KeyError:
@@ -856,12 +880,14 @@ class DateSearcher:
 
         i = m.lastindex + 1
         try:
-            return ScrapeResult(
-                pub_date=strptime(" ".join(m.group(i, i + 2, i + 3)), fmt),
-                source=cls.source,
-            )
+            date = strptime(" ".join(m.group(i, i + 2, i + 3)), fmt)
         except ValueError as e:
-            logger.error(f"[{cls.__name__}] [{m[0]}] {e}")
+            logger.error("Failed to parse date: %s", e)
+            return
+
+        if return_obj is None:
+            return date
+        return return_obj(date=date, source=cls.source)
 
 
 def _load_json_ld(tree: network.HtmlElement):
@@ -906,24 +932,32 @@ def _combine_regex(*args: Scraper, b=r"\b") -> re.Pattern:
     return re.compile(result)
 
 
-def scrape(string: str) -> Optional[ScrapeResult]:
-    """Scrape information from a string."""
+def scrape(string: str) -> ScrapeResult | None:
+    """Scrape JAV info from string"""
+    global _maker_re, _general_re
 
-    string = _sub_trash(" ", _subdash("-", string.lower()))
-
-    m = _maker_matcher(string)
+    string = _sub_trash(" ", re_sub(r"[-_+]+", "-", string.lower()))
+    try:
+        m = _maker_re.search(string)
+    except AttributeError:
+        _maker_re = _combine_regex(*_scraper_map.values())
+        m = _maker_re.search(string)
     if m:
         result = _scraper_map[m.lastgroup](m).search()
         if result:
             return result
     else:
-        for m in _general_matcher(string):
+        try:
+            it = _general_re.finditer(string)
+        except AttributeError:
+            _general_re = re.compile(MGSScraper.regex)
+            it = _general_re.finditer(string)
+        for m in it:
             result = MGSScraper(m).search()
             if result:
                 return result
-    m = _date_matcher(string)
-    if m:
-        return DateSearcher.search(m)
+
+    return DateSearcher.search(string, ScrapeResult)
 
 
 _scraper_map = {
@@ -933,13 +967,12 @@ _scraper_map = {
     "heydou": HeydougaScraper,
     "av98": AV9898Scraper,
     "x1x": X1XScraper,
-    "sm": SMMiracleScraper,
+    # "sm": SMMiracleScraper,
     "h4610": H4610Scraper,
+    # "honna": HonnamatvScraper,
     "kin8": Kin8Scraper,
     "gd": GirlsDeltaScraper,
     None: UncensoredScraper,
     "kg": OneKGiriScraper,
+    "cen": CensoredScraper,
 }
-_maker_matcher = _combine_regex(*_scraper_map.values()).search
-_general_matcher = re.compile(MGSScraper.regex).finditer
-_date_matcher = _combine_regex(DateSearcher).search

@@ -11,19 +11,21 @@ import logging
 import random
 from functools import lru_cache
 from threading import Semaphore
-from typing import Optional, Tuple
-from urllib.parse import ParseResult, urlparse
+from urllib.parse import urlparse
 
 import requests
 import urllib3
 from lxml.etree import XPath
 from lxml.html import HtmlElement, HTMLParser
 from lxml.html import fromstring as html_fromstring
-from requests.exceptions import HTTPError, RequestException
 
 from .utils import join_root
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Constants & per-site configuration
+# ---------------------------------------------------------------------------
 
 HTTP_TIMEOUT = (9.1, 60)  # (connect, read)
 DEFAULT_SETTING = {
@@ -68,22 +70,23 @@ SITE_SETTINGS = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# Session & site initialization
+# ---------------------------------------------------------------------------
 
-def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
+_site_settings = {}
+
+
+def _init_session(retries=5, backoff=0.3, uafile="useragents.json"):
     """
     Initializes and configures the HTTP session with retry logic and random
     user-agent.
     """
     with open(join_root(uafile), "r", encoding="utf-8") as f:
         useragents = json.load(f)
-    assert useragents, f"Empty useragent file: '{uafile}'"
+    if not useragents:
+        raise ValueError(f"Empty useragent file: '{uafile}'")
     logger.info("Load %s user-agents from '%s'", len(useragents), uafile)
-
-    retry = urllib3.Retry(
-        total=retries,
-        status_forcelist={429, 500, 502, 503, 504, 521, 524},
-        backoff_factor=backoff,
-    )
 
     s = requests.Session()
     s.headers.update(
@@ -92,26 +95,24 @@ def _init_session(retries=7, backoff=0.3, uafile="useragents.json"):
             "Accept-Language": "ja,zh;q=0.8,en-US;q=0.5,en;q=0.3",
         }
     )
-    s.mount("http://", requests.adapters.HTTPAdapter(max_retries=retry))
-    s.mount("https://", requests.adapters.HTTPAdapter(max_retries=retry))
-
+    adapter = requests.adapters.HTTPAdapter(
+        max_retries=urllib3.Retry(
+            total=retries,
+            status_forcelist={429, 500, 502, 503, 504, 521, 522, 523, 524},
+            backoff_factor=backoff,
+        )
+    )
+    s.mount("http://", adapter)
+    s.mount("https://", adapter)
     return s
 
 
-def set_alias(name: str, dst: str):
-    """Sets an alias for a site's settings, mirroring another site's
-    configuration."""
-    SITE_SETTINGS[name] = SITE_SETTINGS[dst]
-
-
-def _init_site(netloc: str) -> Tuple[dict, Semaphore]:
+def _init_site(netloc: str) -> tuple[dict, Semaphore]:
     """Initializes the settings and semaphore for a specific domain."""
-    result = SITE_SETTINGS.get(netloc)
-    if not result:
-        setting = DEFAULT_SETTING
-    else:
-        setting = DEFAULT_SETTING.copy()
-        setting.update(result)
+    setting = DEFAULT_SETTING.copy()
+    site_setting = SITE_SETTINGS.get(netloc)
+    if site_setting:
+        setting.update(site_setting)
         # initialize cookies
         if setting["cookies"]:
             sc = session.cookies.set_cookie
@@ -122,10 +123,19 @@ def _init_site(netloc: str) -> Tuple[dict, Semaphore]:
     return setting, Semaphore(setting["max_connection"])
 
 
-_settings = {}  # Cached site settings
+def set_settings(netloc: str, **kwargs):
+    """Updates the settings for a specific domain."""
+    if netloc not in _site_settings:
+        _site_settings[netloc] = _init_site(netloc)
+    _site_settings[netloc][0].update(kwargs)
 
 
-def get(url: str, *, pr: ParseResult = None, **kwargs):
+# ---------------------------------------------------------------------------
+# HTML fetching & parsing
+# ---------------------------------------------------------------------------
+
+
+def get(url: str, *, pr=None, **kwargs):
     """
     Performs a GET request with site-specific settings.
     """
@@ -133,12 +143,14 @@ def get(url: str, *, pr: ParseResult = None, **kwargs):
     if pr is None:
         pr = urlparse(url)
     try:
-        setting, semaphore = _settings[pr.netloc]
+        setting, semaphore = _site_settings[pr.netloc]
     except KeyError:
-        setting, semaphore = _settings[pr.netloc] = _init_site(pr.netloc)
+        setting, semaphore = _site_settings[pr.netloc] = _init_site(pr.netloc)
 
     headers = setting["headers"]
     headers = headers.copy() if headers else {}
+    if "headers" in kwargs:
+        headers.update(kwargs.pop("headers"))
     headers.setdefault("Referer", f"{pr.scheme}://{pr.netloc}/")
 
     with semaphore:
@@ -153,25 +165,24 @@ def get(url: str, *, pr: ParseResult = None, **kwargs):
 _parsers = {}  # Cached HTML parsers
 
 
-def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
+def get_tree(url: str, **kwargs) -> HtmlElement | None:
     """
     Fetches a web page and returns its parsed HTML tree.
     """
     pr = urlparse(url)
     try:
-        response = get(url, pr=pr, **kwargs)
-        response.raise_for_status()
-    except HTTPError as e:
+        r = get(url, pr=pr, **kwargs)
+        r.raise_for_status()
+    except requests.HTTPError as e:
         logger.debug(e)
         return
-    except RequestException as e:
+    except requests.RequestException as e:
         logger.warning(e)
         return
     encoding = (
-        _settings[pr.netloc][0]["encoding"]
-        or response.encoding
-        or response.apparent_encoding
-    ).lower()
+        _site_settings[pr.netloc][0]["encoding"]
+        or (r.encoding or r.apparent_encoding).lower()
+    )
     try:
         parser = _parsers[encoding]
     except KeyError:
@@ -179,9 +190,13 @@ def get_tree(url: str, **kwargs) -> Optional[HtmlElement]:
             parser = _parsers[encoding] = HTMLParser(encoding=encoding)
         except LookupError:
             parser = _parsers[encoding] = None
-            logger.warning("Invalid encoding: '%s'. URL: '%s'", encoding, response.url)
-    return html_fromstring(response.content, base_url=response.url, parser=parser)
+            logger.warning("Invalid encoding: '%s'. URL: '%s'", encoding, r.url)
+    return html_fromstring(r.content, base_url=r.url, parser=parser)
 
+
+# ---------------------------------------------------------------------------
+# Module-level initialization
+# ---------------------------------------------------------------------------
 
 session = _init_session()
-xpath = lru_cache(XPath)  # Cached XPath function
+xpath = lru_cache(XPath)

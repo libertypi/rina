@@ -6,7 +6,7 @@ from .utils import (
     SEP_BOLD,
     SEP_SLIM,
     SEP_WIDTH,
-    Config,
+    Settings,
     Status,
     get_choice_as_int,
     stderr_write,
@@ -35,7 +35,7 @@ def _print_header(args):
     stderr_write(f"{SEP_BOLD}\n")
 
 
-def process_stream(stream, args):
+def process_stream(stream):
     changed = []
     failure = []
     total = 0
@@ -51,8 +51,7 @@ def process_stream(stream, args):
     if total:
         stderr_write(f"{SEP_BOLD}\n")
     stderr_write(
-        f"{args.command.title()} scan finished.\n"
-        f"Total: {total}. Changed: {len(changed)}. Failure: {len(failure)}.\n"
+        f"Scan finished.\nTotal: {total}. Changed: {len(changed)}. Failure: {len(failure)}.\n"
     )
     if not changed:
         stderr_write("No change can be made.\n")
@@ -102,8 +101,8 @@ def main():
     args = parse_args()
 
     config_logger(args.verbose)
-    Config.DRYRUN = args.dryrun
-    Config.YES = args.yes
+    Settings.DRYRUN = args.dryrun
+    Settings.YES = args.yes
 
     _print_header(args)
 
@@ -112,11 +111,18 @@ def main():
 
         if args.type == "keyword":
             video.from_string(args.source).print()
-        elif args.type == "dir":
-            process_stream(video.from_args(args), args)
+            return
+
+        process_stream(video.from_args(args))
+        if args.type == "dir":
             files.update_dir_mtime(args.source)
-        else:
-            process_stream((video.from_path(args.source),), args)
+
+    elif args.command == "western":
+        from . import files, western
+
+        process_stream(western.from_args(args))
+        if args.type == "dir":
+            files.update_dir_mtime(args.source)
 
     elif args.command == "idol":
         from . import idol
@@ -124,9 +130,14 @@ def main():
         if args.type == "keyword":
             idol.Idol(args.source).print()
         else:
-            process_stream(idol.from_args(args), args)
+            process_stream(idol.from_args(args))
 
-    elif args.command == "dir":
+    elif args.command == "birth":
+        from . import birth
+
+        birth.main(args)
+
+    elif args.command == "touch":
         from . import files
 
         files.update_dir_mtime(args.source)
@@ -135,11 +146,6 @@ def main():
         from . import concat
 
         concat.main(args)
-
-    elif args.command == "birth":
-        from . import birth
-
-        birth.main(args)
 
     else:
         raise ValueError(args.command)

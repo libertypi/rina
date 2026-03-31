@@ -6,8 +6,9 @@ from pathlib import Path
 CMD_TYPES = {
     "video": ("dir", "file", "keyword"),
     "idol": ("dir", "keyword"),
+    "western": ("dir", "file"),
     "concat": ("dir",),
-    "dir": ("dir",),
+    "touch": ("dir",),
 }
 
 
@@ -70,7 +71,7 @@ def _add_source(
 def parse_args():
     # main parser
     parser = argparse.ArgumentParser(
-        description="Rina is an all-in-one Japanese AV toolbox.\n"
+        description="Rina is an all-in-one AV toolbox. "
         "It searches online sources and processes local files.\n"
         "Type '%(prog)s <command> -h' for command-specific help.",
         epilog="Author: David Pi <libertypi@gmail.com>\n"
@@ -105,10 +106,10 @@ def parse_args():
     subparser = subparsers.add_parser(
         command,
         aliases="v",
-        help="scrape video information",
+        help="scrape JAV video information",
         description=(
             "Description:\n"
-            "  Scrape video information from local directories, files, or keywords"
+            "  Scrape JAV information from local files, directories, or keywords"
         ),
         epilog=(
             "Examples:\n"
@@ -128,10 +129,9 @@ def parse_args():
     subparser = subparsers.add_parser(
         command,
         aliases="i",
-        help="search for idol biography",
+        help="search for JAV idol biography",
         description=(
-            "Description:\n"
-            "  Search for idol biographies in local directories or by idol names"
+            "Description:\n" "  Search for JAV idol biographies by directory or name"
         ),
         epilog=(
             "Examples:\n"
@@ -145,53 +145,14 @@ def parse_args():
     subparser.set_defaults(command=command)
     _add_source(subparser, command, recursive=False)
 
-    # concat
-    # source: dir
-    command = "concat"
-    subparser = subparsers.add_parser(
-        command,
-        aliases="c",
-        help="concatenate consecutive videos",
-        description=(
-            "Description:\n"
-            "  Search and concatenate consecutive videos into a single file"
-        ),
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    subparser.set_defaults(command=command)
-    subparser.add_argument(
-        "-f",
-        dest="ffmpeg",
-        action="store",
-        help="specify the ffmpeg directory (searches $PATH if omitted)",
-    )
-    _add_source(subparser, command)
-
-    # dir
-    # source: dir
-    command = "dir"
-    subparser = subparsers.add_parser(
-        command,
-        aliases="d",
-        help="update directory timestamps",
-        description=(
-            "Description:\n"
-            "  Update directory 'Modified Time' based on the newest file contained"
-        ),
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    subparser.set_defaults(command=command)
-    _add_source(subparser, command, add_filter=False)
-
     # birth
     command = "birth"
     subparser = subparsers.add_parser(
         command,
         aliases="b",
-        help="search idols by birth year",
+        help="search JAV idols by birth year",
         description=(
-            "Description:\n"
-            "  Search for idols based on birth year and latest publications"
+            "Description:\n" "  Search for JAV idols by birth year and recent activity"
         ),
         epilog=(
             "Examples:\n"
@@ -223,6 +184,67 @@ def parse_args():
         type=year_range,
         help="specify year of birth (single year or range, e.g., 1989 or 1988-1991)",
     )
+
+    # western
+    # source: dir, file
+    command = "western"
+    subparser = subparsers.add_parser(
+        command,
+        aliases="w",
+        help="scrape western video information",
+        description=(
+            "Description:\n"
+            "  Scrape western video information from local files or directories"
+        ),
+        epilog=(
+            "Examples:\n"
+            "  Scrape a single file:\n"
+            "      %(prog)s video.mp4\n"
+            "  Scrape all videos in ~/dir:\n"
+            "      %(prog)s ~/dir"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    subparser.set_defaults(command=command)
+    _add_source(subparser, command)
+
+    # concat
+    # source: dir
+    command = "concat"
+    subparser = subparsers.add_parser(
+        command,
+        aliases="c",
+        help="concatenate consecutive videos",
+        description=(
+            "Description:\n"
+            "  Search and concatenate consecutive videos into a single file"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    subparser.set_defaults(command=command)
+    subparser.add_argument(
+        "-f",
+        dest="ffmpeg",
+        action="store",
+        help="specify the ffmpeg directory (searches $PATH if omitted)",
+    )
+    _add_source(subparser, command)
+
+    # touch
+    # source: dir
+    command = "touch"
+    subparser = subparsers.add_parser(
+        command,
+        aliases="t",
+        help="update directory timestamps",
+        description=(
+            "Description:\n"
+            "  Update directory 'Modified Time' based on the newest file contained"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    subparser.set_defaults(command=command)
+    _add_source(subparser, command, add_filter=False)
 
     args = parser.parse_args()
 

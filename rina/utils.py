@@ -1,3 +1,5 @@
+import dataclasses
+import json
 import re
 import sys
 import time
@@ -6,7 +8,6 @@ from datetime import datetime, timezone
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
 
 SEP_WIDTH = 50
 SEP_BOLD = "=" * SEP_WIDTH
@@ -15,11 +16,16 @@ join_root = Path(__file__).parent.joinpath
 stderr_write = sys.stderr.write
 
 
-class Config:
+class Settings:
     """A namespace providing global settings."""
 
     DRYRUN: bool = False
     YES: bool = False
+
+
+@dataclasses.dataclass(slots=True)
+class Config:
+    tpdb_api: str | None = None
 
 
 class Status(Enum):
@@ -94,14 +100,42 @@ def dryrun_method(method):
     """Decorator for class methods to enable dry run functionality."""
 
     def wrapper(self, *args, **kwargs):
-        if not Config.DRYRUN:
+        if not Settings.DRYRUN:
             return method(self, *args, **kwargs)
 
     return wrapper
 
 
+_config: Config = None
+
+
+def get_config(filename: str = "config.json") -> Config:
+    """Load configuration from a JSON file, or return default if not found."""
+    global _config
+    if _config is not None:
+        return _config
+    try:
+        with open(join_root(filename), "r", encoding="utf-8") as f:
+            _config = Config(**json.load(f))
+    except FileNotFoundError:
+        _config = Config()
+    return _config
+
+
+def update_config(filename: str = "config.json", **kwargs) -> Config:
+    """Update configuration with key-value pairs and save to file."""
+    config = get_config(filename)
+    for k, v in kwargs.items():
+        setattr(config, k, v)
+    with open(join_root(filename), "w", encoding="utf-8") as f:
+        json.dump(
+            dataclasses.asdict(config), f, ensure_ascii=False, separators=(",", ":")
+        )
+    return config
+
+
 def get_choice_as_int(msg: str, total: int, default: int = 1) -> int:
-    if Config.YES:
+    if Settings.YES:
         return default
     while True:
         stderr_write(msg)
@@ -120,7 +154,7 @@ def strptime(string: str, fmt: str) -> float:
     return datetime.strptime(string, fmt).replace(tzinfo=timezone.utc).timestamp()
 
 
-def strftime(epoch: float, fmt: str = "%F") -> Optional[str]:
+def strftime(epoch: float, fmt: str = "%F") -> str | None:
     """Convert an epoch timestamp in UTC to a string."""
     if epoch is not None:
         return time.strftime(fmt, time.gmtime(epoch))
@@ -138,7 +172,7 @@ date_searcher = re.compile(
 ).search
 
 
-def str_to_epoch(string: str) -> Optional[float]:
+def str_to_epoch(string: str) -> float | None:
     """
     Converts a date string to a UTC epoch timestamp.
 
