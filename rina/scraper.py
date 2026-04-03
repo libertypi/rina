@@ -910,7 +910,7 @@ def _load_json_ld(tree: network.HtmlElement):
         return json.loads(data)
 
 
-def _combine_regex(*args: Scraper, b=r"\b") -> re.Pattern:
+def _combine_regex(*args: Scraper) -> re.Pattern:
     """Combine one or more scraper regexes to form a single pattern."""
     item = []
     for scraper in args:
@@ -923,9 +923,9 @@ def _combine_regex(*args: Scraper, b=r"\b") -> re.Pattern:
 
     result = "|".join(item)
     if len(item) == 1:
-        result = f"{b}{result}{b}"
+        result = rf"\b{result}\b"
     else:
-        result = f"{b}(?:{result}){b}"
+        result = rf"\b(?:{result})\b"
 
     assert "_" not in result, f'"_" in regex: {result}'
     logger.debug("Combined regex: '%s'", result)

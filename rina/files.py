@@ -2,8 +2,8 @@ import fnmatch
 import logging
 import os
 import re
-from pathlib import Path
 from collections.abc import Generator
+from pathlib import Path
 
 from .utils import Settings, stderr_write, strftime
 
@@ -18,12 +18,13 @@ class DiskScanner:
     def __init__(
         self,
         *,
-        exts: set = None,
+        exts: set | None = None,
         recursive: bool = True,
-        includes: list = None,
-        excludes: list = None,
-        exclude_dirs: list = None,
-        newer: float = None,
+        includes: list[str] | None = None,
+        excludes: list[str] | None = None,
+        exclude_dirs: list[str] | None = None,
+        newer: float | None = None,
+        japanese: bool | None = None,
     ) -> None:
         """
         Initialize a DiskScanner for scanning directories with various filters.
@@ -36,9 +37,12 @@ class DiskScanner:
          - excludes (list): Glob patterns for files to exclude.
          - exclude_dirs (list): Glob patterns for directories to exclude.
          - newer (float): Timestamp; files newer than this will be included.
+         - japanese (bool | None): Filter by language in subpath. True for
+           Japanese only, False for non-Japanese only, None for no filtering.
         """
         self.filters = []
         self.dirfilters = []
+        self.subpathfilters = []
         self.recursive = recursive
 
         if exts is not None:
@@ -54,6 +58,12 @@ class DiskScanner:
         if newer is not None:
             self.newer = newer
             self.filters.append(self._mtime_filter)
+        if japanese is True:
+            self.subpathfilters.append(self._get_jp_filter(True))
+        elif japanese is False:
+            jp_filter = self._get_jp_filter(False)
+            self.filters.append(jp_filter)
+            self.dirfilters.append(jp_filter)
 
     @staticmethod
     def _get_glob_filter(globs: list, inverse: bool = False):
@@ -91,6 +101,17 @@ class DiskScanner:
             except OSError:
                 pass
 
+    @staticmethod
+    def _get_jp_filter(japanese: bool):
+        """
+        japanese=True -> subpath filter
+        japanese=False -> file & dir name filter
+        """
+        searcher = re.compile(r"[\u3040-\u9fff]").search
+        if japanese:
+            return lambda es, rlen: (e for e in es if searcher(e.path, rlen))
+        return lambda es: (e for e in es if not searcher(e.name))
+
     def scandir(
         self, root, yield_dirs: bool = False
     ) -> Generator[os.DirEntry, None, None]:
@@ -108,10 +129,12 @@ class DiskScanner:
         """
         dirs = []
         files = []
-        output = dirs if yield_dirs else files
         dirfilters = self.dirfilters
         filters = self.filters
+        subpathfilters = self.subpathfilters
         recursive = self.recursive
+        output = dirs if yield_dirs else files
+        root_len = len(str(root).rstrip(os.sep)) + 1
         stack = [root]
         while stack:
             root = stack.pop()
@@ -131,6 +154,8 @@ class DiskScanner:
                     for f in dirfilters:
                         dirs[:] = f(dirs)
                     stack.extend(reversed(dirs))
+                    for f in subpathfilters:
+                        output[:] = f(output, root_len)
                     for f in filters:
                         output[:] = f(output)
             except OSError as e:
@@ -196,6 +221,7 @@ def get_scanner(args, exts=None):
         excludes=args.exclude,
         exclude_dirs=args.exclude_dir,
         newer=args.newer,
+        japanese=args.japanese,
     )
 
 

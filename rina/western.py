@@ -10,13 +10,12 @@ from pathlib import Path
 import requests
 from pymediainfo import MediaInfo
 
-from . import network, utils
-from .files import get_scanner
+from . import files, network, utils
 from .scraper import DateSearcher
-from .utils import Status, re_search, strftime, strptime
+from .utils import AVInfo, Status, re_search, strftime, strptime
 from .video import _NAMEMAX, EXTS
 
-_DUR_TOLERANCE = 120  # seconds
+DUR_TOLERANCE = 120  # seconds
 TPDB_API_LOC = "api.theporndb.net"
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ class Scene:
     source: str | None = None
 
 
-class WesternFile(utils.AVInfo):
+class WesternFile(AVInfo):
 
     SAN_RE = r'[<>:"/\\|?*,!#\s.]+'
     keywidth = 10
@@ -62,17 +61,14 @@ class WesternFile(utils.AVInfo):
 
         self.status = Status.SUCCESS
         self.result.update(
-            {
-                "Site": result.site,
-                "Date": strftime(result.date),
-                "Performers": ", ".join(result.performers),
-                "Title": result.title,
-                "Resolution": result.resolution,
-                "Diff": (f"{result.diff:.2f}s" if result.diff is not None else None),
-                "Source": result.source,
-            }
+            Site=result.site,
+            Date=strftime(result.date),
+            Performers=", ".join(result.performers),
+            Title=result.title,
+            Resolution=result.resolution,
+            Difference=None if result.diff is None else f"{result.diff:.2f}s",
+            Source=result.source,
         )
-
         if result.title:
             newname = self._build_filename(result)
             if newname and newname != source.name:
@@ -88,12 +84,12 @@ class WesternFile(utils.AVInfo):
 
     def _build_filename(self, result: Scene) -> str | None:
         """Construct a new filename: Site.Date.Performers.Title.Resolution.ext"""
-        performers = (_sanitize(s, self.SAN_RE, ".") for s in result.performers)
+        performers = (sanitize(s, self.SAN_RE, ".") for s in result.performers)
         parts = (
-            _sanitize(result.site, r"[^a-zA-Z0-9]+", ""),
+            sanitize(result.site, r"[^a-zA-Z0-9]+", ""),
             strftime(result.date, "%y.%m.%d"),
             ".and.".join(filter(None, performers)),
-            _cap(_sanitize(result.title, self.SAN_RE, ".", _cap_non_small)),
+            sanitize(result.title, self.SAN_RE, ".", title_case=True),
             result.resolution,
         )
         stem = ".".join(filter(None, parts))
@@ -126,27 +122,31 @@ _SMALL = {
 } # fmt: skip
 
 
-def _cap_non_small(text: str) -> str:
-    """Capitalize the first letter of the text unless it's a small word."""
-    lo = text.lower()
-    return lo if lo in _SMALL else (text[:1].upper() + text[1:])
-
-
-def _cap(text: str) -> str:
-    """Capitalize the first letter of the text."""
-    return text[:1].upper() + text[1:]
-
-
-def _sanitize(text: str | None, split_re: str, sep: str, transform=_cap) -> str:
-    """Split on regex, transform each piece, join with sep."""
+def sanitize(text: str, splitter: str, joiner: str, title_case: bool = False) -> str:
+    """
+    Sanitize a string by splitting with a regex, filtering empty parts, and
+    joining with a specified character. Capitalize the first letter of each
+    word. Follow title case rules if title_case is True.
+    """
     if not text:
         return ""
-    return sep.join(transform(s) for s in re.split(split_re, text) if s)
+    parts = filter(None, re.split(splitter, text))
+    if title_case:
+        return joiner.join(_titleize(parts))
+    return joiner.join(s[:1].upper() + s[1:] for s in parts)
 
 
-def _fmt_dur(secs: int | float) -> str:
-    m, s = divmod(int(secs), 60)
-    return f"{m}m{s:02d}s"
+def _titleize(parts):
+    first = True
+    for s in parts:
+        lo = s.lower()
+        if lo in _SMALL:
+            if not first:
+                yield lo
+                continue
+            s = lo
+        yield s[:1].upper() + s[1:]
+        first = False
 
 
 def _oshash(path):
@@ -197,7 +197,7 @@ def _get_media_info(path):
     return duration, res
 
 
-def _set_api_key():
+def set_api_key():
     """Ensure TPDB API key is set in network settings, prompt if not found. Must
     be called before TPDB API request."""
     api_key = utils.get_config().tpdb_api
@@ -271,8 +271,9 @@ def _scrape(path) -> Scene | None:
         data = r.json().get("data")
     except requests.HTTPError as e:
         if e.response.status_code == 401:
-            raise RuntimeError("Unauthorized. Check your API key.") from e
-        logger.debug(e)
+            logger.error("Unauthorized: Invalid TPDB API key.")
+        else:
+            logger.debug(e)
         return
     except Exception as e:
         logger.warning(e)
@@ -291,15 +292,14 @@ def _scrape(path) -> Scene | None:
             api_dur = scene.get("duration")
             if file_dur is not None and api_dur is not None:
                 diff = abs(api_dur - file_dur)
-                if diff > _DUR_TOLERANCE:
+                if diff > DUR_TOLERANCE:
                     continue
-                if best[0] is None or diff < best[0]:
+                if best[0] is None or best[0] > diff:
                     best = diff, scene, title
             elif best[1] is None:
                 best = None, scene, title
         except Exception as e:
             logger.warning("Error processing scene data: %s", e)
-
     diff, scene, title = best
     if scene is None:
         return
@@ -337,13 +337,13 @@ def from_args(args):
     Scan a directory or file based on the provided arguments.
     :type args: argparse.Namespace
     """
-    _set_api_key()
+    set_api_key()
 
     if args.type == "file":
         yield from_path(args.source)
         return
 
-    scanner = get_scanner(args, exts=EXTS)
+    scanner = files.get_scanner(args, exts=EXTS)
     with ThreadPoolExecutor() as ex:
         for ft in as_completed(
             ex.submit(from_path, e.path) for e in scanner.scandir(args.source)

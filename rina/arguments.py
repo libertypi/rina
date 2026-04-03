@@ -12,11 +12,12 @@ CMD_TYPES = {
 }
 
 
-def _add_source(
+def _add_scanner_options(
     parser: argparse.ArgumentParser,
     command: str,
     add_filter: bool = True,
     recursive: bool = True,
+    japanese: bool | None = None,
 ):
     parser.add_argument(
         "source",
@@ -66,6 +67,18 @@ def _add_source(
         action="append",
         help="skip directories that match the glob, can be repeated",
     )
+    if japanese is None:
+        parser.set_defaults(japanese=None)
+    else:
+        parser.add_argument(
+            "-l",
+            "--filter-lang",
+            dest="japanese",
+            action="store_const",
+            const=japanese,
+            default=None,
+            help=f"skip {'non-' if japanese else ''}Japanese subpaths",
+        )
 
 
 def parse_args():
@@ -121,7 +134,7 @@ def parse_args():
         formatter_class=argparse.RawTextHelpFormatter,
     )
     subparser.set_defaults(command=command)
-    _add_source(subparser, command)
+    _add_scanner_options(subparser, command, japanese=True)
 
     # idol
     # source: dir, keyword
@@ -143,7 +156,7 @@ def parse_args():
         formatter_class=argparse.RawTextHelpFormatter,
     )
     subparser.set_defaults(command=command)
-    _add_source(subparser, command, recursive=False)
+    _add_scanner_options(subparser, command, recursive=False)
 
     # birth
     command = "birth"
@@ -206,7 +219,7 @@ def parse_args():
         formatter_class=argparse.RawTextHelpFormatter,
     )
     subparser.set_defaults(command=command)
-    _add_source(subparser, command)
+    _add_scanner_options(subparser, command, japanese=False)
 
     # concat
     # source: dir
@@ -228,7 +241,7 @@ def parse_args():
         action="store",
         help="specify the ffmpeg directory (searches $PATH if omitted)",
     )
-    _add_source(subparser, command)
+    _add_scanner_options(subparser, command)
 
     # touch
     # source: dir
@@ -244,7 +257,7 @@ def parse_args():
         formatter_class=argparse.RawTextHelpFormatter,
     )
     subparser.set_defaults(command=command)
-    _add_source(subparser, command, add_filter=False)
+    _add_scanner_options(subparser, command, add_filter=False)
 
     args = parser.parse_args()
 
