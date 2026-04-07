@@ -526,6 +526,46 @@ class HeydougaScraper(Scraper):
         )
 
 
+class MadonnaScraper(Scraper):
+    uncensored = False
+    source = "madonna-av.com"
+    regex = r"(?P<md1>ju(?:fd|sd|ms|vr|[cxylqr])|roe|oba|ure|achj|mdon|mdne|mrec)-?(?P<madonna>[0-9]{3})"
+
+    def _search(self):
+        prefix = self.match["md1"].upper()
+        num = self.match["madonna"]
+        self.search_id = f"{prefix}-{num}"
+
+        tree = get_tree(f"https://madonna-av.com/works/detail/{prefix}{num}")
+        if tree is None:
+            return
+
+        product_id = date = None
+        for th in xpath('.//div[@class="p-workPage__table"]//div[@class="th"]')(tree):
+            label = th.text_content().strip()
+            item = th.getparent()
+            if label == "品番":
+                p = item.find(".//p")
+                if p is not None:
+                    pid = re_sub(r"^DVD", "", p.text_content().strip())
+                    product_id = re_sub(r"(?<=[A-Z])(?=\d)", "-", pid)
+            elif label == "発売日":
+                date = item.text_content()
+                if product_id:
+                    break
+
+        # Title from first <h2> (robust against proxy stripping <title>)
+        h2 = tree.find(".//h2")
+        title = h2.text_content().strip() if h2 is not None else ""
+
+        return ScrapeResult(
+            product_id=product_id,
+            title=title,
+            date=date,
+            source=self.source,
+        )
+
+
 class AV9898Scraper(HeydougaScraper):
     regex = r"av9898[^0-9]+(?P<av98>[0-9]{3,})"
 
@@ -965,6 +1005,7 @@ _scraper_map = {
     "heyzo": HeyzoScraper,
     "fc2": FC2Scraper,
     "heydou": HeydougaScraper,
+    "madonna": MadonnaScraper,
     "av98": AV9898Scraper,
     "x1x": X1XScraper,
     # "sm": SMMiracleScraper,

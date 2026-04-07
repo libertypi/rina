@@ -209,6 +209,15 @@ class Test_Scraper(unittest.TestCase):
         values = {"GirlsDelta 1706": ("GirlsDelta-1706", "安原舞葉", None)}
         self._run_test(values, source)
 
+    def test_madonna(self):
+        source = "madonna-av.com"
+        values = {
+            "JUR-065": ("JUR-065", "人妻秘書", 1774310400),
+            "MDON089": ("MDON-089", "橘メアリー", 1775520000),
+            "ACHJ-001": ("ACHJ-001", "追撃連射", 1676332800),
+        }
+        self._run_test(values, source)
+
     def test_mgs(self):
         source = "mgstage.com"
         values = {
