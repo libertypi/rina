@@ -1,15 +1,17 @@
 import datetime
+import html
 import json
 import logging
 import re
 from abc import ABC
 from dataclasses import dataclass
+from threading import Lock
 
 import requests
 
 from . import network, utils
-from .network import get, get_tree, html_fromstring, xpath
-from .utils import re_search, re_sub, str_to_epoch, strptime
+from .network import get_tree, html_fromstring, xpath
+from .utils import str_to_epoch, strptime
 
 logger = logging.getLogger(__name__)
 
@@ -18,19 +20,16 @@ RE_Y = utils.two_digit_regex(0, datetime.date.today().year % 100)
 RE_M = r"0[1-9]|1[0-2]"
 RE_D = r"[12][0-9]|0[1-9]|3[01]"
 
-_subbraces = re.compile(r"[\s()\[\].-]+").sub
-_valid_id = re.compile(r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*").fullmatch
-_sub_trash = re.compile(
-    r"""\b(
-    ([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}@|
-    [\[(](([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}|hd|jav)[\])]|
-    ([a-z]+2048|\d+sht|thzu?|168x|44x|hotavxxx|nyap2p|3xplanet|sogclub|sis001|sexinsex|hhd800|kfa11)(\.[a-z]{2,4})?|
-    dioguitar23|(un|de)censored|nodrm|fhd|1000[\s-]*giri
-    )\b|\s+""",
-    flags=re.VERBOSE,
-).sub
-
-_maker_re = _general_re = None
+_brace_re = r"[\s()\[\].-]+"
+_id_re = r"[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*"
+_trash_re = (
+    r"\b("
+    r"([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}@|"
+    r"[\[(](([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,4}|hd|jav)[\])]|"
+    r"([a-z]+2048|\d+sht|thzu?|168x|44x|hotavxxx|nyap2p|3xplanet|sogclub|sis001|sexinsex|hhd800|kfa11)(\.[a-z]{2,4})?|"
+    r"dioguitar23|(un|de)censored|nodrm|fhd|1000[\s-]*giri"
+    r")\b|\s+"
+)
 
 
 @dataclass(slots=True)
@@ -54,15 +53,15 @@ class Scraper(ABC):
         self.string = match.string
 
     def search(self):
-        for func in self._search, self._javbus, self._javdb:
+        for func in self._search, self._javbus:
             result = func()
             if result:
                 try:
-                    product_id = re_sub(r"\s+", "", result.product_id)
-                    title = re_sub(r"\s+", " ", result.title).strip()
+                    product_id = re.sub(r"\s+", "", result.product_id)
+                    title = re.sub(r"\s+", " ", result.title).strip()
                 except TypeError:
                     continue
-                if _valid_id(product_id) and re_search(r"\w", title):
+                if re.fullmatch(_id_re, product_id) and re.search(r"\w", title):
                     result.product_id = self._add_suffix(product_id)
                     result.title = title
                     result.date = str_to_epoch(result.date)
@@ -78,7 +77,9 @@ class Scraper(ABC):
 
     def _javbus(self):
         try:
-            res = get(f"https://www.javbus.com/uncensored/search/{self.search_id}")
+            res = network.request(
+                f"https://www.javbus.com/uncensored/search/{self.search_id}"
+            )
             if "member.php?mod=logging" in res.url:
                 logger.warning("JavBus is walled, consider switching network.")
                 return
@@ -101,7 +102,7 @@ class Scraper(ABC):
         result = xpath(
             'string(//div[@class="search-header"]//li[@role="presentation"][1])'
         )(tree)
-        if re_search(r"/\s*0+\s*\)", result):
+        if re.search(r"/\s*0+\s*\)", result):
             return
 
         tree = get_tree(f"https://www.javbus.com/search/{self.search_id}")
@@ -118,7 +119,7 @@ class Scraper(ABC):
                 title = span.text
                 try:
                     if title[0] == "【":
-                        title = re_sub(r"^【(お得|特価|4K)】\s*", "", title)
+                        title = re.sub(r"^【(お得|特価|4K)】\s*", "", title)
                 except IndexError:
                     continue
                 return ScrapeResult(
@@ -128,29 +129,30 @@ class Scraper(ABC):
                     source="javbus.com",
                 )
 
-    def _javdb(self):
-        tree = get_tree(f"https://javdb.com/search?q={self.search_id}&f=all")
-        if tree is None or "/search" not in tree.base_url:
-            return
+    # disabled: behind Cloudflare
+    # def _javdb(self):
+    #     tree = get_tree(f"https://javdb.com/search?q={self.search_id}&f=all")
+    #     if tree is None or "/search" not in tree.base_url:
+    #         return
 
-        mask = self._get_id_mask()
-        for v in xpath(
-            './/div[contains(@class, "movie-list")]'
-            '//a[@class="box"]/div[@class="video-title"]'
-        )(tree):
-            product_id = v.findtext("strong", "")
-            if mask(product_id):
-                return ScrapeResult(
-                    product_id=product_id,
-                    title=xpath("string(text())")(v),
-                    date=v.findtext('../div[@class="meta"]'),
-                    source="javdb.com",
-                )
+    #     mask = self._get_id_mask()
+    #     for v in xpath(
+    #         './/div[contains(@class, "movie-list")]'
+    #         '//a[@class="box"]/div[@class="video-title"]'
+    #     )(tree):
+    #         product_id = v.findtext("strong", "")
+    #         if mask(product_id):
+    #             return ScrapeResult(
+    #                 product_id=product_id,
+    #                 title=xpath("string(text())")(v),
+    #                 date=v.findtext('../div[@class="meta"]'),
+    #                 source="javdb.com",
+    #             )
 
     def _get_id_mask(self):
         mask = self._id_mask
         if not mask:
-            mask = re_sub(
+            mask = re.sub(
                 r"[\s_-]+((?=\d))?",
                 lambda m: r"[\s_-]*" if m[1] is None else r"[\s_-]*0*",
                 self.search_id,
@@ -160,10 +162,10 @@ class Scraper(ABC):
 
     def _add_suffix(self, product_id: str) -> str:
         m = self.match
-        suffix = re_search(
+        suffix = re.search(
             r"^\s*(?:(?:f?hd|cd|dvd|vol|[hm]hb|part)\s*|(?:4k|sd|(?:216|108|72|48)0p)\s+)*"
             r"(?P<s>[1-9][0-9]?|[a-d])\b",
-            _subbraces(" ", self.string[m.end(m.lastindex) :]),
+            re.sub(_brace_re, " ", self.string[m.end(m.lastindex) :]),
         )
         if suffix:
             return f'{product_id}-{suffix["s"].upper()}'
@@ -205,7 +207,7 @@ class StudioScraper(Scraper):
         match = self.match
         self.search_id = f'{match["s1"]}_{match["s2"]}'
 
-        m = self.studio_match = re_search(self._std_re, self.string)
+        m = self.studio_match = re.search(self._std_re, self.string)
         if m:
             self._search = getattr(self, m.lastgroup)
         elif match["s3"] and match["s4"]:
@@ -239,7 +241,7 @@ class StudioScraper(Scraper):
 
         product_id = ""
         date = studio = None
-        get_value = lambda p: re_sub(r"\s+", "", p.text_content().partition(":")[2])
+        get_value = lambda p: re.sub(r"\s+", "", p.text_content().partition(":")[2])
 
         for p in xpath(
             './/div[contains(@class, "movie")]'
@@ -252,7 +254,7 @@ class StudioScraper(Scraper):
             elif "日期" in k:
                 date = get_value(p)
             elif "製作商" in k:
-                studio = re_search(self._std_re, get_value(p))
+                studio = re.search(self._std_re, get_value(p))
                 if product_id and date:
                     break
 
@@ -317,7 +319,7 @@ class StudioScraper(Scraper):
             url = "https://www.1pondo.tv"
             source = "1pondo.tv"
         try:
-            data = get(
+            data = network.request(
                 f"{url}/dyn/phpauto/movie_details/movie_id/{self.search_id}.json"
             )
             data.raise_for_status()
@@ -372,9 +374,9 @@ class StudioScraper(Scraper):
         if self.studio_match:
             i = max(self.studio_match.end(), i)
 
-        suffix = re_search(
+        suffix = re.search(
             r"^\s*(([1-9]|(high|mid|low|whole|hd|sd|psp)[0-9]*|(216|108|72|48)0p)($|\s))+",
-            _subbraces(" ", self.string[i:]),
+            re.sub(_brace_re, " ", self.string[i:]),
         )
         if suffix:
             result.extend(suffix[0].split())
@@ -427,7 +429,27 @@ class HeyzoScraper(Scraper):
 class FC2Scraper(Scraper):
     uncensored = True
     regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{4,10})"
-    paywalled = False
+    _paywalled = False
+    # Tri-state shared across all instances:
+    #   None    -> not yet attempted
+    #   True    -> session is live, no need to re-login
+    #   False -> credentials missing or login was rejected, give up
+    _fc2ppvdb_authed = None
+    # Single lock that serializes the ENTIRE fc2ppvdb code path: fetch
+    # (prime + AJAX), login, and retry. Three races collapse onto one fix:
+    #   1. fc2ppvdb stores "currently visited article" in server-side
+    #      session state — two threads interleaving prime+AJAX pairs
+    #      clobber each other and one gets an empty 200 back.
+    #   2. Concurrent login attempts race on the CSRF cookie/token and
+    #      all fail with 419 Page Expired.
+    #   3. A login in progress in one thread mustn't be interleaved with
+    #      a fetch from another, which would overwrite the post-login
+    #      cookies the server expects on the next request.
+    # All three reduce to "serialize everything fc2ppvdb does." Throughput
+    # cost: fc2ppvdb fetches are now strictly sequential — fine since it's
+    # a fallback scraper and the server-side state already forbids any
+    # real parallelism.
+    _fc2ppvdb_lock = Lock()
 
     def _search(self):
         uid = self.match["fc2"]
@@ -436,16 +458,14 @@ class FC2Scraper(Scraper):
 
     def _fc2_search(self, uid: str):
         """Search for FC2 video by uid."""
-        if self.paywalled:
+        if self._paywalled:
             return
         tree = get_tree(f"https://adult.contents.fc2.com/article/{uid}/")
         if tree is None:
             return
         if "payarticle" in tree.base_url:
-            logger.warning(
-                "FC2.com is paywalled. Consider switching network for more accurate results."
-            )
-            FC2Scraper.paywalled = True
+            logger.warning("FC2.com is paywalled. Use a Japanese proxy to bypass.")
+            FC2Scraper._paywalled = True
             return
         if tree.find('.//div[@class="items_notfound_wp"]') is not None:
             return
@@ -471,26 +491,155 @@ class FC2Scraper(Scraper):
         )
 
     def _fc2ppvdb(self, uid: str):
-        tree = get_tree(f"https://fc2ppvdb.com/articles/{uid}")
-        if (
-            tree is None
-            or "/login" in tree.base_url
-            or tree.findtext(".//title", "").lstrip().lower().startswith("not found")
-        ):
+        """Fetch from fc2ppvdb.com. Logs in once per process if cached
+        cookies are stale or absent. Returns None on miss or auth failure.
+
+        The whole flow runs under a single lock — see `_fc2ppvdb_lock`
+        for why."""
+        # Cheap pre-check before grabbing the lock.
+        if FC2Scraper._fc2ppvdb_authed is False:
             return
 
-        title = xpath('string(//h2[contains(@class, "title-font")]/a)')(tree).strip()
-        if title and title[0] == "※":
-            title = re_sub(r"^※[^※]*※\s*", "", title)
+        with FC2Scraper._fc2ppvdb_lock:
+            # Re-check: another thread's login may have flipped this to
+            # False while we were queued at the lock.
+            if FC2Scraper._fc2ppvdb_authed is False:
+                return None
 
-        return ScrapeResult(
-            product_id=self.search_id,
-            title=title,
-            date=xpath(
-                'string(//div[starts-with(normalize-space(text()), "販売日：")]/span)'
-            )(tree),
-            source="fc2ppvdb.com",
+            result, needs_login = self._fc2ppvdb_fetch(uid)
+            if result is not None or not needs_login:
+                return result
+
+            # Auth failure. Login if we haven't yet succeeded.
+            if FC2Scraper._fc2ppvdb_authed is not True:
+                if not self._fc2ppvdb_login():
+                    FC2Scraper._fc2ppvdb_authed = False
+                    return None
+
+            # Retry with the freshly authenticated session.
+            result, _ = self._fc2ppvdb_fetch(uid)
+            return result
+
+    def _fc2ppvdb_fetch(self, uid: str):
+        """Returns (ScrapeResult|None, needs_login: bool). `needs_login` is
+        True only when the response indicates an auth failure (redirect to
+        /login or AJAX 401); other failure modes return False so we don't
+        waste a login.
+
+        Caller must hold `_fc2ppvdb_lock`. The HTML article page is just a
+        thin shell — the metadata lives in a JSON AJAX endpoint that gates
+        on a CSRF token from the matching HTML page. We must fetch the
+        HTML first to prime the session and extract the token, then call
+        /articles/article-info."""
+        article_url = f"https://fc2ppvdb.com/articles/{uid}"
+        # Step 1: prime — fetch the HTML page for the CSRF token.
+        try:
+            r = network.request(article_url)
+            r.raise_for_status()
+        except requests.HTTPError as e:
+            logger.debug(e)
+            return None, False
+        except requests.RequestException as e:
+            logger.warning(e)
+            return None, False
+        if "/login" in r.url:
+            return None, True
+        token = html_fromstring(r.content).xpath(
+            'string(//meta[@name="csrf-token"]/@content)'
         )
+        if not token:
+            logger.warning("fc2ppvdb: no CSRF token on /articles/%s", uid)
+            return None, False
+
+        # Step 2: pull the article metadata via the JSON AJAX endpoint.
+        try:
+            r = network.request(
+                "https://fc2ppvdb.com/articles/article-info",
+                params={"videoid": uid},
+                headers={
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-CSRF-TOKEN": token,
+                    "Accept": "application/json, text/javascript, */*; q=0.01",
+                    "Referer": article_url,
+                },
+            )
+            r.raise_for_status()
+        except requests.HTTPError as e:
+            # 401 means our session cookie is stale — signal the caller
+            # to log in and retry. Other HTTP errors are not.
+            if e.response is not None and e.response.status_code == 401:
+                return None, True
+            logger.warning(e)
+            return None, False
+        except requests.RequestException as e:
+            logger.warning(e)
+            return None, False
+        if not r.text.strip():
+            return None, False
+        try:
+            art = r.json().get("article")
+        except ValueError:
+            return None, False
+        # Note: fc2ppvdb sets `art["not_found"] = 1` on records whose original
+        # FC2 sale page is gone, but the indexed metadata is still real and
+        # usable. Don't filter on that flag — only require a non-empty title.
+        title = html.unescape((art or {}).get("title") or "").strip()
+        if not title:
+            return None, False
+        return (
+            ScrapeResult(
+                product_id=self.search_id,
+                title=title,
+                date=art.get("release_date") or None,
+                source="fc2ppvdb.com",
+            ),
+            False,
+        )
+
+    def _fc2ppvdb_login(self) -> bool:
+        """POST credentials to fc2ppvdb's /login. On success, persist the
+        fresh cookies to profile/cookies.json and flip the class flag."""
+        config = utils.get_config()
+        if not (config.fc2ppvdb_user and config.fc2ppvdb_pass):
+            logger.warning(
+                "fc2ppvdb credentials not configured (run `rina set fc2ppvdb`)."
+            )
+            return False
+        try:
+            # Get the CSRF token from /login.
+            r = network.request("https://fc2ppvdb.com/login")
+            r.raise_for_status()
+            tree = html_fromstring(r.content, base_url=r.url)
+            token = tree.xpath('string(//input[@name="_token"]/@value)')
+            if not token:
+                logger.warning("fc2ppvdb: no CSRF token on /login")
+                return False
+            # POST credentials.
+            r = network.request(
+                "https://fc2ppvdb.com/login",
+                method="POST",
+                data={
+                    "_token": token,
+                    "email": config.fc2ppvdb_user,
+                    "password": config.fc2ppvdb_pass,
+                },
+            )
+            r.raise_for_status()
+            if "/login" in r.url:
+                logger.warning("fc2ppvdb: login rejected (bad credentials?)")
+                return False
+        except requests.RequestException as e:
+            logger.warning("fc2ppvdb login error: %s", e)
+            return False
+
+        FC2Scraper._fc2ppvdb_authed = True
+        # Only persist the session cookie. XSRF-TOKEN is Laravel's CSRF
+        # cookie — regenerated on every response and not consulted by the
+        # paths we use (we send the CSRF via the meta-tag X-CSRF-TOKEN
+        # header, not via X-XSRF-TOKEN).
+        network.save_cookies("fc2ppvdb.com", names=("fc2ppvdb_session",))
+        logger.info("fc2ppvdb: logged in, cookies persisted.")
+        return True
 
     def _javbus(self):
         pass
@@ -547,8 +696,8 @@ class MadonnaScraper(Scraper):
             if label == "品番":
                 p = item.find(".//p")
                 if p is not None:
-                    pid = re_sub(r"^DVD", "", p.text_content().strip())
-                    product_id = re_sub(r"(?<=[A-Z])(?=\d)", "-", pid)
+                    pid = re.sub(r"^DVD", "", p.text_content().strip())
+                    product_id = re.sub(r"(?<=[A-Z])(?=\d)", "-", pid)
             elif label == "発売日":
                 date = item.text_content()
                 if product_id:
@@ -644,7 +793,7 @@ class X1XScraper(Scraper):
 
 #         return ScrapeResult(
 #             product_id=self.search_id,
-#             title=re_search(
+#             title=re.search(
 #                 r'[{,]\s*title\s*:\s*(?P<q>[\'"])(?P<title>.+?)(?P=q)\s*[,}]',
 #                 data.content.decode(errors="ignore"),
 #             )["title"],
@@ -701,7 +850,7 @@ class Kin8Scraper(Scraper):
         self.search_id = f"kin8-{uid}"
 
         try:
-            response = get(f"https://www.kin8tengoku.com/movie/{uid}")
+            response = network.request(f"https://www.kin8tengoku.com/movie/{uid}")
             response.raise_for_status()
         except requests.HTTPError as e:
             logger.debug(e)
@@ -710,7 +859,7 @@ class Kin8Scraper(Scraper):
             logger.warning(e)
             return
 
-        m = re_search(self._re_movie, response.content.decode())
+        m = re.search(self._re_movie, response.content.decode())
         if not m:
             return
 
@@ -836,7 +985,7 @@ class MGSScraper(Scraper):
                 './/article[@id="center_column"]/div[@class="common_detail_cover"]'
             )
             try:
-                title = re_sub(
+                title = re.sub(
                     r"^(\s*【.*?】)+|【[^】]*映像付】|\+\d+分\b",
                     "",
                     tree.findtext("h1"),
@@ -935,14 +1084,14 @@ def _load_json_ld(tree: network.HtmlElement):
 
     Raise TypeError if there is no json-ld, ValueError if parsing failed.
     """
-    data = re_sub(
+    data = re.sub(
         r"[\t\n\r\f\v]", " ", tree.findtext('.//script[@type="application/ld+json"]')
     )
     try:
         return json.loads(data)
     except ValueError:
         dumps = json.dumps
-        data = re_sub(
+        data = re.sub(
             r'(?<=[{,])\s*("[^"]+")\s*:\s*"(.*?)"\s*(?=[,}])',
             lambda m: f"{m[1]}:{dumps(m[2], ensure_ascii=False)}",
             data,
@@ -972,11 +1121,19 @@ def _combine_regex(*args: Scraper) -> re.Pattern:
     return re.compile(result)
 
 
+_maker_re = _general_re = None
+
+
+def _sanitize(string: str) -> str:
+    """Sanitize string for regex matching."""
+    return re.sub(_trash_re, " ", re.sub(r"[-_+]+", "-", string.lower()))
+
+
 def scrape(string: str) -> ScrapeResult | None:
     """Scrape JAV info from string"""
     global _maker_re, _general_re
 
-    string = _sub_trash(" ", re_sub(r"[-_+]+", "-", string.lower()))
+    string = _sanitize(string)
     try:
         m = _maker_re.search(string)
     except AttributeError:

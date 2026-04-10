@@ -12,6 +12,19 @@ CMD_TYPES = {
 }
 
 
+def _add_proxy_option(parser: argparse.ArgumentParser):
+    """Add the global -p/--proxy option to commands that hit the network."""
+    parser.add_argument(
+        "-p",
+        "--proxy",
+        nargs="?",
+        const=True,
+        default=False,
+        metavar="COUNTRY",
+        help="route requests through a NordVPN proxy (omit COUNTRY for any)",
+    )
+
+
 def _add_scanner_options(
     parser: argparse.ArgumentParser,
     command: str,
@@ -110,6 +123,7 @@ def parse_args():
         action="store_true",
         help="automatically confirm all prompts",
     )
+    parser.set_defaults(proxy=False)
     # sub-parsers
     subparsers = parser.add_subparsers(title="commands", required=True)
 
@@ -135,6 +149,7 @@ def parse_args():
     )
     subparser.set_defaults(command=command)
     _add_scanner_options(subparser, command, japanese=True)
+    _add_proxy_option(subparser)
 
     # idol
     # source: dir, keyword
@@ -157,6 +172,7 @@ def parse_args():
     )
     subparser.set_defaults(command=command)
     _add_scanner_options(subparser, command, recursive=False)
+    _add_proxy_option(subparser)
 
     # birth
     command = "birth"
@@ -197,6 +213,7 @@ def parse_args():
         type=year_range,
         help="specify year of birth (single year or range, e.g., 1989 or 1988-1991)",
     )
+    _add_proxy_option(subparser)
 
     # western
     # source: dir, file
@@ -220,6 +237,7 @@ def parse_args():
     )
     subparser.set_defaults(command=command)
     _add_scanner_options(subparser, command, japanese=False)
+    _add_proxy_option(subparser)
 
     # concat
     # source: dir
@@ -258,6 +276,36 @@ def parse_args():
     )
     subparser.set_defaults(command=command)
     _add_scanner_options(subparser, command, add_filter=False)
+
+    # set
+    command = "set"
+    subparser = subparsers.add_parser(
+        command,
+        aliases="s",
+        help="get or set configuration values",
+        description=("Description:\n  Get or set configuration values."),
+        epilog=(
+            "Available fields:\n"
+            "  nordvpn_user     NordVPN service username\n"
+            "  nordvpn_pass     NordVPN service password\n"
+            "  fc2ppvdb_user    fc2ppvdb.com email\n"
+            "  fc2ppvdb_pass    fc2ppvdb.com password\n"
+            "  tpdb_api         ThePornDB API key\n"
+            "  stashdb_api      StashDB API key"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    subparser.set_defaults(command=command)
+    subparser.add_argument(
+        "name",
+        nargs="?",
+        help="config field name (omit to list all fields)",
+    )
+    subparser.add_argument(
+        "value",
+        nargs="?",
+        help="new value (omit to prompt interactively); '' clears the field",
+    )
 
     args = parser.parse_args()
 

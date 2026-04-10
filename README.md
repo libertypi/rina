@@ -22,8 +22,8 @@ Rina is a command-line tool for managing AV content. It searches through a wide 
 
 ### Western Video Scraping
 - **Command**: `rina western <directory>`
-- Scrapes western adult video metadata from ThePornDB.
 - Renames files based on site, date, performers, and title. Updates file timestamps to match release dates.
+- Requires at least one API key. See [Configuration](#configuration).
 
 ### Video Concatenation
 - **Command**: `rina concat <directory>`
@@ -44,6 +44,30 @@ pip install .
 ```
 
 After installation, `rina` will be accessible from the command line.
+
+## Configuration
+
+Rina stores configurations in `rina/profile/config.json`. Use the `rina set` command to manage them.
+
+```bash
+# List the current configuration
+rina set
+
+# Set a single field
+rina set tpdb_api YOUR_KEY
+
+# Prompt interactively
+rina set nordvpn
+```
+
+The supported fields:
+
+| Field | Used by | Required for |
+|---|---|---|
+| `tpdb_api` | `western` | Western scraping |
+| `stashdb_api` | `western` | Western scraping |
+| `fc2ppvdb_user`, `fc2ppvdb_pass` | `video` | extends FC2 coverage to fc2ppvdb |
+| `nordvpn_user`, `nordvpn_pass` | `-p ...` | for bypassing geo block and the `-p` flag |
 
 ## Usage
 

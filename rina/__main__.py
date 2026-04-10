@@ -1,3 +1,6 @@
+import dataclasses
+import getpass
+import json
 import sys
 
 from . import config_logger
@@ -8,13 +11,73 @@ from .utils import (
     SEP_WIDTH,
     Settings,
     Status,
+    config_file,
     get_choice_as_int,
+    get_config,
     stderr_write,
     strftime,
 )
 
+_SECRET_SUFFIXES = ("_api", "_pass")
 
-def _print_header(args):
+
+def _mask_secret(name: str, value: str | None) -> str:
+    """Mask values for fields whose names look secret-bearing."""
+    if not value:
+        return "(not set)"
+    if name.endswith(_SECRET_SUFFIXES):
+        return "********"
+    return value
+
+
+def cmd_set(args) -> None:
+    """Get or set configuration values. See `rina set -h` for usage."""
+    config = dataclasses.asdict(get_config())
+
+    # No name: list all fields (masked).
+    if args.name is None:
+        kw = max(map(len, config))
+        for k, v in config.items():
+            stderr_write(f"{k:<{kw}} : {_mask_secret(k, v)}\n")
+        return
+
+    names = (args.name,)
+    if args.value is None and args.name in (
+        "fc2ppvdb",
+        "fc2ppvdb_user",
+        "nordvpn",
+        "nordvpn_user",
+    ):
+        n = args.name.partition("_")[0]
+        names = (n + "_user", n + "_pass")
+
+    changed = []
+    for n in names:
+        try:
+            old = config[n]
+        except KeyError:
+            sys.exit(f"Unknown config field: {n!r}. Valid: {list(config)}")
+        if args.value is None:
+            reader = getpass.getpass if n.endswith(_SECRET_SUFFIXES) else input
+            new = reader(f"{n} [{_mask_secret(n, old)}]: ").strip() or None
+        else:
+            # Treat an empty CLI value as a clear, mirroring interactive mode.
+            new = args.value or None
+        if new != old:
+            config[n] = new
+            changed.append(n)
+
+    if not changed:
+        stderr_write("No changes.\n")
+        return
+
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_file, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+    stderr_write(f"Updated: {', '.join(changed)}\n")
+
+
+def _print_banner(args):
     """Print the program header with command details."""
     stderr_write(
         f"{SEP_BOLD}\n"
@@ -99,12 +162,16 @@ def progressbar(sequence, width: int = SEP_WIDTH):
 
 def main():
     args = parse_args()
-
-    config_logger(args.verbose)
     Settings.DRYRUN = args.dryrun
     Settings.YES = args.yes
+    Settings.PROXY = args.proxy
+    config_logger(args.verbose)
 
-    _print_header(args)
+    if args.command == "set":
+        cmd_set(args)
+        return
+
+    _print_banner(args)
 
     if args.command == "video":
         from . import files, video

@@ -1,13 +1,13 @@
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from .files import get_scanner
 from .scraper import ScrapeResult, scrape
-from .utils import AVInfo, Status, dryrun_method, re_search, re_sub, strftime
+from .utils import AVInfo, Status, dryrun_method, strftime
 
-_NAMEMAX = 255
-
+NAMEMAX = 255
 EXTS = {
     "3g2", "3gp", "3gp2", "3gpp", "amv", "asf", "avi", "divx", "dpg", "drc",
     "evo", "f4a", "f4b", "f4p", "f4v", "flv", "ifo", "k3g", "m1v", "m2t",
@@ -19,9 +19,7 @@ EXTS = {
 
 
 class AVString(AVInfo):
-    """
-    Handles keyword-based media sources.
-    """
+    """Handles keyword-based media sources."""
 
     keywidth = 10
 
@@ -107,25 +105,25 @@ class AVFile(AVString):
     @staticmethod
     def _build_filename(product_id: str, title: str, ext: str):
         """Generates a valid filename based on product ID, title, and ext."""
-        namemax = _NAMEMAX - len(product_id.encode()) - len(ext.encode()) - 1
+        namemax = NAMEMAX - len(product_id.encode()) - len(ext.encode()) - 1
         if namemax <= 0:
             return
 
         # Remove characters
-        title = re_sub(r"[\x00-\x1f\x7f*]+", "", title)
+        title = re.sub(r"[\x00-\x1f\x7f*]+", "", title)
         # Replace with '-'
-        title = re_sub(r'[<>:"/\\|?-]+', "-", title)
+        title = re.sub(r'[<>:"/\\|?-]+', "-", title)
         # Replace empty brackets with a space, and compress all spaces
         # opening brackets: [【「『｛（《\[(]
         # closing brackets: [】」』｝）》\])]
-        title = re_sub(r"\s*[【「『｛（《\[(]\s*[】」』｝）》\])]\s*|\s+", " ", title)
+        title = re.sub(r"\s*[【「『｛（《\[(]\s*[】」』｝）》\])]\s*|\s+", " ", title)
         # Strip certain leading and trailing characters
         strip_chars = " -_。.,、"
         title = title.lstrip(" -_。.,、？！!…").rstrip(strip_chars)
 
         if len(title.encode("utf-8")) > namemax:
             # Remove spaces before and after non-word characters
-            title = re_sub(r"\s+(?=[^\w\s])|(?<=[^\w\s])\s+", "", title)
+            title = re.sub(r"\s+(?=[^\w\s])|(?<=[^\w\s])\s+", "", title)
 
             while len(title.encode("utf-8")) > namemax:
                 # Truncate title:
@@ -133,7 +131,7 @@ class AVFile(AVString):
                 # Remove other non-word characters
                 # ...]...   |   ...、...
                 # ...]↑     |   ...↑
-                m = re_search(r".*?\w.*(?:[】」』｝）》\])？！!…](?=.)|(?=\W))", title)
+                m = re.search(r".*?\w.*(?:[】」』｝）》\])？！!…](?=.)|(?=\W))", title)
                 if m:
                     title = m[0].rstrip(strip_chars)
                 else:
@@ -141,7 +139,7 @@ class AVFile(AVString):
                     title = title.encode("utf-8")[:namemax].decode("utf-8", "ignore")
                     break
 
-        if re_search(r"\w", title):
+        if re.search(r"\w", title):
             return f"{product_id} {title}{ext.lower()}"
 
 

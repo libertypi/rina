@@ -10,7 +10,7 @@ from urllib.parse import quote, urljoin
 
 from .files import DiskScanner, get_scanner
 from .network import HtmlElement, get_tree, xpath
-from .utils import AVInfo, Status, date_searcher, dryrun_method, re_search, re_sub
+from .utils import AVInfo, Status, date_searcher, dryrun_method
 
 is_cjk_name = r"(?=\w*?[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3])(\w{2,20})"
 name_finder = re.compile(
@@ -78,9 +78,18 @@ class Wikipedia(Wiki):
             return
 
         name = tree.find('.//*[@id="firstHeading"]').text_content()
-        box = tree.find('.//div[@id="mw-content-text"]//table[@class="infobox"]')
-        if not name or box is None:
+        # Wikipedia serves the class attribute with a trailing space
+        # ("infobox ") and may have multiple classes; match the "infobox"
+        # token explicitly via XPath rather than exact-match attribute find.
+        box = tree.xpath(
+            './/div[@id="mw-content-text"]'
+            '//table['
+            'contains(concat(" ", normalize-space(@class), " "), " infobox ")'
+            ']'
+        )
+        if not name or not box:
             return
+        box = box[0]
 
         birth = None
         alias = xpath('.//caption[@*="name"]/text()[normalize-space()]')(box)
@@ -168,7 +177,7 @@ class AVRevolution(Wiki):
             try:
                 a = row.find("div[1]/a[@href]")
                 title = clean_name(a.text_content())
-                name = re_search(r"/([^/]+)/?$", a.get("href"))[1]
+                name = re.search(r"/([^/]+)/?$", a.get("href"))[1]
             except (AttributeError, TypeError):
                 continue
 
@@ -202,7 +211,7 @@ class Seesaawiki(Wiki):
                 return
 
             text = tree.findtext('.//h3[@id="content_1"]')
-            if not (text and re_search(r"(女優名|名前).*?変更", text)):
+            if not (text and re.search(r"(女優名|名前).*?変更", text)):
                 break
 
             url = xpath(
@@ -236,7 +245,7 @@ class Seesaawiki(Wiki):
         for k, v in box:
             if not birth and "生年月日" in k:
                 birth = date_searcher(v)
-            elif re_search(r"旧名|別名|名前|女優名", k):
+            elif re.search(r"旧名|別名|名前|女優名", k):
                 stack.extend(split_names(v))
 
         return SearchResult(name=name, birth=birth, alias=stack)
@@ -317,7 +326,7 @@ class Idol(AVInfo):
             "Final": None,
         }
 
-        keyword = re_sub(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}|\s+", "", keyword)
+        keyword = re.sub(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}|\s+", "", keyword)
         if not is_cjk_name(keyword):
             self.result["Error"] = "Not a valid actress name."
             return

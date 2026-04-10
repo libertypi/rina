@@ -1,8 +1,9 @@
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from .network import XPath, get_tree, xpath
-from .utils import AVInfo, Status, re_search, stderr_write, str_to_epoch, strftime
+from .utils import AVInfo, Status, stderr_write, str_to_epoch, strftime
 
 
 class ActressPage(AVInfo):
@@ -68,7 +69,7 @@ def get_lastpage(tree):
     """return the page number of the last page, or 1."""
     last = tree.xpath('.//section[@id="main-area"]//div[@class="pagination"]//a/text()')
     for last in reversed(last):
-        last = re_search(r"\d+", last)
+        last = re.search(r"\d+", last)
         if last:
             return int(last[0])
     return 1

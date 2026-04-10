@@ -6,14 +6,26 @@ import time
 from abc import ABC
 from datetime import datetime, timezone
 from enum import Enum
-from functools import lru_cache
 from pathlib import Path
 
 SEP_WIDTH = 50
 SEP_BOLD = "=" * SEP_WIDTH
 SEP_SLIM = "-" * SEP_WIDTH
-join_root = Path(__file__).parent.joinpath
 stderr_write = sys.stderr.write
+
+join_root = Path(__file__).parent.joinpath
+config_file = join_root("profile", "config.json")
+cookies_file = join_root("profile", "cookies.json")
+
+
+@dataclasses.dataclass(slots=True)
+class Config:
+    nordvpn_user: str | None = None
+    nordvpn_pass: str | None = None
+    fc2ppvdb_user: str | None = None
+    fc2ppvdb_pass: str | None = None
+    tpdb_api: str | None = None
+    stashdb_api: str | None = None
 
 
 class Settings:
@@ -21,11 +33,7 @@ class Settings:
 
     DRYRUN: bool = False
     YES: bool = False
-
-
-@dataclasses.dataclass(slots=True)
-class Config:
-    tpdb_api: str | None = None
+    PROXY: bool | str = False  # False = no proxy; True = any; "JP" = country
 
 
 class Status(Enum):
@@ -50,7 +58,7 @@ class AVInfo(ABC):
     # Used for formatting output
     keywidth: int = None
     # Cached text for report generation
-    _headers: dict = {}
+    _banners: dict = {}
     _report: str = None
 
     def print(self):
@@ -59,12 +67,12 @@ class AVInfo(ABC):
         """
         status = self.status
         if self._report is None:
-            # Create a header for the current status
+            # Create a banner line for the current status
             try:
-                lines = [self._headers[status.name]]
+                lines = [self._banners[status.name]]
             except KeyError:
                 lines = ["{0:-^{1}}\n".format(f" {status.name} ", SEP_WIDTH)]
-                self._headers[status.name] = lines[0]
+                self._banners[status.name] = lines[0]
             # Determine the key width
             kw = self.keywidth or max(map(len, self.result))
             # Format each key-value pair in the result
@@ -109,29 +117,17 @@ def dryrun_method(method):
 _config: Config = None
 
 
-def get_config(filename: str = "config.json") -> Config:
+def get_config() -> Config:
     """Load configuration from a JSON file, or return default if not found."""
     global _config
     if _config is not None:
         return _config
     try:
-        with open(join_root(filename), "r", encoding="utf-8") as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             _config = Config(**json.load(f))
     except FileNotFoundError:
         _config = Config()
     return _config
-
-
-def update_config(filename: str = "config.json", **kwargs) -> Config:
-    """Update configuration with key-value pairs and save to file."""
-    config = get_config(filename)
-    for k, v in kwargs.items():
-        setattr(config, k, v)
-    with open(join_root(filename), "w", encoding="utf-8") as f:
-        json.dump(
-            dataclasses.asdict(config), f, ensure_ascii=False, separators=(",", ":")
-        )
-    return config
 
 
 def get_choice_as_int(msg: str, total: int, default: int = 1) -> int:
@@ -191,26 +187,16 @@ def str_to_epoch(string: str) -> float | None:
         pass
 
 
-re_compile = lru_cache(re.compile)
-
-
-def re_search(pattern: str, string: str, flags: int = 0):
-    return re_compile(pattern, flags).search(string)
-
-
-def re_sub(pattern: str, repl, string: str, count: int = 0, flags: int = 0):
-    return re_compile(pattern, flags).sub(repl, string, count)
-
-
 def two_digit_regex(lower: int, upper: int):
     """
-    Generate a regex pattern to match all two-digit numbers from 'lower' to
-    'upper'.
+    Generate a regex matching zero-padded two-digit numbers from `lower` to
+    `upper`. The result is unanchored and may contain top-level `|`, so wrap
+    it in `(?:...)` when embedding.
 
     Examples:
      - [20, 59] -> '[2-5][0-9]'
      - [ 0, 23] -> '[01][0-9]|2[0-3]'
-     - [21, 55] -> '2[1-9]|[34][0-9]|5[0-5]
+     - [21, 55] -> '2[1-9]|[34][0-9]|5[0-5]'
     """
     if not (0 <= lower <= upper <= 99):
         raise ValueError(f"Values out of range: lower={lower}, upper={upper}")
