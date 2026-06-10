@@ -197,8 +197,12 @@ class TPDBScraper(Scraper):
     """ThePornDB (theporndb.net) REST scraper."""
 
     _API_LOC = "api.theporndb.net"
-    _PLATFORMS = ("OnlyFans", "ManyVids", "Fansly", "Pornhub", "XVideos")
-    _PLATFORM_RE = r"\b(?:{})\b".format("|".join(rf"({p})" for p in _PLATFORMS))
+    _PLATFORM_RE = r"\b(?:{})\b".format(
+        "|".join(
+            rf"(?P<{p}>{p})"
+            for p in ("OnlyFans", "ManyVids", "Fansly", "Pornhub", "XVideos")
+        )
+    )
 
     def __init__(self, api_key):
         super().__init__(
@@ -218,7 +222,7 @@ class TPDBScraper(Scraper):
             return
         m = re.search(self._PLATFORM_RE, site, re.I)
         if m:
-            return self._PLATFORMS[m.lastindex - 1]
+            return m.lastgroup
         m = re.search(r"^\s*FansDB\s*:(?P<n1>.*?)(?:\((?P<n2>.+?)\))?\s*$", site, re.I)
         if m:
             site = m["n2"] or m["n1"]

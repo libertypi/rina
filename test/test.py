@@ -278,19 +278,14 @@ class Test_Scraper(unittest.TestCase):
             "fc2.com",
         )
 
-    def test_fc2ppvdb(self):
-        """End-to-end fc2ppvdb scrape via FC2Scraper._fc2ppvdb. Bypasses
-        _fc2_search so the test doesn't depend on whether FC2.com still
-        hosts the listing — exercises the login flow + fetch + retry path.
-        Skipped if fc2ppvdb credentials aren't configured."""
-        config = utils.get_config()
-        if not (config.fc2ppvdb_user and config.fc2ppvdb_pass):
-            self.skipTest("fc2ppvdb credentials not configured")
-
+    def test_fc2cmadb(self):
+        """End-to-end fc2cmadb scrape via FC2Scraper._fc2cmadb (login-free
+        Inertia article page). Bypasses _fc2_search so it doesn't depend on
+        whether FC2.com still hosts / paywalls the listing."""
         # (uid, expected title substring, expected release_date string)
         cases = [
             ("4748901", "黒瀬先生", "2025-08-23"),
-            ("1094564", "総集編", "2019-05-27"),
+            ("406278", "はるか", "2016-06-07"),
         ]
         for uid, title_part, date_str in cases:
             with self.subTest(uid=uid):
@@ -302,12 +297,12 @@ class Test_Scraper(unittest.TestCase):
                 self.assertIsNotNone(m)
                 s = scraper.FC2Scraper(m)
                 s.search_id = f"FC2-{uid}"
-                result = s._fc2ppvdb(uid)
+                result = s._fc2cmadb(uid)
                 self.assertIsNotNone(result, f"no result for {uid}")
                 self.assertEqual(f"FC2-{uid}", result.product_id)
                 self.assertIn(title_part, result.title)
                 self.assertEqual(date_str, result.date)
-                self.assertEqual("fc2ppvdb.com", result.source)
+                self.assertEqual("fc2cmadb.com", result.source)
 
     def test_kin8(self):
         self._run_test(
@@ -505,9 +500,9 @@ class Test_Birth_Filter(unittest.TestCase):
     def test_filter(self):
         # ProductFilter.get_latest returns (date_epoch, title) or None.
         # `active=20` is a Unix epoch in 1970 — passes for any real date.
-        for solo in (False, True):
-            with self.subTest(solo=solo):
-                result = birth.ProductFilter(20, solo).get_latest(self.tree)
+        for multi in (False, True):
+            with self.subTest(multi=multi):
+                result = birth.ProductFilter(20, multi).get_latest(self.tree)
                 self.assertIsNotNone(result)
                 date, title = result
                 self.assertGreater(date, 0)

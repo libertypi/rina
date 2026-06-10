@@ -15,15 +15,12 @@ stderr_write = sys.stderr.write
 
 join_root = Path(__file__).parent.joinpath
 config_file = join_root("profile", "config.json")
-cookies_file = join_root("profile", "cookies.json")
 
 
 @dataclasses.dataclass(slots=True)
 class Config:
     nordvpn_user: str | None = None
     nordvpn_pass: str | None = None
-    fc2ppvdb_user: str | None = None
-    fc2ppvdb_pass: str | None = None
     tpdb_api: str | None = None
     stashdb_api: str | None = None
 
@@ -124,9 +121,14 @@ def get_config() -> Config:
         return _config
     try:
         with open(config_file, "r", encoding="utf-8") as f:
-            _config = Config(**json.load(f))
+            data = json.load(f)
     except FileNotFoundError:
         _config = Config()
+    else:
+        # Ignore stale/unknown keys (e.g. the removed fc2ppvdb_* credentials)
+        # so an older config.json doesn't break loading.
+        fields = {f.name for f in dataclasses.fields(Config)}
+        _config = Config(**{k: v for k, v in data.items() if k in fields})
     return _config
 
 

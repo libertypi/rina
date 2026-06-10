@@ -5,10 +5,8 @@ Functionalities for making HTTP requests and parsing HTML content.
   session.
 - get_tree: Retrieve and parse the HTML content of a web page into an
   HtmlElement.
-- save_cookies: Persist cookies for a domain to profile/cookies.json.
 """
 
-import json
 import logging
 import random
 from functools import cache, lru_cache
@@ -21,7 +19,7 @@ from lxml.etree import XPath
 from lxml.html import HtmlElement, HTMLParser
 from lxml.html import fromstring as html_fromstring
 
-from .utils import Settings, cookies_file, get_config
+from .utils import Settings, get_config
 
 logger = logging.getLogger(__name__)
 
@@ -113,18 +111,6 @@ def _init_session(retries=5, backoff=0.5):
     )
     s.mount("http://", adapter)
     s.mount("https://", adapter)
-
-    # Load persisted cookies
-    if cookies_file.exists():
-        try:
-            with open(cookies_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (OSError, ValueError) as e:
-            logger.warning("Failed to load %s: %s", cookies_file, e)
-        else:
-            for domain, cookies in data.items():
-                for name, value in cookies.items():
-                    s.cookies.set(name, value, domain=domain, path="/")
     return s
 
 
@@ -239,6 +225,16 @@ _NORDVPN_API = "https://api.nordvpn.com/v1"
 _NORDVPN_PORT = 89
 
 
+def _nordvpn_proxy_host(hostname: str) -> str:
+    """NordVPN's proxy_ssl TLS cert is valid only for ``*.proxy.nordvpn.com``,
+    but the recommendations API returns the bare ``<srv>.nordvpn.com`` host —
+    using it verbatim fails every request with a cert hostname mismatch.
+    Idempotent: a host already carrying ``.proxy.nordvpn.com`` is unchanged."""
+    if ".proxy.nordvpn.com" in hostname:
+        return hostname
+    return hostname.replace(".nordvpn.com", ".proxy.nordvpn.com")
+
+
 @cache
 def _nordvpn_country_ids() -> dict[str, int]:
     data = session.get(f"{_NORDVPN_API}/servers/countries", timeout=HTTP_TIMEOUT).json()
@@ -271,7 +267,7 @@ def _resolve_proxy(country: bool | str) -> dict[str, str] | bool | None:
         ).json()
         if not servers:
             raise RuntimeError(f"no proxy_ssl servers found for {country}")
-        host = random.choice(servers)["hostname"]
+        host = _nordvpn_proxy_host(random.choice(servers)["hostname"])
     except Exception as e:
         logger.warning("NordVPN proxy resolution failed (country=%s): %s", country, e)
         return
@@ -292,32 +288,6 @@ def _warn_no_proxy_credentials() -> None:
         "NordVPN credentials not configured (run `rina set nordvpn`); "
         "the -p flag will be ignored."
     )
-
-
-# ---------------------------------------------------------------------------
-# Cookie persistence (profile/cookies.json)
-# ---------------------------------------------------------------------------
-
-
-def save_cookies(domain: str, names: tuple[str, ...] | None = None) -> None:
-    """Persist current cookies for `domain` to profile/cookies.json. If
-    `names` is given, only those cookies are kept (use this to skip
-    ephemeral cookies like Laravel's `XSRF-TOKEN`, which Laravel regenerates
-    on every response). Cookies for other domains in the file are preserved."""
-    try:
-        data = json.loads(cookies_file.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            data = {}
-    except (FileNotFoundError, ValueError):
-        data = {}
-    data[domain] = {
-        c.name: c.value
-        for c in session.cookies
-        if c.domain.lstrip(".") == domain and (names is None or c.name in names)
-    }
-    cookies_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(cookies_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 # ---------------------------------------------------------------------------

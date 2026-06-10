@@ -43,8 +43,6 @@ def cmd_set(args) -> None:
 
     names = (args.name,)
     if args.value is None and args.name in (
-        "fc2ppvdb",
-        "fc2ppvdb_user",
         "nordvpn",
         "nordvpn_user",
     ):

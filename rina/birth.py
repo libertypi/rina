@@ -24,14 +24,12 @@ class ActressPage(AVInfo):
 class ProductFilter:
     """actress page filter"""
 
-    filter_words = ("AIリマスター", "再配信", "同一内容", "東熱激情")
-
-    def __init__(self, active: float, solo: bool) -> None:
+    def __init__(self, active: float, multi: bool) -> None:
         self._active = active
         # The funcions in this list expect a 'tree_product' element. If any
         # returns False, the product should be filtered.
         self._filters = []
-        if solo:
+        if not multi:
             # return true is the product contains only one actress
             self._filters.append(XPath('count(p[@class="cast"]/a) <= 1'))
 
@@ -41,13 +39,14 @@ class ProductFilter:
         tree = tree.find('.//div[@class="act-video-list"]')
         path_product = self._get_col_path(tree, "作品タイトル", 2)
         path_date = self._get_col_path(tree, "発売日", 3)
+        filter_words = re.compile(r"AI\s*リマスター|再配信|同一内容|東熱激情")
 
         for tr in xpath("table/tr[count(td) > 3]")(tree):
             tree_product = tr.find(path_product)
             if not all(f(tree_product) for f in self._filters):
                 continue
             title = tree_product.find('h3[@class="ttl"]').text_content()
-            if any(w in title for w in self.filter_words):
+            if filter_words.search(title):
                 continue
             date = tr.findtext(path_date)
             date = str_to_epoch(date)
@@ -84,7 +83,7 @@ xpath_actress_list = XPath(
 
 def main(args):
     domain = "https://www.minnano-av.com"
-    _filter = ProductFilter(active=args.active, solo=args.solo)
+    _filter = ProductFilter(active=args.active, multi=args.multi)
 
     with ThreadPoolExecutor(5) as ex:
         # scrape the 1st index of each birth year; put the 2nd-last pages
@@ -125,6 +124,8 @@ def main(args):
             if tree is None:
                 continue
             tree = tree.find('.//section[@id="main-area"]')
+            if tree is None:
+                continue
             result_ = _filter.get_latest(tree)
             if not result_:
                 continue

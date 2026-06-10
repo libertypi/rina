@@ -5,7 +5,6 @@ import logging
 import re
 from abc import ABC
 from dataclasses import dataclass
-from threading import Lock
 
 import requests
 
@@ -430,31 +429,15 @@ class FC2Scraper(Scraper):
     uncensored = True
     regex = r"fc2(?:[\s-]*ppv)?[\s-]+(?P<fc2>[0-9]{4,10})"
     _paywalled = False
-    # Tri-state shared across all instances:
-    #   None    -> not yet attempted
-    #   True    -> session is live, no need to re-login
-    #   False -> credentials missing or login was rejected, give up
-    _fc2ppvdb_authed = None
-    # Single lock that serializes the ENTIRE fc2ppvdb code path: fetch
-    # (prime + AJAX), login, and retry. Three races collapse onto one fix:
-    #   1. fc2ppvdb stores "currently visited article" in server-side
-    #      session state — two threads interleaving prime+AJAX pairs
-    #      clobber each other and one gets an empty 200 back.
-    #   2. Concurrent login attempts race on the CSRF cookie/token and
-    #      all fail with 419 Page Expired.
-    #   3. A login in progress in one thread mustn't be interleaved with
-    #      a fetch from another, which would overwrite the post-login
-    #      cookies the server expects on the next request.
-    # All three reduce to "serialize everything fc2ppvdb does." Throughput
-    # cost: fc2ppvdb fetches are now strictly sequential — fine since it's
-    # a fallback scraper and the server-side state already forbids any
-    # real parallelism.
-    _fc2ppvdb_lock = Lock()
 
     def _search(self):
         uid = self.match["fc2"]
         self.search_id = f"FC2-{uid}"
-        return self._fc2_search(uid) or self._fc2ppvdb(uid)
+        # FC2's own store is authoritative but geo/paywalled and drops
+        # withdrawn videos; fall back to fc2cmadb.com — a third-party index
+        # mirroring FC2-PPV metadata that needs no login/proxy and retains
+        # records for videos FC2 has since removed.
+        return self._fc2_search(uid) or self._fc2cmadb(uid)
 
     def _fc2_search(self, uid: str):
         """Search for FC2 video by uid."""
@@ -490,156 +473,35 @@ class FC2Scraper(Scraper):
             source="fc2.com",
         )
 
-    def _fc2ppvdb(self, uid: str):
-        """Fetch from fc2ppvdb.com. Logs in once per process if cached
-        cookies are stale or absent. Returns None on miss or auth failure.
+    def _fc2cmadb(self, uid: str):
+        """Fetch title/date from fc2cmadb.com (formerly fc2ppvdb.com).
 
-        The whole flow runs under a single lock — see `_fc2ppvdb_lock`
-        for why."""
-        # Cheap pre-check before grabbing the lock.
-        if FC2Scraper._fc2ppvdb_authed is False:
+        The new site is an Inertia.js SPA: each page embeds its state as
+        JSON in a `<script data-page="app">` tag, and an article's title and
+        release_date live in `props.article` of the INITIAL page — no login,
+        CSRF, or AJAX needed (only the actresses list, which we don't use, is
+        a deferred prop). Returns None on a miss (404) or unparseable page."""
+        tree = get_tree(f"https://fc2cmadb.com/articles/{uid}")
+        if tree is None:
             return
-
-        with FC2Scraper._fc2ppvdb_lock:
-            # Re-check: another thread's login may have flipped this to
-            # False while we were queued at the lock.
-            if FC2Scraper._fc2ppvdb_authed is False:
-                return None
-
-            result, needs_login = self._fc2ppvdb_fetch(uid)
-            if result is not None or not needs_login:
-                return result
-
-            # Auth failure. Login if we haven't yet succeeded.
-            if FC2Scraper._fc2ppvdb_authed is not True:
-                if not self._fc2ppvdb_login():
-                    FC2Scraper._fc2ppvdb_authed = False
-                    return None
-
-            # Retry with the freshly authenticated session.
-            result, _ = self._fc2ppvdb_fetch(uid)
-            return result
-
-    def _fc2ppvdb_fetch(self, uid: str):
-        """Returns (ScrapeResult|None, needs_login: bool). `needs_login` is
-        True only when the response indicates an auth failure (redirect to
-        /login or AJAX 401); other failure modes return False so we don't
-        waste a login.
-
-        Caller must hold `_fc2ppvdb_lock`. The HTML article page is just a
-        thin shell — the metadata lives in a JSON AJAX endpoint that gates
-        on a CSRF token from the matching HTML page. We must fetch the
-        HTML first to prime the session and extract the token, then call
-        /articles/article-info."""
-        article_url = f"https://fc2ppvdb.com/articles/{uid}"
-        # Step 1: prime — fetch the HTML page for the CSRF token.
+        raw = tree.findtext('.//script[@data-page="app"]')
+        if not raw:
+            return
         try:
-            r = network.request(article_url)
-            r.raise_for_status()
-        except requests.HTTPError as e:
-            logger.debug(e)
-            return None, False
-        except requests.RequestException as e:
-            logger.warning(e)
-            return None, False
-        if "/login" in r.url:
-            return None, True
-        token = html_fromstring(r.content).xpath(
-            'string(//meta[@name="csrf-token"]/@content)'
-        )
-        if not token:
-            logger.warning("fc2ppvdb: no CSRF token on /articles/%s", uid)
-            return None, False
-
-        # Step 2: pull the article metadata via the JSON AJAX endpoint.
-        try:
-            r = network.request(
-                "https://fc2ppvdb.com/articles/article-info",
-                params={"videoid": uid},
-                headers={
-                    "X-Requested-With": "XMLHttpRequest",
-                    "X-CSRF-TOKEN": token,
-                    "Accept": "application/json, text/javascript, */*; q=0.01",
-                    "Referer": article_url,
-                },
-            )
-            r.raise_for_status()
-        except requests.HTTPError as e:
-            # 401 means our session cookie is stale — signal the caller
-            # to log in and retry. Other HTTP errors are not.
-            if e.response is not None and e.response.status_code == 401:
-                return None, True
-            logger.warning(e)
-            return None, False
-        except requests.RequestException as e:
-            logger.warning(e)
-            return None, False
-        if not r.text.strip():
-            return None, False
-        try:
-            art = r.json().get("article")
+            art = (json.loads(raw).get("props") or {}).get("article")
         except ValueError:
-            return None, False
-        # Note: fc2ppvdb sets `art["not_found"] = 1` on records whose original
-        # FC2 sale page is gone, but the indexed metadata is still real and
-        # usable. Don't filter on that flag — only require a non-empty title.
+            return
+        # `art` may carry `not_found=1` once FC2's original sale page is gone;
+        # the cached metadata is still valid, so only require a title.
         title = html.unescape((art or {}).get("title") or "").strip()
         if not title:
-            return None, False
-        return (
-            ScrapeResult(
-                product_id=self.search_id,
-                title=title,
-                date=art.get("release_date") or None,
-                source="fc2ppvdb.com",
-            ),
-            False,
+            return
+        return ScrapeResult(
+            product_id=self.search_id,
+            title=title,
+            date=art.get("release_date") or None,
+            source="fc2cmadb.com",
         )
-
-    def _fc2ppvdb_login(self) -> bool:
-        """POST credentials to fc2ppvdb's /login. On success, persist the
-        fresh cookies to profile/cookies.json and flip the class flag."""
-        config = utils.get_config()
-        if not (config.fc2ppvdb_user and config.fc2ppvdb_pass):
-            logger.warning(
-                "fc2ppvdb credentials not configured (run `rina set fc2ppvdb`)."
-            )
-            return False
-        try:
-            # Get the CSRF token from /login.
-            r = network.request("https://fc2ppvdb.com/login")
-            r.raise_for_status()
-            tree = html_fromstring(r.content, base_url=r.url)
-            token = tree.xpath('string(//input[@name="_token"]/@value)')
-            if not token:
-                logger.warning("fc2ppvdb: no CSRF token on /login")
-                return False
-            # POST credentials.
-            r = network.request(
-                "https://fc2ppvdb.com/login",
-                method="POST",
-                data={
-                    "_token": token,
-                    "email": config.fc2ppvdb_user,
-                    "password": config.fc2ppvdb_pass,
-                },
-            )
-            r.raise_for_status()
-            if "/login" in r.url:
-                logger.warning("fc2ppvdb: login rejected (bad credentials?)")
-                return False
-        except requests.RequestException as e:
-            logger.warning("fc2ppvdb login error: %s", e)
-            return False
-
-        FC2Scraper._fc2ppvdb_authed = True
-        # Only persist the session cookie. XSRF-TOKEN is Laravel's CSRF
-        # cookie — regenerated on every response and not consulted by the
-        # paths we use (we send the CSRF via the meta-tag X-CSRF-TOKEN
-        # header, not via X-XSRF-TOKEN).
-        network.save_cookies("fc2ppvdb.com", names=("fc2ppvdb_session",))
-        logger.info("fc2ppvdb: logged in, cookies persisted.")
-        return True
 
     def _javbus(self):
         pass

@@ -66,7 +66,6 @@ The supported fields:
 |---|---|---|
 | `tpdb_api` | `western` | Western scraping |
 | `stashdb_api` | `western` | Western scraping |
-| `fc2ppvdb_user`, `fc2ppvdb_pass` | `video` | extends FC2 coverage to fc2ppvdb |
 | `nordvpn_user`, `nordvpn_pass` | `-p ...` | for bypassing geo block and the `-p` flag |
 
 ## Usage

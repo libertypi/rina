@@ -188,7 +188,7 @@ def parse_args():
             "  Search for 1990-born idols active in the past year:\n"
             "    %(prog)s -a 365D 1990\n"
             "  Search for idols born between 1989-1991 with specific criteria:\n"
-            "    %(prog)s -s -a 90D 1989-1991"
+            "    %(prog)s -m -a 90D 1989-1991"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -202,10 +202,11 @@ def parse_args():
         help="active within specified timespan (default %(default)s)",
     )
     subparser.add_argument(
-        "-s",
-        dest="solo",
-        action="store_false",
-        help="filter for solo performances (default %(default)s)",
+        "-m",
+        "--multi",
+        dest="multi",
+        action="store_true",
+        help="include multi-actress products (default: %(default)s)",
     )
     subparser.add_argument(
         dest="year",
@@ -288,8 +289,6 @@ def parse_args():
             "Available fields:\n"
             "  nordvpn_user     NordVPN service username\n"
             "  nordvpn_pass     NordVPN service password\n"
-            "  fc2ppvdb_user    fc2ppvdb.com email\n"
-            "  fc2ppvdb_pass    fc2ppvdb.com password\n"
             "  tpdb_api         ThePornDB API key\n"
             "  stashdb_api      StashDB API key"
         ),
